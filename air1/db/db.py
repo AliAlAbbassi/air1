@@ -1,9 +1,6 @@
 import asyncpg
-import os
 from typing import Optional
-from dotenv import load_dotenv
-
-load_dotenv()
+from air1.config import settings
 
 
 class Database:
@@ -13,11 +10,14 @@ class Database:
     async def connect(self):
         if not self.pool:
             self.pool = await asyncpg.create_pool(
-                host=os.getenv("DATABASE_HOST"),
-                port=int(os.getenv("DATABASE_PORT")),
-                database=os.getenv("DATABASE_NAME"),
-                user=os.getenv("DATABASE_USER"),
-                password=os.getenv("DATABASE_PASSWORD")
+                host=settings.database_host,
+                port=settings.database_port,
+                database=settings.database_name,
+                user=settings.database_user,
+                password=settings.database_password,
+                min_size=settings.database_pool_min,
+                max_size=settings.database_pool_max,
+                timeout=settings.database_pool_timeout
             )
 
     async def disconnect(self):

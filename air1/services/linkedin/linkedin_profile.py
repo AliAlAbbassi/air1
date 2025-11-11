@@ -7,6 +7,7 @@ class LinkedinProfile(BaseModel):
     full_name: str = ""
     email: str = ""
     phone_number: str = ""
+    linkedin_url: str = ""
     location: str = ""
     headline: str = ""
     about: str = ""

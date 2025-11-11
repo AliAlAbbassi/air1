@@ -2,7 +2,7 @@ create table linkedin_profile
 (
     linkedin_profile_id bigint generated always as identity primary key,
     lead_id             bigint references lead (lead_id),
-    linkedin_url        varchar(255)            not null,
+    linkedin_url        varchar(255)            not null unique,
     location            text                    null,
     headline            text                    null,
     about               text                    null,

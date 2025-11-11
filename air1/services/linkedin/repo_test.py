@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
-from air1.services.linkedin.repo import insert_lead, insert_linkedin_profile, insert_linkedin_company_member
 from air1.services.linkedin.linkedin_profile import Lead, LinkedinProfile
 
 
@@ -44,14 +43,23 @@ async def test_insert_lead_success(mock_lead):
         mock_db.pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
         mock_db.pool.acquire.return_value.__aexit__ = AsyncMock()
 
-        mock_queries.insert_lead = AsyncMock(return_value=123)
+        # Mock the return value as a Record object with lead_id
+        mock_record = MagicMock()
+        mock_record.get.return_value = 123
+        mock_record.__getitem__.return_value = 123
+        mock_queries.insert_lead = AsyncMock(return_value=mock_record)
 
+        from air1.services.linkedin.repo import insert_lead
         success, lead_id = await insert_lead(mock_lead)
 
         assert success is True
         assert lead_id == 123
         mock_queries.insert_lead.assert_called_once_with(
-            mock_conn, "John", "John Doe", "john.doe@example.com", "123-456-7890"
+            mock_conn,
+            first_name="John",
+            full_name="John Doe",
+            email="john.doe@example.com",
+            phone_number="123-456-7890"
         )
 
 
@@ -68,6 +76,10 @@ async def test_insert_lead_failure(mock_lead):
 
         mock_queries.insert_lead = AsyncMock(side_effect=Exception("Database error"))
 
+        import importlib
+        import air1.services.linkedin.repo as repo_module
+        importlib.reload(repo_module)
+        from air1.services.linkedin.repo import insert_lead
         success, lead_id = await insert_lead(mock_lead)
 
         assert success is False
@@ -85,13 +97,23 @@ async def test_insert_linkedin_profile_success(mock_linkedin_profile):
         mock_db.pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
         mock_db.pool.acquire.return_value.__aexit__ = AsyncMock()
 
-        mock_queries.insert_linkedin_profile = AsyncMock(return_value=456)
+        # Mock the return value as a Record object with linkedin_profile_id
+        mock_record = MagicMock()
+        mock_record.get.return_value = 456
+        mock_record.__getitem__.return_value = 456
+        mock_queries.insert_linkedin_profile = AsyncMock(return_value=mock_record)
 
+        from air1.services.linkedin.repo import insert_linkedin_profile
         profile_id = await insert_linkedin_profile(mock_linkedin_profile, 123)
 
         assert profile_id == 456
         mock_queries.insert_linkedin_profile.assert_called_once_with(
-            mock_conn, 123, "", "San Francisco", "Software Engineer", "Experienced developer with 5 years in tech"
+            mock_conn,
+            lead_id=123,
+            linkedin_url="",
+            location="San Francisco",
+            headline="Software Engineer",
+            about="Experienced developer with 5 years in tech"
         )
 
 
@@ -108,6 +130,7 @@ async def test_insert_linkedin_company_member_success():
 
         mock_queries.insert_linkedin_company_member = AsyncMock()
 
+        from air1.services.linkedin.repo import insert_linkedin_company_member
         await insert_linkedin_company_member(
             linkedin_profile_id=456,
             company_url="https://www.linkedin.com/company/test-company/",
@@ -115,7 +138,10 @@ async def test_insert_linkedin_company_member_success():
         )
 
         mock_queries.insert_linkedin_company_member.assert_called_once_with(
-            mock_conn, 456, "https://www.linkedin.com/company/test-company/", "Test Company"
+            mock_conn,
+            linkedin_profile_id=456,
+            company_url="https://www.linkedin.com/company/test-company/",
+            company_name="Test Company"
         )
 
 
@@ -132,13 +158,17 @@ async def test_insert_linkedin_company_member_without_name():
 
         mock_queries.insert_linkedin_company_member = AsyncMock()
 
+        from air1.services.linkedin.repo import insert_linkedin_company_member
         await insert_linkedin_company_member(
             linkedin_profile_id=456,
             company_url="https://www.linkedin.com/company/test-company/"
         )
 
         mock_queries.insert_linkedin_company_member.assert_called_once_with(
-            mock_conn, 456, "https://www.linkedin.com/company/test-company/", None
+            mock_conn,
+            linkedin_profile_id=456,
+            company_url="https://www.linkedin.com/company/test-company/",
+            company_name=None
         )
 
 
@@ -155,6 +185,7 @@ async def test_insert_linkedin_profile_failure(mock_linkedin_profile):
 
         mock_queries.insert_linkedin_profile = AsyncMock(side_effect=Exception("Database error"))
 
+        from air1.services.linkedin.repo import insert_linkedin_profile
         profile_id = await insert_linkedin_profile(mock_linkedin_profile, 123)
 
         assert profile_id is None

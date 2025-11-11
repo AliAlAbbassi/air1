@@ -1,5 +1,6 @@
+-- name: insert_linkedin_profile^
 insert into linkedin_profile (lead_id, linkedin_url, location, headline, about)
-values ($1, $2, $3, $4, $5)
+values (:lead_id, :linkedin_url, :location, :headline, :about)
 on conflict (linkedin_url) do update set
     location = coalesce(linkedin_profile.location, excluded.location),
     headline = coalesce(linkedin_profile.headline, excluded.headline),
