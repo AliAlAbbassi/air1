@@ -15,13 +15,14 @@ async def get_pool():
             port=settings.database_port,
             database=settings.database_name,
             user=settings.database_user,
-            password=settings.database_password
+            password=settings.database_password,
         )
     return pool
 
 
 class Database:
     """Simple wrapper to maintain compatibility"""
+
     @property
     def pool(self):
         return pool

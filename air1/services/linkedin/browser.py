@@ -44,7 +44,6 @@ class BrowserSession:
         page = self._setup_page(profile_url)
 
         try:
-
             profile_data = {}
 
             # Get name - wait for the h1 to appear
@@ -62,7 +61,7 @@ class BrowserSession:
                     profile_data["last_name"] = (
                         " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
                     )
-            except:
+            except Exception:
                 pass
 
             # Get headline
@@ -72,7 +71,7 @@ class BrowserSession:
                 ).first.text_content()
                 if headline:
                     profile_data["headline"] = headline.strip()
-            except:
+            except Exception:
                 pass
 
             # Get location
@@ -82,7 +81,7 @@ class BrowserSession:
                 ).first.text_content()
                 if location:
                     profile_data["location"] = location.strip()
-            except:
+            except Exception:
                 pass
 
             # Click contact info to get email and phone
@@ -136,7 +135,6 @@ class BrowserSession:
         page = self._setup_page(company_url)
 
         try:
-
             # Wait for the people cards to load
             page.locator(
                 ".org-people-profile-card__profile-card-spacing"

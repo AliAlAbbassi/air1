@@ -31,4 +31,5 @@ dev = [
     "testcontainers[postgres]>=4.8.0",
     "faker>=30.0.0",
     "trio>=0.32.0",
+    "ruff>=0.14.4",
 ]

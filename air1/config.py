@@ -12,39 +12,51 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
-        validate_default=True
+        validate_default=True,
     )
 
     # Environment
     environment: Literal["development", "staging", "production"] = Field(
-        default="development",
-        description="Application environment"
+        default="development", description="Application environment"
     )
 
     # Database settings
     database_host: str = Field(default="localhost", description="Database host")
-    database_port: int = Field(default=5432, ge=1, le=65535, description="Database port")
-    database_name: str = Field(default="air1", min_length=1, description="Database name")
+    database_port: int = Field(
+        default=5432, ge=1, le=65535, description="Database port"
+    )
+    database_name: str = Field(
+        default="air1", min_length=1, description="Database name"
+    )
     database_user: str = Field(..., min_length=1, description="Database username")
-    database_password: Optional[str] = Field(default="", description="Database password")
+    database_password: Optional[str] = Field(
+        default="", description="Database password"
+    )
 
     # Connection pool settings
-    database_pool_min: int = Field(default=10, ge=1, le=100, description="Minimum database pool size")
-    database_pool_max: int = Field(default=20, ge=1, le=100, description="Maximum database pool size")
-    database_pool_timeout: int = Field(default=60, ge=1, le=300, description="Database pool timeout in seconds")
-    database_echo: bool = Field(default=False, description="Echo SQL queries (for debugging)")
+    database_pool_min: int = Field(
+        default=10, ge=1, le=100, description="Minimum database pool size"
+    )
+    database_pool_max: int = Field(
+        default=20, ge=1, le=100, description="Maximum database pool size"
+    )
+    database_pool_timeout: int = Field(
+        default=60, ge=1, le=300, description="Database pool timeout in seconds"
+    )
+    database_echo: bool = Field(
+        default=False, description="Echo SQL queries (for debugging)"
+    )
 
     # LinkedIn settings
     linkedin_sid: Optional[str] = Field(default=None, description="LinkedIn session ID")
 
     # Logging settings
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
-        default="INFO",
-        description="Logging level"
+        default="INFO", description="Logging level"
     )
     log_format: str = Field(
         default="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} - {message}",
-        description="Log format string"
+        description="Log format string",
     )
     log_rotation: str = Field(default="100 MB", description="Log file rotation size")
     log_retention: str = Field(default="10 days", description="Log retention period")
@@ -62,11 +74,13 @@ class Settings(BaseSettings):
             raise ValueError("Port must be between 1 and 65535")
         return v
 
-    @model_validator(mode='after')
-    def validate_pool_sizes(self) -> 'Settings':
+    @model_validator(mode="after")
+    def validate_pool_sizes(self) -> "Settings":
         """Ensure max pool size is greater than min pool size"""
         if self.database_pool_max < self.database_pool_min:
-            raise ValueError("database_pool_max must be greater than or equal to database_pool_min")
+            raise ValueError(
+                "database_pool_max must be greater than or equal to database_pool_min"
+            )
         return self
 
     @property
@@ -88,10 +102,7 @@ class Settings(BaseSettings):
 
         # Add console handler
         logger.add(
-            sys.stderr,
-            format=self.log_format,
-            level=self.log_level,
-            colorize=True
+            sys.stderr, format=self.log_format, level=self.log_level, colorize=True
         )
 
         # Add file handler if log_file is specified
@@ -102,7 +113,7 @@ class Settings(BaseSettings):
                 level=self.log_level,
                 rotation=self.log_rotation,
                 retention=self.log_retention,
-                compression="zip"
+                compression="zip",
             )
 
         logger.info(f"Logging configured for {self.environment} environment")

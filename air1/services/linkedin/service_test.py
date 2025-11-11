@@ -4,7 +4,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 
 from air1.services.linkedin.service import Service
 from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeople, Lead
@@ -18,7 +18,7 @@ def mock_linkedin_profile():
         email="john.doe@example.com",
         phone_number="123-456-7890",
         location="San Francisco",
-        headline="Software Engineer"
+        headline="Software Engineer",
     )
 
 
@@ -28,14 +28,17 @@ def mock_company_people():
 
 
 @pytest.mark.anyio
-async def test_scrape_and_save_company_leads_success(mock_linkedin_profile, mock_company_people):
+async def test_scrape_and_save_company_leads_success(
+    mock_linkedin_profile, mock_company_people
+):
     """Test successful scraping and saving of company leads"""
 
-    with patch('air1.services.linkedin.service.db') as mock_db, \
-            patch('air1.services.linkedin.service.async_playwright') as mock_playwright, \
-            patch.object(Service, 'launch_browser') as mock_launch_browser, \
-            patch.object(Service, 'save_linkedin_lead') as mock_save_lead:
-
+    with (
+        patch("air1.services.linkedin.service.db") as mock_db,
+        patch("air1.services.linkedin.service.async_playwright") as mock_playwright,
+        patch.object(Service, "launch_browser") as mock_launch_browser,
+        patch.object(Service, "save_linkedin_lead") as mock_save_lead,
+    ):
         # Mock async playwright completely
         mock_playwright_instance = MagicMock()
         mock_playwright.return_value = mock_playwright_instance
@@ -54,15 +57,19 @@ async def test_scrape_and_save_company_leads_success(mock_linkedin_profile, mock
         mock_save_lead.return_value = 123  # mock lead_id
 
         # Create service and run test
-        with patch.dict('os.environ', {'linkedin_sid': 'test_sid'}):
+        with patch.dict("os.environ", {"linkedin_sid": "test_sid"}):
             async with Service() as service:
-                result = await service.scrape_and_save_company_leads("test-company", limit=2, headless=True)
+                result = await service.scrape_and_save_company_leads(
+                    "test-company", limit=2, headless=True
+                )
 
             # Assertions
             assert result == 2  # Should save 2 leads
             mock_db.connect.assert_called_once()
             mock_launch_browser.assert_called_once_with(headless=True)
-            mock_session.get_company_members.assert_called_once_with("test-company", limit=2)
+            mock_session.get_company_members.assert_called_once_with(
+                "test-company", limit=2
+            )
             assert mock_session.get_profile_info.call_count == 2
             assert mock_save_lead.call_count == 2
             mock_session.browser.close.assert_called_once()
@@ -78,16 +85,17 @@ async def test_scrape_and_save_company_leads_no_email():
         email="",  # No email
         phone_number="",
         location="New York",
-        headline="Manager"
+        headline="Manager",
     )
 
     company_people = CompanyPeople(profile_ids={"profile1"})
 
-    with patch('air1.services.linkedin.service.db') as mock_db, \
-            patch('air1.services.linkedin.service.async_playwright') as mock_playwright, \
-            patch.object(Service, 'launch_browser') as mock_launch_browser, \
-            patch.object(Service, 'save_linkedin_lead') as mock_save_lead:
-
+    with (
+        patch("air1.services.linkedin.service.db") as mock_db,
+        patch("air1.services.linkedin.service.async_playwright") as mock_playwright,
+        patch.object(Service, "launch_browser") as mock_launch_browser,
+        patch.object(Service, "save_linkedin_lead") as mock_save_lead,
+    ):
         # Mock async playwright completely
         mock_playwright_instance = MagicMock()
         mock_playwright.return_value = mock_playwright_instance
@@ -103,9 +111,11 @@ async def test_scrape_and_save_company_leads_no_email():
 
         mock_launch_browser.return_value = mock_session
 
-        with patch.dict('os.environ', {'linkedin_sid': 'test_sid'}):
+        with patch.dict("os.environ", {"linkedin_sid": "test_sid"}):
             async with Service() as service:
-                result = await service.scrape_and_save_company_leads("test-company", limit=1)
+                result = await service.scrape_and_save_company_leads(
+                    "test-company", limit=1
+                )
 
             # Should not save any leads due to missing email
             assert result == 0
@@ -113,14 +123,17 @@ async def test_scrape_and_save_company_leads_no_email():
 
 
 @pytest.mark.anyio
-async def test_scrape_and_save_company_leads_save_error(mock_linkedin_profile, mock_company_people):
+async def test_scrape_and_save_company_leads_save_error(
+    mock_linkedin_profile, mock_company_people
+):
     """Test handling of save errors"""
 
-    with patch('air1.services.linkedin.service.db') as mock_db, \
-            patch('air1.services.linkedin.service.async_playwright') as mock_playwright, \
-            patch.object(Service, 'launch_browser') as mock_launch_browser, \
-            patch.object(Service, 'save_linkedin_lead') as mock_save_lead:
-
+    with (
+        patch("air1.services.linkedin.service.db") as mock_db,
+        patch("air1.services.linkedin.service.async_playwright") as mock_playwright,
+        patch.object(Service, "launch_browser") as mock_launch_browser,
+        patch.object(Service, "save_linkedin_lead") as mock_save_lead,
+    ):
         # Mock async playwright completely
         mock_playwright_instance = MagicMock()
         mock_playwright.return_value = mock_playwright_instance
@@ -137,9 +150,11 @@ async def test_scrape_and_save_company_leads_save_error(mock_linkedin_profile, m
         mock_launch_browser.return_value = mock_session
         mock_save_lead.side_effect = Exception("Database error")
 
-        with patch.dict('os.environ', {'linkedin_sid': 'test_sid'}):
+        with patch.dict("os.environ", {"linkedin_sid": "test_sid"}):
             async with Service() as service:
-                result = await service.scrape_and_save_company_leads("test-company", limit=2)
+                result = await service.scrape_and_save_company_leads(
+                    "test-company", limit=2
+                )
 
             # Should handle errors gracefully and return 0 leads saved
             assert result == 0
@@ -151,10 +166,11 @@ async def test_scrape_and_save_company_leads_save_error(mock_linkedin_profile, m
 async def test_scrape_and_save_company_leads_browser_cleanup():
     """Test that browser is always closed even on errors"""
 
-    with patch('air1.services.linkedin.service.db') as mock_db, \
-            patch('air1.services.linkedin.service.async_playwright') as mock_playwright, \
-            patch.object(Service, 'launch_browser') as mock_launch_browser:
-
+    with (
+        patch("air1.services.linkedin.service.db") as mock_db,
+        patch("air1.services.linkedin.service.async_playwright") as mock_playwright,
+        patch.object(Service, "launch_browser") as mock_launch_browser,
+    ):
         # Mock async playwright completely
         mock_playwright_instance = MagicMock()
         mock_playwright.return_value = mock_playwright_instance
@@ -169,7 +185,7 @@ async def test_scrape_and_save_company_leads_browser_cleanup():
 
         mock_launch_browser.return_value = mock_session
 
-        with patch.dict('os.environ', {'linkedin_sid': 'test_sid'}):
+        with patch.dict("os.environ", {"linkedin_sid": "test_sid"}):
             with pytest.raises(Exception):
                 async with Service() as service:
                     await service.scrape_and_save_company_leads("test-company")
@@ -186,14 +202,19 @@ async def test_save_linkedin_lead_with_company_mapping(mock_linkedin_profile):
         first_name="John",
         full_name="John Doe",
         email="john.doe@example.com",
-        phone_number="123-456-7890"
+        phone_number="123-456-7890",
     )
 
-    with patch('air1.services.linkedin.service.async_playwright') as mock_playwright, \
-            patch('air1.services.linkedin.service.insert_lead') as mock_insert_lead, \
-            patch('air1.services.linkedin.service.insert_linkedin_profile') as mock_insert_profile, \
-            patch('air1.services.linkedin.service.insert_linkedin_company_member') as mock_insert_company:
-
+    with (
+        patch("air1.services.linkedin.service.async_playwright") as mock_playwright,
+        patch("air1.services.linkedin.service.insert_lead") as mock_insert_lead,
+        patch(
+            "air1.services.linkedin.service.insert_linkedin_profile"
+        ) as mock_insert_profile,
+        patch(
+            "air1.services.linkedin.service.insert_linkedin_company_member"
+        ) as mock_insert_company,
+    ):
         # Mock async playwright
         mock_playwright_instance = MagicMock()
         mock_playwright.return_value = mock_playwright_instance
@@ -205,13 +226,13 @@ async def test_save_linkedin_lead_with_company_mapping(mock_linkedin_profile):
         mock_insert_profile.return_value = 456  # linkedin_profile_id
         mock_insert_company.return_value = AsyncMock()
 
-        with patch.dict('os.environ', {'linkedin_sid': 'test_sid'}):
+        with patch.dict("os.environ", {"linkedin_sid": "test_sid"}):
             async with Service() as service:
                 lead_id = await service.save_linkedin_lead(
                     mock_lead,
                     mock_linkedin_profile,
                     company_url="https://www.linkedin.com/company/test-company/",
-                    company_name="Test Company"
+                    company_name="Test Company",
                 )
 
                 # Assertions
@@ -219,7 +240,9 @@ async def test_save_linkedin_lead_with_company_mapping(mock_linkedin_profile):
                 mock_insert_lead.assert_called_once()
                 mock_insert_profile.assert_called_once()
                 mock_insert_company.assert_called_once_with(
-                    456, "https://www.linkedin.com/company/test-company/", "Test Company"
+                    456,
+                    "https://www.linkedin.com/company/test-company/",
+                    "Test Company",
                 )
 
 
@@ -231,7 +254,7 @@ async def test_save_linkedin_lead_without_company():
         first_name="Jane",
         full_name="Jane Smith",
         email="jane.smith@example.com",
-        phone_number=""
+        phone_number="",
     )
 
     mock_profile = LinkedinProfile(
@@ -239,14 +262,19 @@ async def test_save_linkedin_lead_without_company():
         full_name="Jane Smith",
         email="jane.smith@example.com",
         location="New York",
-        headline="Manager"
+        headline="Manager",
     )
 
-    with patch('air1.services.linkedin.service.async_playwright') as mock_playwright, \
-            patch('air1.services.linkedin.service.insert_lead') as mock_insert_lead, \
-            patch('air1.services.linkedin.service.insert_linkedin_profile') as mock_insert_profile, \
-            patch('air1.services.linkedin.service.insert_linkedin_company_member') as mock_insert_company:
-
+    with (
+        patch("air1.services.linkedin.service.async_playwright") as mock_playwright,
+        patch("air1.services.linkedin.service.insert_lead") as mock_insert_lead,
+        patch(
+            "air1.services.linkedin.service.insert_linkedin_profile"
+        ) as mock_insert_profile,
+        patch(
+            "air1.services.linkedin.service.insert_linkedin_company_member"
+        ) as mock_insert_company,
+    ):
         # Mock async playwright
         mock_playwright_instance = MagicMock()
         mock_playwright.return_value = mock_playwright_instance
@@ -257,7 +285,7 @@ async def test_save_linkedin_lead_without_company():
         mock_insert_lead.return_value = (True, 789)
         mock_insert_profile.return_value = 101112
 
-        with patch.dict('os.environ', {'linkedin_sid': 'test_sid'}):
+        with patch.dict("os.environ", {"linkedin_sid": "test_sid"}):
             async with Service() as service:
                 lead_id = await service.save_linkedin_lead(mock_lead, mock_profile)
 

@@ -112,7 +112,9 @@ class TestLinkedinProfile:
         for headline, method_name, expected in test_cases:
             profile = LinkedinProfile(headline=headline)
             method = getattr(profile, method_name)
-            assert method() == expected, f"Failed for headline: {headline}, method: {method_name}"
+            assert method() == expected, (
+                f"Failed for headline: {headline}, method: {method_name}"
+            )
 
     def test_overlapping_categories(self):
         """Test profiles that could match multiple categories."""
@@ -123,7 +125,9 @@ class TestLinkedinProfile:
         assert profile.isTalent() is False
 
         # Technical Recruiter - both talent and engineer
-        profile = LinkedinProfile(headline="Technical Recruiter - Former Software Engineer")
+        profile = LinkedinProfile(
+            headline="Technical Recruiter - Former Software Engineer"
+        )
         assert profile.isTalent() is True
         assert profile.isEngineer() is True
         assert profile.isLeader() is False
@@ -139,7 +143,7 @@ class TestLead:
             first_name="John",
             full_name="John Doe",
             email="john.doe@example.com",
-            phone_number="+1234567890"
+            phone_number="+1234567890",
         )
 
         assert lead.first_name == "John"
@@ -167,7 +171,7 @@ class TestLead:
             email="test@example.com",
             first_name="Test",
             full_name="Test User",
-            phone_number="123-456-7890"
+            phone_number="123-456-7890",
         )
         assert lead.email == "test@example.com"
         assert lead.first_name == "Test"

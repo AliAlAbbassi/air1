@@ -31,15 +31,34 @@ class LinkedinProfile(BaseModel):
 
     # engineering managers, techleads, leads in general, founders, and ceos
     def isLeader(self):
-        leader_keywords = ["engineering manager", "tech lead", "lead", "founder", "ceo", "cto", "vp", "director",
-                           "head of", "chief"]
+        leader_keywords = [
+            "engineering manager",
+            "tech lead",
+            "lead",
+            "founder",
+            "ceo",
+            "cto",
+            "vp",
+            "director",
+            "head of",
+            "chief",
+        ]
         headline_lower = self.headline.lower()
         return any(keyword in headline_lower for keyword in leader_keywords)
 
     # software engineers up to senior.
     def isEngineer(self):
-        engineer_keywords = ["software engineer", "developer", "programmer", "backend", "frontend", "fullstack",
-                             "full-stack", "engineer", "swe"]
+        engineer_keywords = [
+            "software engineer",
+            "developer",
+            "programmer",
+            "backend",
+            "frontend",
+            "fullstack",
+            "full-stack",
+            "engineer",
+            "swe",
+        ]
         headline_lower = self.headline.lower()
         return any(keyword in headline_lower for keyword in engineer_keywords)
 

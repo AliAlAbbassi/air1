@@ -1,4 +1,8 @@
-from air1.services.linkedin.repo import insert_lead, insert_linkedin_profile, insert_linkedin_company_member
+from air1.services.linkedin.repo import (
+    insert_lead,
+    insert_linkedin_profile,
+    insert_linkedin_company_member,
+)
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv
@@ -14,21 +18,24 @@ load_dotenv()
 class LinkedinServiceProtocol(Protocol):
     """Interface for LinkedIn scraping service"""
 
-    def launch_browser(self, headless: bool = True) -> BrowserSession:
-        """Launch a browser and return a session for scraping profiles"""
-        ...
-
     def get_profile_info(
-        self, profile_id: str, headless: bool = True
+            self, profile_id: str, headless: bool = True
     ) -> LinkedinProfile:
         """Get LinkedIn profile info from a profile ID"""
         ...
 
     def get_company_members(
-        self, company_id: str, limit=10, headless: bool = True
+            self, company_id: str, limit=10, headless: bool = True
     ) -> CompanyPeople:
         """Get all profile IDs of people working at a company"""
         ...
+
+    async def scrape_and_save_company_leads(
+            self, company_id: str, limit=10, headless=True
+    ):
+        """
+        Scrape LinkedIn company profiles and save leads to database
+        """
 
 
 class Service:
@@ -53,7 +60,6 @@ class Service:
             await self._playwright_instance.__aexit__(exc_type, exc_val, exc_tb)
 
     async def launch_browser(self, headless=True) -> BrowserSession:
-        """Launch a browser and return a session for scraping profiles"""
         browser = await self.playwright.chromium.launch(headless=headless)
         return BrowserSession(browser, self.linkedin_sid)
 
@@ -76,7 +82,7 @@ class Service:
             await session.browser.close()
 
     async def get_company_members(
-        self, company_id: str, limit=10, headless=True
+            self, company_id: str, limit=10, headless=True
     ) -> CompanyPeople:
         """
         Get all profile IDs of people working at a company (launches and closes browser automatically)
@@ -97,7 +103,13 @@ class Service:
         finally:
             await session.browser.close()
 
-    async def save_linkedin_lead(self, lead: Lead, linkedin_lead: LinkedinProfile, company_url: str = None, company_name: str = None):
+    async def save_linkedin_lead(
+            self,
+            lead: Lead,
+            linkedin_lead: LinkedinProfile,
+            company_url: str = None,
+            company_name: str = None,
+    ):
         inserted, lead_id = await insert_lead(lead)
         if not inserted:
             raise Exception("Failed to insert lead")
@@ -106,16 +118,19 @@ class Service:
         if not linkedin_profile_id:
             raise Exception("Failed to insert LinkedIn profile")
 
-        # Save company mapping if company info is provided
         if company_url and linkedin_profile_id:
             try:
-                await insert_linkedin_company_member(linkedin_profile_id, company_url, company_name)
+                await insert_linkedin_company_member(
+                    linkedin_profile_id, company_url, company_name
+                )
             except Exception as e:
                 print(f"Warning: Failed to save company mapping: {e}")
 
         return lead_id
 
-    async def scrape_and_save_company_leads(self, company_id: str, limit=10, headless=True):
+    async def scrape_and_save_company_leads(
+            self, company_id: str, limit=10, headless=True
+    ):
         """
         Scrape LinkedIn company profiles and save leads to database
 
@@ -140,20 +155,22 @@ class Service:
             for profile_id in company_people.profile_ids:
                 profile = session.get_profile_info(profile_id)
 
-                # Create Lead from LinkedinProfile
                 lead = Lead(
                     first_name=profile.first_name,
                     full_name=profile.full_name,
                     email=profile.email,
-                    phone_number=profile.phone_number
+                    phone_number=profile.phone_number,
                 )
 
-                # Save lead if we have email
                 if lead.email:
                     try:
                         company_url = f"https://www.linkedin.com/company/{company_id}/"
-                        lead_id = await self.save_linkedin_lead(lead, profile, company_url, company_id)
-                        print(f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}")
+                        lead_id = await self.save_linkedin_lead(
+                            lead, profile, company_url, company_id
+                        )
+                        print(
+                            f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}"
+                        )
                         leads_saved += 1
                     except Exception as e:
                         print(f"Failed to save lead {lead.full_name}: {e}")

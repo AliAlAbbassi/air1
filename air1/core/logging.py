@@ -1,6 +1,7 @@
 """
 Structured logging module using Loguru
 """
+
 from loguru import logger
 from contextvars import ContextVar
 from typing import Any, Dict, Optional
@@ -29,7 +30,7 @@ class StructuredLogger:
         context = {
             "request_id": request_id_var.get(),
             "user_id": user_id_var.get(),
-            **kwargs
+            **kwargs,
         }
         # Remove None values
         context = {k: v for k, v in context.items() if v is not None}
@@ -63,6 +64,7 @@ class StructuredLogger:
 
 def log_execution_time(func):
     """Decorator to log function execution time"""
+
     @wraps(func)
     async def async_wrapper(*args, **kwargs):
         start = time.time()
@@ -70,20 +72,20 @@ def log_execution_time(func):
             result = await func(*args, **kwargs)
             duration = time.time() - start
             StructuredLogger.info(
-                f"Function executed successfully",
+                "Function executed successfully",
                 function=func.__name__,
                 duration=duration,
-                status="success"
+                status="success",
             )
             return result
         except Exception as e:
             duration = time.time() - start
             StructuredLogger.error(
-                f"Function failed",
+                "Function failed",
                 function=func.__name__,
                 duration=duration,
                 status="error",
-                error=str(e)
+                error=str(e),
             )
             raise
 
@@ -94,20 +96,20 @@ def log_execution_time(func):
             result = func(*args, **kwargs)
             duration = time.time() - start
             StructuredLogger.info(
-                f"Function executed successfully",
+                "Function executed successfully",
                 function=func.__name__,
                 duration=duration,
-                status="success"
+                status="success",
             )
             return result
         except Exception as e:
             duration = time.time() - start
             StructuredLogger.error(
-                f"Function failed",
+                "Function failed",
                 function=func.__name__,
                 duration=duration,
                 status="error",
-                error=str(e)
+                error=str(e),
             )
             raise
 
@@ -117,17 +119,23 @@ def log_execution_time(func):
         return sync_wrapper
 
 
-def log_database_query(query: str, params: Optional[Dict[str, Any]] = None, duration: Optional[float] = None):
+def log_database_query(
+    query: str,
+    params: Optional[Dict[str, Any]] = None,
+    duration: Optional[float] = None,
+):
     """Log database query with parameters"""
     log_data = {
         "query": query[:500] if len(query) > 500 else query,  # Truncate long queries
-        "type": "database"
+        "type": "database",
     }
 
     if params:
         # Don't log sensitive data
-        safe_params = {k: "***" if "password" in k.lower() or "token" in k.lower() else v
-                      for k, v in params.items()}
+        safe_params = {
+            k: "***" if "password" in k.lower() or "token" in k.lower() else v
+            for k, v in params.items()
+        }
         log_data["params"] = safe_params
 
     if duration:
@@ -136,14 +144,15 @@ def log_database_query(query: str, params: Optional[Dict[str, Any]] = None, dura
     StructuredLogger.debug("Database query executed", **log_data)
 
 
-def log_http_request(method: str, url: str, status_code: Optional[int] = None,
-                    duration: Optional[float] = None, **kwargs):
+def log_http_request(
+    method: str,
+    url: str,
+    status_code: Optional[int] = None,
+    duration: Optional[float] = None,
+    **kwargs,
+):
     """Log HTTP request"""
-    log_data = {
-        "method": method,
-        "url": url,
-        "type": "http_request"
-    }
+    log_data = {"method": method, "url": url, "type": "http_request"}
 
     if status_code:
         log_data["status_code"] = status_code
@@ -168,7 +177,7 @@ def json_formatter(record):
         "message": record["message"],
         "module": record["name"],
         "function": record["function"],
-        "line": record["line"]
+        "line": record["line"],
     }
 
     # Add extra fields
@@ -185,14 +194,18 @@ def json_formatter(record):
 def setup_json_logging():
     """Setup JSON formatted logging (useful for production)"""
     logger.remove()
-    logger.add(
-        sys.stdout,
-        format=json_formatter,
-        serialize=False
-    )
+    logger.add(sys.stdout, format=json_formatter, serialize=False)
 
 
 # Export main logger and structured logger
 structured_logger = StructuredLogger()
-__all__ = ["logger", "structured_logger", "log_execution_time", "log_database_query",
-          "log_http_request", "setup_json_logging", "request_id_var", "user_id_var"]
+__all__ = [
+    "logger",
+    "structured_logger",
+    "log_execution_time",
+    "log_database_query",
+    "log_http_request",
+    "setup_json_logging",
+    "request_id_var",
+    "user_id_var",
+]
