@@ -5,12 +5,21 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiosql>=13.4",
+    "asyncpg>=0.30.0",
     "beautifulsoup4>=4.14.2",
     "fastapi>=0.121.0",
     "lxml>=6.0.2",
     "playwright>=1.55.0",
     "pydantic>=2.12.4",
+    "pytest>=9.0.0",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
     "uvicorn>=0.38.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "trio>=0.32.0",
 ]
