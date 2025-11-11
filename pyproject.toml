@@ -6,11 +6,15 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "aiosql>=13.4",
+    "alembic>=1.13.0",
     "asyncpg>=0.30.0",
     "beautifulsoup4>=4.14.2",
+    "databases[asyncpg]>=0.9.0",
     "fastapi>=0.121.0",
+    "loguru>=0.7.2",
     "lxml>=6.0.2",
     "playwright>=1.55.0",
+    "psycopg2-binary>=2.9.11",
     "pydantic>=2.12.4",
     "pydantic-settings>=2.6.0",
     "pytest>=9.0.0",

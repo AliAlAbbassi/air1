@@ -36,12 +36,14 @@ def mock_linkedin_profile():
 async def test_insert_lead_success(mock_lead):
     """Test successful lead insertion"""
 
-    with patch('air1.services.linkedin.repo.db') as mock_db, \
+    with patch('air1.services.linkedin.repo.get_pool') as mock_get_pool, \
          patch('air1.services.linkedin.repo.queries') as mock_queries:
 
         mock_conn = MagicMock()
-        mock_db.pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_db.pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_get_pool.return_value = mock_pool
 
         # Mock the return value as a Record object with lead_id
         mock_record = MagicMock()
@@ -67,12 +69,14 @@ async def test_insert_lead_success(mock_lead):
 async def test_insert_lead_failure(mock_lead):
     """Test lead insertion failure"""
 
-    with patch('air1.services.linkedin.repo.db') as mock_db, \
+    with patch('air1.services.linkedin.repo.get_pool') as mock_get_pool, \
          patch('air1.services.linkedin.repo.queries') as mock_queries:
 
         mock_conn = MagicMock()
-        mock_db.pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_db.pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_get_pool.return_value = mock_pool
 
         mock_queries.insert_lead = AsyncMock(side_effect=Exception("Database error"))
 
@@ -90,12 +94,14 @@ async def test_insert_lead_failure(mock_lead):
 async def test_insert_linkedin_profile_success(mock_linkedin_profile):
     """Test successful LinkedIn profile insertion"""
 
-    with patch('air1.services.linkedin.repo.db') as mock_db, \
+    with patch('air1.services.linkedin.repo.get_pool') as mock_get_pool, \
          patch('air1.services.linkedin.repo.queries') as mock_queries:
 
         mock_conn = MagicMock()
-        mock_db.pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_db.pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_get_pool.return_value = mock_pool
 
         # Mock the return value as a Record object with linkedin_profile_id
         mock_record = MagicMock()
@@ -121,12 +127,14 @@ async def test_insert_linkedin_profile_success(mock_linkedin_profile):
 async def test_insert_linkedin_company_member_success():
     """Test successful company member mapping insertion"""
 
-    with patch('air1.services.linkedin.repo.db') as mock_db, \
+    with patch('air1.services.linkedin.repo.get_pool') as mock_get_pool, \
          patch('air1.services.linkedin.repo.queries') as mock_queries:
 
         mock_conn = MagicMock()
-        mock_db.pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_db.pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_get_pool.return_value = mock_pool
 
         mock_queries.insert_linkedin_company_member = AsyncMock()
 
@@ -149,12 +157,14 @@ async def test_insert_linkedin_company_member_success():
 async def test_insert_linkedin_company_member_without_name():
     """Test company member mapping insertion without company name"""
 
-    with patch('air1.services.linkedin.repo.db') as mock_db, \
+    with patch('air1.services.linkedin.repo.get_pool') as mock_get_pool, \
          patch('air1.services.linkedin.repo.queries') as mock_queries:
 
         mock_conn = MagicMock()
-        mock_db.pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_db.pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_get_pool.return_value = mock_pool
 
         mock_queries.insert_linkedin_company_member = AsyncMock()
 
@@ -176,12 +186,14 @@ async def test_insert_linkedin_company_member_without_name():
 async def test_insert_linkedin_profile_failure(mock_linkedin_profile):
     """Test LinkedIn profile insertion failure"""
 
-    with patch('air1.services.linkedin.repo.db') as mock_db, \
+    with patch('air1.services.linkedin.repo.get_pool') as mock_get_pool, \
          patch('air1.services.linkedin.repo.queries') as mock_queries:
 
         mock_conn = MagicMock()
-        mock_db.pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_db.pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_get_pool.return_value = mock_pool
 
         mock_queries.insert_linkedin_profile = AsyncMock(side_effect=Exception("Database error"))
 

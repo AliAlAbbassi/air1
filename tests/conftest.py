@@ -4,7 +4,7 @@ import asyncpg
 import asyncio
 from typing import AsyncGenerator, Generator
 from testcontainers.postgres import PostgresContainer
-from air1.db.db import Database
+from air1.db import db as db_module
 from air1.config import settings
 import os
 
@@ -79,11 +79,13 @@ async def test_db_pool(postgres_container) -> AsyncGenerator[asyncpg.Pool, None]
 
 
 @pytest_asyncio.fixture
-async def test_db(test_db_pool) -> Database:
-    """Create a test database instance."""
-    db = Database()
-    db.pool = test_db_pool
-    return db
+async def test_db(test_db_pool):
+    """Set the global pool for testing."""
+    # Set the global pool to our test pool
+    db_module.pool = test_db_pool
+    yield test_db_pool
+    # Clean up
+    db_module.pool = None
 
 
 @pytest_asyncio.fixture

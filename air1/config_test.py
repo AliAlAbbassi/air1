@@ -45,13 +45,13 @@ class TestSettings:
         monkeypatch.setenv("DATABASE_PORT", "70000")
         with pytest.raises(ValidationError) as exc_info:
             Settings()
-        assert "Port must be between 1 and 65535" in str(exc_info.value)
+        assert "less than or equal to 65535" in str(exc_info.value)
 
         # Port too low
         monkeypatch.setenv("DATABASE_PORT", "0")
         with pytest.raises(ValidationError) as exc_info:
             Settings()
-        assert "Port must be between 1 and 65535" in str(exc_info.value)
+        assert "greater than or equal to 1" in str(exc_info.value)
 
     def test_database_url_property(self, monkeypatch):
         """Test database URL generation."""

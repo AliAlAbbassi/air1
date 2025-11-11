@@ -2,7 +2,7 @@ import pytest
 from faker import Faker
 from air1.services.linkedin.linkedin_profile import Lead, LinkedinProfile
 from air1.services.linkedin.repo import insert_lead, insert_linkedin_profile, insert_linkedin_company_member
-from air1.db.db import db as app_db
+from air1.db import db as db_module
 
 fake = Faker()
 
@@ -15,7 +15,7 @@ class TestRepositoryIntegration:
 
     async def test_insert_lead_new(self, test_db, clean_db):
         """Test inserting a new lead."""
-        app_db.pool = test_db.pool
+        db_module.pool = test_db
 
         lead = Lead(
             first_name=fake.first_name(),
@@ -31,7 +31,7 @@ class TestRepositoryIntegration:
         assert isinstance(lead_id, int)
 
         # Verify the lead was inserted
-        async with test_db.pool.acquire() as conn:
+        async with test_db.acquire() as conn:
             result = await conn.fetchrow(
                 "SELECT * FROM lead WHERE lead_id = $1", lead_id
             )
@@ -42,7 +42,7 @@ class TestRepositoryIntegration:
 
     async def test_insert_lead_duplicate_email(self, test_db, clean_db):
         """Test upserting a lead with duplicate email."""
-        app_db.pool = test_db.pool
+        db_module.pool = test_db
 
         email = fake.email()
         lead1 = Lead(
@@ -67,7 +67,7 @@ class TestRepositoryIntegration:
         assert lead_id1 == lead_id2  # Should be the same lead
 
         # Verify the lead was updated correctly
-        async with test_db.pool.acquire() as conn:
+        async with test_db.acquire() as conn:
             result = await conn.fetchrow(
                 "SELECT * FROM lead WHERE lead_id = $1", lead_id1
             )
@@ -79,7 +79,7 @@ class TestRepositoryIntegration:
 
     async def test_insert_linkedin_profile(self, test_db, clean_db):
         """Test inserting a LinkedIn profile."""
-        app_db.pool = test_db.pool
+        db_module.pool = test_db
 
         # First create a lead
         lead = Lead(
@@ -107,7 +107,7 @@ class TestRepositoryIntegration:
         assert isinstance(profile_id, int)
 
         # Verify the profile was inserted
-        async with test_db.pool.acquire() as conn:
+        async with test_db.acquire() as conn:
             result = await conn.fetchrow(
                 "SELECT * FROM linkedin_profile WHERE linkedin_profile_id = $1", profile_id
             )
@@ -118,7 +118,7 @@ class TestRepositoryIntegration:
 
     async def test_insert_linkedin_company_member(self, test_db, clean_db):
         """Test inserting a LinkedIn company member."""
-        app_db.pool = test_db.pool
+        db_module.pool = test_db
 
         # Create lead and profile
         lead = Lead(
@@ -143,7 +143,7 @@ class TestRepositoryIntegration:
         await insert_linkedin_company_member(profile_id, company_url, company_name)
 
         # Verify insertion
-        async with test_db.pool.acquire() as conn:
+        async with test_db.acquire() as conn:
             result = await conn.fetchrow(
                 "SELECT * FROM linkedin_company_members WHERE linkedin_profile_id = $1",
                 profile_id
@@ -154,7 +154,7 @@ class TestRepositoryIntegration:
 
     async def test_full_workflow(self, test_db, clean_db):
         """Test the complete workflow from lead to company member."""
-        app_db.pool = test_db.pool
+        db_module.pool = test_db
 
         # Create multiple leads with profiles
         num_leads = 3
@@ -191,7 +191,7 @@ class TestRepositoryIntegration:
                 )
 
         # Verify the data
-        async with test_db.pool.acquire() as conn:
+        async with test_db.acquire() as conn:
             lead_count = await conn.fetchval("SELECT COUNT(*) FROM lead")
             profile_count = await conn.fetchval("SELECT COUNT(*) FROM linkedin_profile")
             company_count = await conn.fetchval("SELECT COUNT(*) FROM linkedin_company_members")

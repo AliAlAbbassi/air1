@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from faker import Faker
 from air1.services.linkedin.linkedin_profile import Lead, LinkedinProfile
 from air1.services.linkedin.repo import insert_lead, insert_linkedin_profile, insert_linkedin_company_member
-from air1.db.db import db as app_db
+from air1.db import db as db_module
 
 fake = Faker()
 
@@ -34,13 +34,13 @@ class TestRepositoryIntegrationMock:
         mock_pool.acquire.return_value = mock_context_manager
 
         # Store original pool and replace with mock
-        original_pool = app_db.pool
-        app_db.pool = mock_pool
+        original_pool = db_module.pool
+        db_module.pool = mock_pool
 
         yield mock_conn
 
         # Restore original pool
-        app_db.pool = original_pool
+        db_module.pool = original_pool
 
     async def test_insert_lead_new(self, setup_mock_db):
         """Test inserting a new lead with mocked DB."""
