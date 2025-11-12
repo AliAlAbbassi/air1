@@ -49,8 +49,8 @@ async def test_scrape_and_save_company_leads_success(
         mock_db.connect = AsyncMock()
 
         mock_session = MagicMock()
-        mock_session.get_company_members.return_value = mock_company_people
-        mock_session.get_profile_info.return_value = mock_linkedin_profile
+        mock_session.get_company_members = AsyncMock(return_value=mock_company_people)
+        mock_session.get_profile_info = AsyncMock(return_value=mock_linkedin_profile)
         mock_session.browser.close = AsyncMock()
 
         mock_launch_browser.return_value = mock_session
@@ -105,8 +105,8 @@ async def test_scrape_and_save_company_leads_no_email():
         mock_db.connect = AsyncMock()
 
         mock_session = MagicMock()
-        mock_session.get_company_members.return_value = company_people
-        mock_session.get_profile_info.return_value = profile_no_email
+        mock_session.get_company_members = AsyncMock(return_value=company_people)
+        mock_session.get_profile_info = AsyncMock(return_value=profile_no_email)
         mock_session.browser.close = AsyncMock()
 
         mock_launch_browser.return_value = mock_session
@@ -143,8 +143,8 @@ async def test_scrape_and_save_company_leads_save_error(
         mock_db.connect = AsyncMock()
 
         mock_session = MagicMock()
-        mock_session.get_company_members.return_value = mock_company_people
-        mock_session.get_profile_info.return_value = mock_linkedin_profile
+        mock_session.get_company_members = AsyncMock(return_value=mock_company_people)
+        mock_session.get_profile_info = AsyncMock(return_value=mock_linkedin_profile)
         mock_session.browser.close = AsyncMock()
 
         mock_launch_browser.return_value = mock_session

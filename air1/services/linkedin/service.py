@@ -77,7 +77,7 @@ class Service:
         """
         session = await self.launch_browser(headless=headless)
         try:
-            return session.get_profile_info(profile_id)
+            return await session.get_profile_info(profile_id)
         finally:
             await session.browser.close()
 
@@ -99,7 +99,7 @@ class Service:
         print(f"Fetching Company Profiles for {company_id}...")
         session = await self.launch_browser(headless=headless)
         try:
-            return session.get_company_members(company_id, limit=limit)
+            return await session.get_company_members(company_id, limit=limit)
         finally:
             await session.browser.close()
 
@@ -149,11 +149,11 @@ class Service:
         leads_saved = 0
 
         try:
-            company_people = session.get_company_members(company_id, limit=limit)
+            company_people = await session.get_company_members(company_id, limit=limit)
             print(f"Found {len(company_people.profile_ids)} profiles")
 
             for profile_id in company_people.profile_ids:
-                profile = session.get_profile_info(profile_id)
+                profile = await session.get_profile_info(profile_id)
 
                 lead = Lead(
                     first_name=profile.first_name,
