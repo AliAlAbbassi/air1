@@ -23,7 +23,7 @@ def upgrade() -> None:
     from pathlib import Path
 
     # Get all SQL model files
-    base_dir = Path(__file__).parent.parent.parent.parent
+    base_dir = Path(__file__).parent.parent.parent
     models_dir = base_dir / "air1" / "db" / "models"
 
     # Execute SQL files in order (lead first, then linkedin which depends on it)

@@ -1,0 +1,19 @@
+# Sample companies configuration file
+# Format: company_id or company_id:limit
+# Lines starting with # are comments
+
+# Tech companies
+google:20
+microsoft:15
+apple:10
+meta:10
+
+# Consulting firms
+forsythbarnes:5
+oreyeon:3
+
+# AI companies
+anthropic:10
+openai:10
+
+# Add more companies below...

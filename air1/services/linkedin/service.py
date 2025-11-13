@@ -1,12 +1,9 @@
-from air1.services.linkedin.repo import (
-    insert_lead,
-    insert_linkedin_profile,
-    insert_linkedin_company_member,
-)
+from air1.services.linkedin.repo import save_lead_complete
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv
 from typing import Optional, Protocol
+from abc import ABC, abstractmethod
 
 from air1.services.linkedin.browser import BrowserSession
 from air1.db.db import db
@@ -15,30 +12,17 @@ from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeop
 load_dotenv()
 
 
-class LinkedinServiceProtocol(Protocol):
-    """Interface for LinkedIn scraping service"""
+class IService(ABC):
+    """
+    Scrape leads from company's LinkedIn profile
+    """
 
-    def get_profile_info(
-            self, profile_id: str, headless: bool = True
-    ) -> LinkedinProfile:
-        """Get LinkedIn profile info from a profile ID"""
-        ...
-
-    def get_company_members(
-            self, company_id: str, limit=10, headless: bool = True
-    ) -> CompanyPeople:
-        """Get all profile IDs of people working at a company"""
-        ...
-
-    async def scrape_and_save_company_leads(
-            self, company_id: str, limit=10, headless=True
-    ):
-        """
-        Scrape LinkedIn company profiles and save leads to database
-        """
+    @abstractmethod
+    async def scrape_company_leads(self, company_ids: list[str], limit=10, headless=True):
+        pass
 
 
-class Service:
+class Service(IService):
     def __init__(self, playwright: Optional[Playwright] = None):
         self.playwright = playwright
         self._owns_playwright = False
@@ -103,31 +87,6 @@ class Service:
         finally:
             await session.browser.close()
 
-    async def save_linkedin_lead(
-            self,
-            lead: Lead,
-            linkedin_lead: LinkedinProfile,
-            company_url: str = None,
-            company_name: str = None,
-    ):
-        inserted, lead_id = await insert_lead(lead)
-        if not inserted:
-            raise Exception("Failed to insert lead")
-
-        linkedin_profile_id = await insert_linkedin_profile(linkedin_lead, lead_id)
-        if not linkedin_profile_id:
-            raise Exception("Failed to insert LinkedIn profile")
-
-        if company_url and linkedin_profile_id:
-            try:
-                await insert_linkedin_company_member(
-                    linkedin_profile_id, company_url, company_name
-                )
-            except Exception as e:
-                print(f"Warning: Failed to save company mapping: {e}")
-
-        return lead_id
-
     async def scrape_and_save_company_leads(
             self, company_id: str, limit=10, headless=True
     ):
@@ -142,9 +101,6 @@ class Service:
         Returns:
             int: Number of leads saved
         """
-        print(f"Scraping and saving leads for company: {company_id}")
-        await db.connect()
-
         session = await self.launch_browser(headless=headless)
         leads_saved = 0
 
@@ -165,25 +121,37 @@ class Service:
                 if lead.email:
                     try:
                         company_url = f"https://www.linkedin.com/company/{company_id}/"
-                        lead_id = await self.save_linkedin_lead(
+                        success, lead_id = await save_lead_complete(
                             lead, profile, company_url, company_id
                         )
-                        print(
-                            f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}"
-                        )
-                        leads_saved += 1
+                        if success:
+                            print(
+                                f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}"
+                            )
+                            leads_saved += 1
                     except Exception as e:
                         print(f"Failed to save lead {lead.full_name}: {e}")
-
-                if profile.isTalent():
-                    print("talent")
-                    print(profile)
-                else:
-                    print("not talent")
-                    print(profile)
 
         finally:
             await session.browser.close()
 
         print(f"Successfully saved {leads_saved} leads")
         return leads_saved
+
+    async def scrape_company_leads(self, company_ids: list[str], limit=10, headless=True):
+        """
+        Args:
+            company_ids: List of LinkedIn company IDs to scrape
+            limit: Maximum number of profiles per company
+            headless: Run browser in headless mode
+
+        Returns:
+            dict: Results for each company with leads saved count
+        """
+        results = {}
+        for company_id in company_ids:
+            leads_saved = await self.scrape_and_save_company_leads(
+                company_id, limit=limit, headless=headless
+            )
+            results[company_id] = leads_saved
+        return results

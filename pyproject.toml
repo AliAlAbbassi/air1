@@ -20,8 +20,16 @@ dependencies = [
     "pytest>=9.0.0",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
+    "rich>=14.2.0",
+    "typer>=0.20.0",
     "uvicorn>=0.38.0",
 ]
+
+[project.scripts]
+air1 = "air1.__main__:main"
+
+[tool.setuptools]
+packages = ["air1"]
 
 [dependency-groups]
 dev = [

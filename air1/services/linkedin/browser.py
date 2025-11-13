@@ -13,7 +13,7 @@ class BrowserSession:
         """Set up or reuse existing page with authentication cookies"""
         if self.page is None:
             self.page = await self.browser.new_page()
-            await self.page.set_default_timeout(60000)
+            self.page.set_default_timeout(60000)
 
             if self.linkedin_sid:
                 cookies: SetCookieParam = {
@@ -46,7 +46,6 @@ class BrowserSession:
         try:
             profile_data = {}
 
-            # Get name - wait for the h1 to appear
             try:
                 name_locator = page.locator(
                     "h1.UXwXGvkZjLHXTkTzfStIRtZBcIdwKURDfTbmzc"
@@ -64,7 +63,6 @@ class BrowserSession:
             except Exception:
                 pass
 
-            # Get headline
             try:
                 headline = await page.locator(
                     ".text-body-medium.break-words[data-generated-suggestion-target]"
@@ -74,7 +72,6 @@ class BrowserSession:
             except Exception:
                 pass
 
-            # Get location
             try:
                 location = await page.locator(
                     "span.text-body-small.inline.t-black--light.break-words"
@@ -84,17 +81,14 @@ class BrowserSession:
             except Exception:
                 pass
 
-            # Click contact info to get email and phone
             try:
                 contact_button = page.locator('a[href*="/overlay/contact-info/"]')
                 if await contact_button.count() > 0:
                     await contact_button.click()
-                    # Wait for the contact modal to appear
                     await page.locator(".pv-contact-info__contact-type").first.wait_for(
                         timeout=5000
                     )
 
-                # Get email
                 email_element = page.locator('a[href^="mailto:"]').first
                 if await email_element.count() > 0:
                     email_href = await email_element.get_attribute("href")
@@ -103,7 +97,6 @@ class BrowserSession:
                             "mailto:", ""
                         ).strip()
 
-                # Get phone
                 phone_element = page.locator(
                     '.pv-contact-info__contact-type:has-text("Phone") span.t-14.t-black.t-normal'
                 ).first
@@ -135,7 +128,6 @@ class BrowserSession:
         page = await self._setup_page(company_url)
 
         try:
-            # Wait for the people cards to load
             await page.locator(
                 ".org-people-profile-card__profile-card-spacing"
             ).first.wait_for(timeout=10000)
@@ -144,28 +136,23 @@ class BrowserSession:
             clicks = 0
 
             while clicks < limit:
-                # Extract profile IDs from current page
                 profile_links = await page.locator('a[href*="/in/"]').all()
 
                 for link in profile_links:
                     href = await link.get_attribute("href")
                     if href and "/in/" in href:
-                        # Extract profile ID from URL like "https://www.linkedin.com/in/farahshehab?..."
                         profile_id = href.split("/in/")[1].split("?")[0]
                         if profile_id:
                             profile_ids.add(profile_id)
 
-                # Try to click "Show more results" button
                 show_more_button = page.locator(
                     'button:has-text("Show more results")'
                 ).first
                 if await show_more_button.count() > 0 and await show_more_button.is_visible():
                     await show_more_button.click()
                     clicks += 1
-                    # Wait for new content to load
                     await page.wait_for_timeout(2000)
                 else:
-                    # No more results
                     break
 
             print(f"Found {len(profile_ids)} profiles for company {company_id}")

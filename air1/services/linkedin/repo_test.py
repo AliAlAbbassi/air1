@@ -1,218 +1,83 @@
 import pytest
-import sys
-import os
-from unittest.mock import AsyncMock, MagicMock, patch
-
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
-
+import asyncio
+import pytest_asyncio
+from air1.services.linkedin.repo import save_lead_complete
 from air1.services.linkedin.linkedin_profile import Lead, LinkedinProfile
+from air1.db.db import init_pool, close_pool
 
 
-@pytest.fixture
-def mock_lead():
-    return Lead(
+@pytest_asyncio.fixture
+async def setup_db():
+    """Initialize database pool for tests."""
+    await init_pool()
+    yield
+    await close_pool()
+
+
+@pytest.mark.asyncio
+async def test_save_lead_complete(setup_db):
+    """Test saving a complete lead with profile and company."""
+    lead = Lead(
         first_name="John",
         full_name="John Doe",
         email="john.doe@example.com",
-        phone_number="123-456-7890",
+        phone_number="+1234567890"
     )
 
-
-@pytest.fixture
-def mock_linkedin_profile():
-    return LinkedinProfile(
+    profile = LinkedinProfile(
+        profile_id="johndoe123",
         first_name="John",
         full_name="John Doe",
+        headline="Software Engineer at Tech Corp",
+        location="San Francisco, CA",
+        linkedin_url="https://linkedin.com/in/johndoe123",
         email="john.doe@example.com",
-        phone_number="123-456-7890",
-        location="San Francisco",
-        headline="Software Engineer",
-        about="Experienced developer with 5 years in tech",
+        phone_number="+1234567890",
+        about="Experienced software engineer"
     )
 
+    company_url = "https://www.linkedin.com/company/techcorp/"
+    company_name = "techcorp"
 
-@pytest.mark.anyio
-async def test_insert_lead_success(mock_lead):
-    """Test successful lead insertion"""
+    success, lead_id = await save_lead_complete(
+        lead, profile, company_url, company_name
+    )
 
-    with (
-        patch("air1.services.linkedin.repo.get_pool") as mock_get_pool,
-        patch("air1.services.linkedin.repo.queries") as mock_queries,
-    ):
-        mock_conn = MagicMock()
-        mock_pool = MagicMock()
-        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-        mock_get_pool.return_value = mock_pool
-
-        # Mock the return value as a Record object with lead_id
-        mock_record = MagicMock()
-        mock_record.get.return_value = 123
-        mock_record.__getitem__.return_value = 123
-        mock_queries.insert_lead = AsyncMock(return_value=mock_record)
-
-        from air1.services.linkedin.repo import insert_lead
-
-        success, lead_id = await insert_lead(mock_lead)
-
-        assert success is True
-        assert lead_id == 123
-        mock_queries.insert_lead.assert_called_once_with(
-            mock_conn,
-            first_name="John",
-            full_name="John Doe",
-            email="john.doe@example.com",
-            phone_number="123-456-7890",
-        )
+    assert success is True
+    assert lead_id is not None
+    print(f"Successfully saved lead with ID: {lead_id}")
 
 
-@pytest.mark.anyio
-async def test_insert_lead_failure(mock_lead):
-    """Test lead insertion failure"""
+@pytest.mark.asyncio
+async def test_save_lead_without_company(setup_db):
+    """Test saving a lead without company association."""
+    lead = Lead(
+        first_name="Jane",
+        full_name="Jane Smith",
+        email="jane.smith@example.com",
+        phone_number="+9876543210"
+    )
 
-    with (
-        patch("air1.services.linkedin.repo.get_pool") as mock_get_pool,
-        patch("air1.services.linkedin.repo.queries") as mock_queries,
-    ):
-        mock_conn = MagicMock()
-        mock_pool = MagicMock()
-        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-        mock_get_pool.return_value = mock_pool
+    profile = LinkedinProfile(
+        profile_id="janesmith456",
+        first_name="Jane",
+        full_name="Jane Smith",
+        headline="Product Manager",
+        location="New York, NY",
+        linkedin_url="https://linkedin.com/in/janesmith456",
+        email="jane.smith@example.com",
+        phone_number="+9876543210",
+        about="Product management professional"
+    )
 
-        mock_queries.insert_lead = AsyncMock(side_effect=Exception("Database error"))
+    success, lead_id = await save_lead_complete(lead, profile)
 
-        import importlib
-        import air1.services.linkedin.repo as repo_module
-
-        importlib.reload(repo_module)
-        from air1.services.linkedin.repo import insert_lead
-
-        success, lead_id = await insert_lead(mock_lead)
-
-        assert success is False
-        assert lead_id is None
-
-
-@pytest.mark.anyio
-async def test_insert_linkedin_profile_success(mock_linkedin_profile):
-    """Test successful LinkedIn profile insertion"""
-
-    with (
-        patch("air1.services.linkedin.repo.get_pool") as mock_get_pool,
-        patch("air1.services.linkedin.repo.queries") as mock_queries,
-    ):
-        mock_conn = MagicMock()
-        mock_pool = MagicMock()
-        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-        mock_get_pool.return_value = mock_pool
-
-        # Mock the return value as a Record object with linkedin_profile_id
-        mock_record = MagicMock()
-        mock_record.get.return_value = 456
-        mock_record.__getitem__.return_value = 456
-        mock_queries.insert_linkedin_profile = AsyncMock(return_value=mock_record)
-
-        from air1.services.linkedin.repo import insert_linkedin_profile
-
-        profile_id = await insert_linkedin_profile(mock_linkedin_profile, 123)
-
-        assert profile_id == 456
-        mock_queries.insert_linkedin_profile.assert_called_once_with(
-            mock_conn,
-            lead_id=123,
-            linkedin_url="",
-            location="San Francisco",
-            headline="Software Engineer",
-            about="Experienced developer with 5 years in tech",
-        )
+    assert success is True
+    assert lead_id is not None
+    print(f"Successfully saved lead without company with ID: {lead_id}")
 
 
-@pytest.mark.anyio
-async def test_insert_linkedin_company_member_success():
-    """Test successful company member mapping insertion"""
-
-    with (
-        patch("air1.services.linkedin.repo.get_pool") as mock_get_pool,
-        patch("air1.services.linkedin.repo.queries") as mock_queries,
-    ):
-        mock_conn = MagicMock()
-        mock_pool = MagicMock()
-        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-        mock_get_pool.return_value = mock_pool
-
-        mock_queries.insert_linkedin_company_member = AsyncMock()
-
-        from air1.services.linkedin.repo import insert_linkedin_company_member
-
-        await insert_linkedin_company_member(
-            linkedin_profile_id=456,
-            company_url="https://www.linkedin.com/company/test-company/",
-            company_name="Test Company",
-        )
-
-        mock_queries.insert_linkedin_company_member.assert_called_once_with(
-            mock_conn,
-            linkedin_profile_id=456,
-            company_url="https://www.linkedin.com/company/test-company/",
-            company_name="Test Company",
-        )
-
-
-@pytest.mark.anyio
-async def test_insert_linkedin_company_member_without_name():
-    """Test company member mapping insertion without company name"""
-
-    with (
-        patch("air1.services.linkedin.repo.get_pool") as mock_get_pool,
-        patch("air1.services.linkedin.repo.queries") as mock_queries,
-    ):
-        mock_conn = MagicMock()
-        mock_pool = MagicMock()
-        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-        mock_get_pool.return_value = mock_pool
-
-        mock_queries.insert_linkedin_company_member = AsyncMock()
-
-        from air1.services.linkedin.repo import insert_linkedin_company_member
-
-        await insert_linkedin_company_member(
-            linkedin_profile_id=456,
-            company_url="https://www.linkedin.com/company/test-company/",
-        )
-
-        mock_queries.insert_linkedin_company_member.assert_called_once_with(
-            mock_conn,
-            linkedin_profile_id=456,
-            company_url="https://www.linkedin.com/company/test-company/",
-            company_name=None,
-        )
-
-
-@pytest.mark.anyio
-async def test_insert_linkedin_profile_failure(mock_linkedin_profile):
-    """Test LinkedIn profile insertion failure"""
-
-    with (
-        patch("air1.services.linkedin.repo.get_pool") as mock_get_pool,
-        patch("air1.services.linkedin.repo.queries") as mock_queries,
-    ):
-        mock_conn = MagicMock()
-        mock_pool = MagicMock()
-        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
-        mock_get_pool.return_value = mock_pool
-
-        mock_queries.insert_linkedin_profile = AsyncMock(
-            side_effect=Exception("Database error")
-        )
-
-        from air1.services.linkedin.repo import insert_linkedin_profile
-
-        profile_id = await insert_linkedin_profile(mock_linkedin_profile, 123)
-
-        assert profile_id is None
+if __name__ == "__main__":
+    # Run tests directly
+    asyncio.run(test_save_lead_complete(None))
+    asyncio.run(test_save_lead_without_company(None))

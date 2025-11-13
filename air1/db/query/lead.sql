@@ -7,4 +7,5 @@ on conflict (email) do update set first_name   = coalesce(lead.first_name, exclu
 returning lead_id;
 
 -- name: select_all_leads
-select * from lead;
+select *
+from lead;

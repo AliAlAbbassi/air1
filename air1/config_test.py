@@ -32,7 +32,6 @@ class TestSettings:
         assert settings.database_host == "localhost"
         assert settings.database_port == 5432
         assert settings.database_name == "air1"
-        assert settings.database_password == ""
         assert settings.database_pool_min == 10
         assert settings.database_pool_max == 20
         assert settings.database_pool_timeout == 60

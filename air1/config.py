@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     database_name: str = Field(
         default="air1", min_length=1, description="Database name"
     )
-    database_user: str = Field(..., min_length=1, description="Database username")
+    database_user: str = Field(default="postgres", min_length=1, description="Database username")
     database_password: Optional[str] = Field(
         default="", description="Database password"
     )
@@ -119,7 +119,6 @@ class Settings(BaseSettings):
         logger.info(f"Logging configured for {self.environment} environment")
 
 
-@lru_cache()
 def get_settings() -> Settings:
     """Get cached settings instance"""
     settings = Settings()
