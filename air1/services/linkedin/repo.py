@@ -68,20 +68,59 @@ async def get_linkedin_profile_by_username(username: str) -> dict | None:
         return None
 
 
+async def get_company_members_by_username(username: str) -> list[dict]:
+    """Fetch all company members by username"""
+    try:
+        pool = await db.get_pool()
+        results = await queries.get_company_members_by_username(pool, username=username)
+        return [dict(result) for result in results] if results else []
+    except Exception as e:
+        logger.error(f"Failed to get company members for username {username}: {e}")
+        return []
+
+
+async def get_company_member_by_profile_and_username(linkedin_profile_id: int, username: str) -> dict | None:
+    """Fetch specific company member by profile ID and username"""
+    try:
+        pool = await db.get_pool()
+        result = await queries.get_company_member_by_profile_and_username(
+            pool, linkedin_profile_id=linkedin_profile_id, username=username
+        )
+        return dict(result) if result else None
+    except Exception as e:
+        logger.error(
+            f"Failed to get company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
+        )
+        return None
+
+
 async def insert_linkedin_company_member(
         linkedin_profile_id: int, username: str, title: str = None, conn=None
 ):
     try:
         # Use the provided connection or get the pool
         db_conn = conn if conn else await db.get_pool()
+
+        if not username:
+            logger.error(f"Username is required for company member insertion")
+            return None
+
+        logger.info(
+            f"Inserting company member for linkedin_profile_id={linkedin_profile_id}, username={username}, title={title}"
+        )
         await queries.insert_linkedin_company_member(
             db_conn,
             linkedin_profile_id=linkedin_profile_id,
             username=username,
             title=title,
         )
+        logger.info(
+            f"Company member insertion successful for linkedin_profile_id={linkedin_profile_id}, username={username}"
+        )
     except Exception as e:
-        logger.error(f"Failed to insert company member: {e}")
+        logger.error(
+            f"Failed to insert company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
+        )
 
 
 async def save_lead_complete(

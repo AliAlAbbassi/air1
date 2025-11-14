@@ -12,6 +12,42 @@ from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeop
 load_dotenv()
 
 
+def extract_username_from_linkedin_url(linkedin_url: str) -> str:
+    """Extract username from LinkedIn URL. E.g., 'https://linkedin.com/in/johndoe/' -> 'johndoe'"""
+    if not linkedin_url:
+        return ""
+
+    parts = linkedin_url.rstrip("/").split("/")
+
+    try:
+        in_index = parts.index("in")
+        if in_index + 1 < len(parts):
+            username = parts[in_index + 1]
+            return username.split("?")[0]
+    except ValueError:
+        pass
+
+    return ""
+
+
+def extract_company_id_from_linkedin_url(company_url: str) -> str:
+    """Extract company ID from LinkedIn company URL. E.g., 'https://linkedin.com/company/acme/' -> 'acme'"""
+    if not company_url:
+        return ""
+
+    parts = company_url.rstrip("/").split("/")
+
+    try:
+        company_index = parts.index("company")
+        if company_index + 1 < len(parts):
+            company_id = parts[company_index + 1]
+            return company_id.split("?")[0]
+    except ValueError:
+        pass
+
+    return ""
+
+
 class IService(ABC):
     """
     Scrape leads from company's LinkedIn profile
