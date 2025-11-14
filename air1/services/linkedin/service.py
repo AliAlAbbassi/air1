@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from typing import Optional
 from abc import ABC, abstractmethod
+from loguru import logger
 
 from air1.services.linkedin.browser import BrowserSession
 from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeople, Lead
@@ -79,7 +80,7 @@ class Service(IService):
             :param limit:
             :param headless:
         """
-        print(f"Fetching Company Profiles for {company_id}...")
+        logger.info(f"Fetching Company Profiles for {company_id}...")
         session = await self.launch_browser(headless=headless)
         try:
             return await session.get_company_members(company_id, limit=limit)
@@ -100,14 +101,14 @@ class Service(IService):
         Returns:
             int: Number of leads saved
         """
-        print(f"Launching browser for {company_id}...")
+        logger.debug(f"Launching browser for {company_id}...")
         session = await self.launch_browser(headless=headless)
         leads_saved = 0
 
         try:
-            print(f"Getting company members for {company_id}...")
+            logger.debug(f"Getting company members for {company_id}...")
             company_people = await session.get_company_members(company_id, limit=limit)
-            print(f"Found {len(company_people.profile_ids)} profiles")
+            logger.info(f"Found {len(company_people.profile_ids)} profiles for company {company_id}")
 
             for profile_id in company_people.profile_ids:
                 profile = await session.get_profile_info(profile_id)
@@ -125,17 +126,17 @@ class Service(IService):
                         lead, profile, company_url, company_id
                     )
                     if success:
-                        print(
+                        logger.success(
                             f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}"
                         )
                         leads_saved += 1
                 except Exception as e:
-                    print(f"Failed to save lead {lead.full_name}: {e}")
+                    logger.error(f"Failed to save lead {lead.full_name}: {e}")
 
         finally:
             await session.browser.close()
 
-        print(f"Successfully saved {leads_saved} leads")
+        logger.info(f"Successfully saved {leads_saved} leads for company {company_id}")
         return leads_saved
 
     async def scrape_company_leads(self, company_ids: list[str], limit=10, headless=True):
