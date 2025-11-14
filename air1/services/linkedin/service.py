@@ -122,7 +122,7 @@ class Service(IService):
                 try:
                     company_url = f"https://www.linkedin.com/company/{company_id}/"
                     success, lead_id = await save_lead_complete(
-                        lead, profile, company_url, company_id
+                        lead, profile, company_id, company_id
                     )
                     if success:
                         print(

@@ -137,10 +137,10 @@ class TestRepositoryIntegration:
         profile_id = await insert_linkedin_profile(profile, lead_id)
 
         # Insert company member
-        company_url = f"https://linkedin.com/company/{fake.company()}"
-        company_name = fake.company()
+        username = fake.user_name()
+        title = fake.company()
 
-        await insert_linkedin_company_member(profile_id, company_url, company_name)
+        await insert_linkedin_company_member(profile_id, username, title)
 
         # Verify insertion
         async with test_db.acquire() as conn:
@@ -149,8 +149,8 @@ class TestRepositoryIntegration:
                 profile_id
             )
             assert result is not None
-            assert result['company_url'] == company_url
-            assert result['company_name'] == company_name
+            assert result['username'] == username
+            assert result['title'] == title
 
     async def test_full_workflow(self, test_db, clean_db):
         """Test the complete workflow from lead to company member."""

@@ -36,11 +36,11 @@ async def test_save_lead_complete(setup_db):
         about="Experienced software engineer"
     )
 
-    company_url = "https://www.linkedin.com/company/techcorp/"
-    company_name = "techcorp"
+    username = "techcorp"
+    title = "TechCorp Inc"
 
     success, lead_id = await save_lead_complete(
-        lead, profile, company_url, company_name
+        lead, profile, username, title
     )
 
     assert success is True
