@@ -3,10 +3,10 @@ import asyncio
 import pytest_asyncio
 from air1.services.linkedin.repo import (
     save_lead_complete,
-    extract_username_from_linkedin_url,
     insert_linkedin_profile,
     get_linkedin_profile_by_username,
 )
+from air1.services.linkedin.service import extract_username_from_linkedin_url
 from air1.services.linkedin.linkedin_profile import Lead, LinkedinProfile
 from air1.db.db import init_pool, close_pool
 
@@ -115,8 +115,8 @@ class TestExtractUsernameFromLinkedinUrl:
 
 
 @pytest.mark.asyncio
-async def test_username_extraction_in_profile_insertion(setup_db):
-    """Test that username is extracted from linkedin_url when saving profile"""
+async def test_save_profile_with_extracted_username(setup_db):
+    """Test saving profile with username set from service layer"""
     lead = Lead(
         first_name="Test",
         full_name="Test User",
@@ -126,8 +126,7 @@ async def test_username_extraction_in_profile_insertion(setup_db):
     profile = LinkedinProfile(
         first_name="Test",
         full_name="Test User",
-        linkedin_url="https://www.linkedin.com/in/test-username-123/",
-        username="",  # Empty, should be extracted from URL
+        username="test-username-123",  # Set directly in service layer
         location="Test City",
         headline="Test Engineer",
         about="Test about"
@@ -145,8 +144,8 @@ async def test_username_extraction_in_profile_insertion(setup_db):
 
 
 @pytest.mark.asyncio
-async def test_provided_username_takes_precedence(setup_db):
-    """Test that provided username takes precedence over URL extraction"""
+async def test_save_profile_with_username(setup_db):
+    """Test saving profile with username set"""
     lead = Lead(
         first_name="Manual",
         full_name="Manual User",
@@ -156,8 +155,7 @@ async def test_provided_username_takes_precedence(setup_db):
     profile = LinkedinProfile(
         first_name="Manual",
         full_name="Manual User",
-        linkedin_url="https://www.linkedin.com/in/different-from-provided/",
-        username="manually-provided-username",  # Should use this instead of URL
+        username="manually-provided-username",
         location="Manual City",
         headline="Manual Engineer",
         about="Manual about"
@@ -168,14 +166,11 @@ async def test_provided_username_takes_precedence(setup_db):
     assert success is True
     assert lead_id is not None
 
-    # Should find by the manually provided username, not the URL one
+    # Should find by the provided username
     retrieved = await get_linkedin_profile_by_username("manually-provided-username")
     assert retrieved is not None
     assert retrieved['username'] == "manually-provided-username"
 
-    # Should not find by URL extracted username
-    not_found = await get_linkedin_profile_by_username("different-from-provided")
-    assert not_found is None
 
 
 @pytest.mark.asyncio
@@ -189,6 +184,6 @@ if __name__ == "__main__":
     # Run tests directly
     asyncio.run(test_save_lead_complete(None))
     asyncio.run(test_save_lead_without_company(None))
-    asyncio.run(test_username_extraction_in_profile_insertion(None))
-    asyncio.run(test_provided_username_takes_precedence(None))
+    asyncio.run(test_save_profile_with_extracted_username(None))
+    asyncio.run(test_save_profile_with_username(None))
     asyncio.run(test_get_linkedin_profile_by_username_not_found(None))
