@@ -4,14 +4,12 @@ from air1.db.db import db
 from air1.services.linkedin.linkedin_profile import Lead, LinkedinProfile
 from loguru import logger
 
-# Load queries from SQL files
 query_dir = os.path.join(os.path.dirname(__file__), "..", "..", "db", "query")
 queries = aiosql.from_path(query_dir, "asyncpg")
 
 
 async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
     try:
-        # Use the provided connection or get the pool
         db_conn = conn if conn else await db.get_pool()
         result = await queries.insert_lead(
             db_conn,
@@ -20,8 +18,6 @@ async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
             email=lead.email,
             phone_number=lead.phone_number,
         )
-        # aiosql with ^ operator should return just the value
-        # but with asyncpg it returns a Record, so get the first column
         lead_id = result[0] if result else None
         return True, lead_id
     except Exception as e:
@@ -29,22 +25,46 @@ async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
         return False, None
 
 
+
 async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=None):
     try:
-        # Use the provided connection or get the pool
         db_conn = conn if conn else await db.get_pool()
+
+        if not profile.username:
+            logger.error(f"Username is required for LinkedIn profile insertion")
+            return None
+
+        logger.info(
+            f"Inserting LinkedIn profile for lead_id={lead_id}, username={username}"
+        )
         result = await queries.insert_linkedin_profile(
             db_conn,
             lead_id=lead_id,
-            linkedin_url=profile.linkedin_url,
+            username=profile.username,
             location=profile.location,
             headline=profile.headline,
             about=profile.about,
         )
-        # Get first column (linkedin_profile_id)
-        return result[0] if result else None
+        linkedin_profile_id = result[0] if result else None
+        logger.info(
+            f"LinkedIn profile insertion result: linkedin_profile_id={linkedin_profile_id}"
+        )
+        return linkedin_profile_id
     except Exception as e:
-        logger.error(f"Failed to insert linkedin profile: {e}")
+        logger.error(
+            f"Failed to insert linkedin profile for lead_id={lead_id}, username={username}: {e}"
+        )
+        return None
+
+
+async def get_linkedin_profile_by_username(username: str) -> dict | None:
+    """Fetch LinkedIn profile by username"""
+    try:
+        pool = await db.get_pool()
+        result = await queries.get_linkedin_profile_by_username(pool, username=username)
+        return dict(result) if result else None
+    except Exception as e:
+        logger.error(f"Failed to get LinkedIn profile for username {username}: {e}")
         return None
 
 
@@ -80,7 +100,9 @@ async def save_lead_complete(
                 if not success:
                     return False, None
 
-                linkedin_profile_id = await insert_linkedin_profile(profile, lead_id, conn)
+                linkedin_profile_id = await insert_linkedin_profile(
+                    profile, lead_id, conn
+                )
                 if not linkedin_profile_id:
                     return False, None
 
