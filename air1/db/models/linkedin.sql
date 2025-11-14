@@ -21,11 +21,11 @@ create table linkedin_company_members
 (
     company_member_id   bigint generated always as identity primary key,
     linkedin_profile_id bigint references linkedin_profile(linkedin_profile_id),
-    company_url         varchar(255)            not null,
-    company_name        varchar(255)            null,
+    username            varchar(255)            not null,
+    title               varchar(255)            null,
     created_on          timestamp default now() not null,
     updated_on          timestamp default now() not null,
-    unique(linkedin_profile_id, company_url)
+    unique(linkedin_profile_id, username)
 );
 
 create trigger update_linkedin_company_members_updated_on
