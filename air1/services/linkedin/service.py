@@ -113,6 +113,8 @@ class Service(IService):
             for profile_id in company_people.profile_ids:
                 profile = await session.get_profile_info(profile_id)
 
+                profile.username = profile_id
+
                 lead = Lead(
                     first_name=profile.first_name,
                     full_name=profile.full_name,
