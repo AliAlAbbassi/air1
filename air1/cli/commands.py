@@ -23,7 +23,6 @@ def company_leads(
                 for company, count in results.items():
                     print(f"{company}: {count} leads saved")
         finally:
-            # Clean up the connection pool
             await close_pool()
 
     asyncio.run(run())

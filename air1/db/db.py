@@ -29,7 +29,6 @@ async def close_pool():
 
 class Database:
     async def get_pool(self) -> asyncpg.Pool:
-        """Get or create the connection pool."""
         global pool
         if pool is None:
             pool = await init_pool()
