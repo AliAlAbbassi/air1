@@ -29,22 +29,65 @@ async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
         return False, None
 
 
+def extract_username_from_linkedin_url(linkedin_url: str) -> str:
+    """Extract username from LinkedIn URL. E.g., 'https://linkedin.com/in/johndoe/' -> 'johndoe'"""
+    if not linkedin_url:
+        return ""
+
+    # Remove trailing slash and split by '/'
+    parts = linkedin_url.rstrip('/').split('/')
+
+    # Find the part after '/in/'
+    try:
+        in_index = parts.index('in')
+        if in_index + 1 < len(parts):
+            username = parts[in_index + 1]
+            # Remove any query parameters
+            return username.split('?')[0]
+    except ValueError:
+        pass
+
+    return ""
+
+
 async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=None):
     try:
         # Use the provided connection or get the pool
         db_conn = conn if conn else await db.get_pool()
+
+        # Extract username from LinkedIn URL if not provided
+        username = profile.username or extract_username_from_linkedin_url(profile.linkedin_url)
+
+        if not username:
+            logger.error(f"No username found for LinkedIn profile: {profile.linkedin_url}")
+            return None
+
+        logger.info(f"Inserting LinkedIn profile for lead_id={lead_id}, username={username}")
         result = await queries.insert_linkedin_profile(
             db_conn,
             lead_id=lead_id,
-            linkedin_url=profile.linkedin_url,
+            username=username,
             location=profile.location,
             headline=profile.headline,
             about=profile.about,
         )
         # Get first column (linkedin_profile_id)
-        return result[0] if result else None
+        linkedin_profile_id = result[0] if result else None
+        logger.info(f"LinkedIn profile insertion result: linkedin_profile_id={linkedin_profile_id}")
+        return linkedin_profile_id
     except Exception as e:
-        logger.error(f"Failed to insert linkedin profile: {e}")
+        logger.error(f"Failed to insert linkedin profile for lead_id={lead_id}, username={username}: {e}")
+        return None
+
+
+async def get_linkedin_profile_by_username(username: str) -> dict | None:
+    """Fetch LinkedIn profile by username"""
+    try:
+        pool = await db.get_pool()
+        result = await queries.get_linkedin_profile_by_username(pool, username=username)
+        return dict(result) if result else None
+    except Exception as e:
+        logger.error(f"Failed to get LinkedIn profile for username {username}: {e}")
         return None
 
 
