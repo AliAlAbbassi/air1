@@ -27,7 +27,25 @@ class BrowserSession:
                 }
                 await self.page.context.add_cookies([cookies])
 
-        await self.page.goto(url, timeout=60000, wait_until="domcontentloaded")
+        try:
+            await self.page.goto(url, timeout=30000, wait_until="domcontentloaded")
+        except Exception as e:
+            error_str = str(e)
+            if "ERR_TOO_MANY_REDIRECTS" in error_str:
+                raise Exception(
+                    "LinkedIn authentication failed. Your session cookie may be expired. "
+                    "Please update the 'linkedin_sid' in your .env file with a fresh cookie value."
+                )
+            elif "Timeout" in error_str:
+                raise Exception(
+                    f"Failed to load LinkedIn page: {url}\n"
+                    "This could be due to:\n"
+                    "1. Invalid or expired linkedin_sid cookie in your .env file\n"
+                    "2. LinkedIn blocking automated access\n"
+                    "3. Network connectivity issues\n"
+                    "Please verify your linkedin_sid cookie is valid and try again."
+                )
+            raise
         return self.page
 
     async def get_profile_info(self, profile_id: str) -> LinkedinProfile:
@@ -43,70 +61,122 @@ class BrowserSession:
         profile_url = f"https://www.linkedin.com/in/{profile_id}"
         page = await self._setup_page(profile_url)
 
+        # Wait for page to load
+        await page.wait_for_timeout(2000)
+
         try:
             profile_data = {}
 
-            try:
-                name_locator = page.locator(
-                    "h1.UXwXGvkZjLHXTkTzfStIRtZBcIdwKURDfTbmzc"
-                ).first
-                await name_locator.wait_for(timeout=10000)
-                name = await name_locator.text_content()
-                if name:
-                    full_name = name.strip()
-                    name_parts = full_name.split()
-                    profile_data["full_name"] = full_name
-                    profile_data["first_name"] = name_parts[0] if name_parts else ""
-                    profile_data["last_name"] = (
-                        " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
-                    )
-            except Exception:
-                pass
+            # Try multiple selectors for the name
+            name_found = False
+            name_selectors = [
+                "h1",  # Most generic, likely to work
+                "h1.text-heading-xlarge",
+                "main section:first-child h1",
+            ]
 
-            try:
-                headline = await page.locator(
-                    ".text-body-medium.break-words[data-generated-suggestion-target]"
-                ).first.text_content()
-                if headline:
-                    profile_data["headline"] = headline.strip()
-            except Exception:
-                pass
+            for selector in name_selectors:
+                try:
+                    elements = await page.locator(selector).all()
+                    for elem in elements:
+                        name = await elem.text_content()
+                        if name and name.strip() and not name_found:
+                            full_name = name.strip()
+                            name_parts = full_name.split()
+                            profile_data["full_name"] = full_name
+                            profile_data["first_name"] = name_parts[0] if name_parts else ""
+                            profile_data["last_name"] = (
+                                " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+                            )
+                            name_found = True
+                            break
+                except Exception:
+                    continue
 
-            try:
-                location = await page.locator(
-                    "span.text-body-small.inline.t-black--light.break-words"
-                ).first.text_content()
-                if location:
-                    profile_data["location"] = location.strip()
-            except Exception:
-                pass
+            if not name_found:
+                # Set defaults
+                profile_data["full_name"] = ""
+                profile_data["first_name"] = ""
+                profile_data["last_name"] = ""
 
+            # Extract headline
+            try:
+                headline_selectors = [
+                    ".text-body-medium.break-words",
+                    "div.text-body-medium",
+                ]
+                for selector in headline_selectors:
+                    elements = await page.locator(selector).all()
+                    for elem in elements:
+                        headline = await elem.text_content()
+                        if headline and headline.strip() and "headline" not in profile_data:
+                            profile_data["headline"] = headline.strip()
+                            break
+                    if "headline" in profile_data:
+                        break
+            except Exception as e:
+                print(f"  DEBUG: Headline extraction error: {e}")
+
+            # Extract location
+            try:
+                location_selectors = [
+                    "span.text-body-small",
+                    "span:has-text('Located in')",
+                ]
+                for selector in location_selectors:
+                    elements = await page.locator(selector).all()
+                    for elem in elements:
+                        location = await elem.text_content()
+                        if location and location.strip() and "location" not in profile_data:
+                            profile_data["location"] = location.strip()
+                            break
+                    if "location" in profile_data:
+                        break
+            except Exception as e:
+                print(f"  DEBUG: Location extraction error: {e}")
+
+            # Extract contact info
             try:
                 contact_button = page.locator('a[href*="/overlay/contact-info/"]')
                 if await contact_button.count() > 0:
                     await contact_button.click()
-                    await page.locator(".pv-contact-info__contact-type").first.wait_for(
-                        timeout=5000
-                    )
+                    await page.wait_for_timeout(2000)
 
-                email_element = page.locator('a[href^="mailto:"]').first
-                if await email_element.count() > 0:
-                    email_href = await email_element.get_attribute("href")
-                    if email_href and email_href.startswith("mailto:"):
-                        profile_data["email"] = email_href.replace(
-                            "mailto:", ""
-                        ).strip()
+                    # Try to find email
+                    email_elements = await page.locator('a[href^="mailto:"]').all()
+                    for elem in email_elements:
+                        email_href = await elem.get_attribute("href")
+                        if email_href and "mailto:" in email_href:
+                            email = email_href.replace("mailto:", "").split("?")[0].strip()
+                            profile_data["email"] = email
+                            break
 
-                phone_element = page.locator(
-                    '.pv-contact-info__contact-type:has-text("Phone") span.t-14.t-black.t-normal'
-                ).first
-                if await phone_element.count() > 0:
-                    phone_text = await phone_element.text_content()
-                    if phone_text:
-                        profile_data["phone_number"] = phone_text.strip()
+                    # Try to find phone with multiple approaches
+                    phone_found = False
 
-            except Exception as e:
-                print(f"Error extracting contact info: {e}")
+                    # Look for any text that looks like a phone number
+                    all_text_elements = await page.locator("span, div").all()
+                    for elem in all_text_elements:
+                        text = await elem.text_content()
+                        if text:
+                            # Check if it looks like a phone number
+                            import re
+                            phone_pattern = r'[\+]?[(]?[0-9]{1,3}[)]?[-\s\.]?[(]?[0-9]{1,3}[)]?[-\s\.]?[0-9]{3,5}[-\s\.]?[0-9]{3,5}'
+                            matches = re.findall(phone_pattern, text)
+                            if matches and not phone_found:
+                                profile_data["phone_number"] = matches[0].strip()
+                                phone_found = True
+                                break
+
+                    # Close the modal
+                    try:
+                        close_button = page.locator('button[aria-label="Dismiss"]')
+                        if await close_button.count() > 0:
+                            await close_button.click()
+                    except:
+                        pass
+            except Exception:
+                pass
 
             return LinkedinProfile(**profile_data)
 

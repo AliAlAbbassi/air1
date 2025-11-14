@@ -11,7 +11,8 @@ queries = aiosql.from_path(query_dir, "asyncpg")
 
 async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
     try:
-        db_conn = conn or db.pool
+        # Use the provided connection or get the pool
+        db_conn = conn if conn else await db.get_pool()
         result = await queries.insert_lead(
             db_conn,
             first_name=lead.first_name,
@@ -30,7 +31,8 @@ async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
 
 async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=None):
     try:
-        db_conn = conn or db.pool
+        # Use the provided connection or get the pool
+        db_conn = conn if conn else await db.get_pool()
         result = await queries.insert_linkedin_profile(
             db_conn,
             lead_id=lead_id,
@@ -50,7 +52,8 @@ async def insert_linkedin_company_member(
         linkedin_profile_id: int, company_url: str, company_name: str = None, conn=None
 ):
     try:
-        db_conn = conn or db.pool
+        # Use the provided connection or get the pool
+        db_conn = conn if conn else await db.get_pool()
         await queries.insert_linkedin_company_member(
             db_conn,
             linkedin_profile_id=linkedin_profile_id,
@@ -62,14 +65,16 @@ async def insert_linkedin_company_member(
 
 
 async def save_lead_complete(
-    lead: Lead,
-    profile: LinkedinProfile,
-    company_url: str = None,
-    company_name: str = None
+        lead: Lead,
+        profile: LinkedinProfile,
+        company_url: str = None,
+        company_name: str = None
 ) -> tuple[bool, int | None]:
     """Save lead with profile and company association in one transaction."""
     try:
-        async with db.pool.acquire() as conn:
+        # Get the pool first, then acquire a connection
+        pool = await db.get_pool()
+        async with pool.acquire() as conn:
             async with conn.transaction():
                 success, lead_id = await insert_lead(lead, conn)
                 if not success:

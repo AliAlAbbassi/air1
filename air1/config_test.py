@@ -93,7 +93,6 @@ class TestSettings:
         monkeypatch.setenv("DATABASE_USER", "testuser")
         # Clear the linkedin_sid from .env file
         monkeypatch.delenv("LINKEDIN_SID", raising=False)
-        monkeypatch.delenv("linkedin_sid", raising=False)
 
         # Create settings without env file
         settings = Settings(_env_file=None)

@@ -2,11 +2,10 @@ from air1.services.linkedin.repo import save_lead_complete
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv
-from typing import Optional, Protocol
+from typing import Optional
 from abc import ABC, abstractmethod
 
 from air1.services.linkedin.browser import BrowserSession
-from air1.db.db import db
 from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeople, Lead
 
 load_dotenv()
@@ -28,7 +27,7 @@ class Service(IService):
         self._owns_playwright = False
         self._playwright_instance = None
 
-        self.linkedin_sid = os.getenv("linkedin_sid")
+        self.linkedin_sid = os.getenv("LINKEDIN_SID")
         if not self.linkedin_sid:
             raise ValueError("linkedin_sid environment variable is required")
 
@@ -101,10 +100,12 @@ class Service(IService):
         Returns:
             int: Number of leads saved
         """
+        print(f"Launching browser for {company_id}...")
         session = await self.launch_browser(headless=headless)
         leads_saved = 0
 
         try:
+            print(f"Getting company members for {company_id}...")
             company_people = await session.get_company_members(company_id, limit=limit)
             print(f"Found {len(company_people.profile_ids)} profiles")
 
@@ -118,19 +119,18 @@ class Service(IService):
                     phone_number=profile.phone_number,
                 )
 
-                if lead.email:
-                    try:
-                        company_url = f"https://www.linkedin.com/company/{company_id}/"
-                        success, lead_id = await save_lead_complete(
-                            lead, profile, company_url, company_id
+                try:
+                    company_url = f"https://www.linkedin.com/company/{company_id}/"
+                    success, lead_id = await save_lead_complete(
+                        lead, profile, company_url, company_id
+                    )
+                    if success:
+                        print(
+                            f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}"
                         )
-                        if success:
-                            print(
-                                f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}"
-                            )
-                            leads_saved += 1
-                    except Exception as e:
-                        print(f"Failed to save lead {lead.full_name}: {e}")
+                        leads_saved += 1
+                except Exception as e:
+                    print(f"Failed to save lead {lead.full_name}: {e}")
 
         finally:
             await session.browser.close()

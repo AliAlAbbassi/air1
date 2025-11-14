@@ -1,10 +1,11 @@
 import asyncpg
 from air1.config import settings
+from typing import Optional
 
-pool: asyncpg.Pool = None
+pool: Optional[asyncpg.Pool] = None
 
 
-async def init_pool():
+async def init_pool() -> asyncpg.Pool:
     global pool
     if pool is None:
         pool = await asyncpg.create_pool(
@@ -13,8 +14,8 @@ async def init_pool():
             database=settings.database_name,
             user=settings.database_user,
             password=settings.database_password,
-            min_size=10,
-            max_size=10,
+            min_size=1,
+            max_size=20,
         )
     return pool
 
@@ -27,26 +28,23 @@ async def close_pool():
 
 
 class Database:
-
-    @property
-    def pool(self):
+    async def get_pool(self) -> asyncpg.Pool:
+        """Get or create the connection pool."""
+        global pool
         if pool is None:
-            raise RuntimeError("Database not initialized. Call init_pool() first.")
+            pool = await init_pool()
         return pool
 
     async def fetch(self, query, *args):
-        if pool is None:
-            await init_pool()
+        pool = await self.get_pool()
         return await pool.fetch(query, *args)
 
     async def fetchrow(self, query, *args):
-        if pool is None:
-            await init_pool()
+        pool = await self.get_pool()
         return await pool.fetchrow(query, *args)
 
     async def execute(self, query, *args):
-        if pool is None:
-            await init_pool()
+        pool = await self.get_pool()
         return await pool.execute(query, *args)
 
 
