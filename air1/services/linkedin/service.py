@@ -101,12 +101,12 @@ class Service(IService):
         Returns:
             int: Number of leads saved
         """
-        logger.info(f"Launching browser for {company_id}...")
+        logger.debug(f"Launching browser for {company_id}...")
         session = await self.launch_browser(headless=headless)
         leads_saved = 0
 
         try:
-            logger.info(f"Getting company members for {company_id}...")
+            logger.debug(f"Getting company members for {company_id}...")
             company_people = await session.get_company_members(company_id, limit=limit)
             logger.info(f"Found {len(company_people.profile_ids)} profiles for company {company_id}")
 
