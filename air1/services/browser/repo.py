@@ -1,11 +1,12 @@
 import aiosql
 import os
+from typing import Any
 from air1.db.db import db
 from air1.services.browser.linkedin_profile import Lead, LinkedinProfile
 from loguru import logger
 
 query_dir = os.path.join(os.path.dirname(__file__), "..", "..", "db", "query")
-queries = aiosql.from_path(query_dir, "asyncpg")
+queries: Any = aiosql.from_path(query_dir, "asyncpg")
 
 
 async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
@@ -23,7 +24,6 @@ async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
     except Exception as e:
         logger.error(f"Failed to insert lead: {e}")
         return False, None
-
 
 
 async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=None):
@@ -79,7 +79,9 @@ async def get_company_members_by_username(username: str) -> list[dict]:
         return []
 
 
-async def get_company_member_by_profile_and_username(linkedin_profile_id: int, username: str) -> dict | None:
+async def get_company_member_by_profile_and_username(
+    linkedin_profile_id: int, username: str
+) -> dict | None:
     """Fetch specific company member by profile ID and username"""
     try:
         pool = await db.get_pool()
@@ -95,10 +97,9 @@ async def get_company_member_by_profile_and_username(linkedin_profile_id: int, u
 
 
 async def insert_linkedin_company_member(
-        linkedin_profile_id: int, username: str, title: str = None, conn=None
+    linkedin_profile_id: int, username: str, title: str | None = None, conn=None
 ):
     try:
-        # Use the provided connection or get the pool
         db_conn = conn if conn else await db.get_pool()
 
         if not username:
@@ -124,19 +125,18 @@ async def insert_linkedin_company_member(
 
 
 async def save_lead_complete(
-        lead: Lead,
-        profile: LinkedinProfile,
-        username: str = None,
-        title: str = None
+    lead: Lead,
+    profile: LinkedinProfile,
+    username: str | None = None,
+    title: str | None = None,
 ) -> tuple[bool, int | None]:
     """Save lead with profile and company association in one transaction."""
     try:
-        # Get the pool first, then acquire a connection
         pool = await db.get_pool()
         async with pool.acquire() as conn:
             async with conn.transaction():
                 success, lead_id = await insert_lead(lead, conn)
-                if not success:
+                if not success or lead_id is None:
                     return False, None
 
                 linkedin_profile_id = await insert_linkedin_profile(

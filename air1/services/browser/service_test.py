@@ -27,22 +27,20 @@ async def test_scrape_company_leads_with_mock(setup_db):
 
     mock_profiles = {
         "john-doe": LinkedinProfile(
-            profile_id="john-doe",
+            username="john-doe",
             first_name="John",
             full_name="John Doe",
             headline="Software Engineer",
             location="San Francisco, CA",
-            linkedin_url="https://linkedin.com/in/john-doe",
             email="john.doe@example.com",
             phone_number="+1234567890"
         ),
         "jane-smith": LinkedinProfile(
-            profile_id="jane-smith",
+            username="jane-smith",
             first_name="Jane",
             full_name="Jane Smith",
             headline="Product Manager",
             location="New York, NY",
-            linkedin_url="https://linkedin.com/in/jane-smith",
             email="jane.smith@example.com",
             phone_number="+9876543210"
         )
@@ -141,7 +139,7 @@ async def test_scrape_with_no_emails(setup_db):
 
     profiles_without_email = {
         "no-email-1": LinkedinProfile(
-            profile_id="no-email-1",
+            username="no-email-1",
             first_name="Bob",
             full_name="Bob Smith",
             headline="Engineer",
@@ -149,7 +147,7 @@ async def test_scrape_with_no_emails(setup_db):
             email=""
         ),
         "no-email-2": LinkedinProfile(
-            profile_id="no-email-2",
+            username="no-email-2",
             first_name="Alice",
             full_name="Alice Johnson",
             headline="Designer",
@@ -192,7 +190,7 @@ async def test_scrape_and_save_error_handling(setup_db):
     mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
 
     mock_profile = LinkedinProfile(
-        profile_id="error-test",
+        username="error-test",
         first_name="Error",
         full_name="Error Test",
         email="error@test.com",
