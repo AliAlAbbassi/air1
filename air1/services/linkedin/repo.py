@@ -35,7 +35,7 @@ async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=N
             return None
 
         logger.info(
-            f"Inserting LinkedIn profile for lead_id={lead_id}, username={username}"
+            f"Inserting LinkedIn profile for lead_id={lead_id}, username={profile.username}"
         )
         result = await queries.insert_linkedin_profile(
             db_conn,
@@ -52,7 +52,7 @@ async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=N
         return linkedin_profile_id
     except Exception as e:
         logger.error(
-            f"Failed to insert linkedin profile for lead_id={lead_id}, username={username}: {e}"
+            f"Failed to insert linkedin profile for lead_id={lead_id}, username={profile.username}: {e}"
         )
         return None
 
@@ -68,27 +68,66 @@ async def get_linkedin_profile_by_username(username: str) -> dict | None:
         return None
 
 
+async def get_company_members_by_username(username: str) -> list[dict]:
+    """Fetch all company members by username"""
+    try:
+        pool = await db.get_pool()
+        results = await queries.get_company_members_by_username(pool, username=username)
+        return [dict(result.items()) for result in results] if results else []
+    except Exception as e:
+        logger.error(f"Failed to get company members for username {username}: {e}")
+        return []
+
+
+async def get_company_member_by_profile_and_username(linkedin_profile_id: int, username: str) -> dict | None:
+    """Fetch specific company member by profile ID and username"""
+    try:
+        pool = await db.get_pool()
+        result = await queries.get_company_member_by_profile_and_username(
+            pool, linkedin_profile_id=linkedin_profile_id, username=username
+        )
+        return dict(result) if result else None
+    except Exception as e:
+        logger.error(
+            f"Failed to get company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
+        )
+        return None
+
+
 async def insert_linkedin_company_member(
-    linkedin_profile_id: int, company_url: str, company_name: str = None, conn=None
+        linkedin_profile_id: int, username: str, title: str = None, conn=None
 ):
     try:
         # Use the provided connection or get the pool
         db_conn = conn if conn else await db.get_pool()
+
+        if not username:
+            logger.error(f"Username is required for company member insertion")
+            return None
+
+        logger.info(
+            f"Inserting company member for linkedin_profile_id={linkedin_profile_id}, username={username}, title={title}"
+        )
         await queries.insert_linkedin_company_member(
             db_conn,
             linkedin_profile_id=linkedin_profile_id,
-            company_url=company_url,
-            company_name=company_name,
+            username=username,
+            title=title,
+        )
+        logger.info(
+            f"Company member insertion successful for linkedin_profile_id={linkedin_profile_id}, username={username}"
         )
     except Exception as e:
-        logger.error(f"Failed to insert company member: {e}")
+        logger.error(
+            f"Failed to insert company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
+        )
 
 
 async def save_lead_complete(
-    lead: Lead,
-    profile: LinkedinProfile,
-    company_url: str = None,
-    company_name: str = None,
+        lead: Lead,
+        profile: LinkedinProfile,
+        username: str = None,
+        title: str = None
 ) -> tuple[bool, int | None]:
     """Save lead with profile and company association in one transaction."""
     try:
@@ -106,9 +145,9 @@ async def save_lead_complete(
                 if not linkedin_profile_id:
                     return False, None
 
-                if company_url and linkedin_profile_id:
+                if username and linkedin_profile_id:
                     await insert_linkedin_company_member(
-                        linkedin_profile_id, company_url, company_name, conn
+                        linkedin_profile_id, username, title, conn
                     )
 
                 return True, lead_id
