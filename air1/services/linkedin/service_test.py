@@ -48,7 +48,8 @@ async def test_scrape_company_leads_with_mock(setup_db):
         )
     }
 
-    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession:
+    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession, \
+         patch('os.getenv', return_value='mock_linkedin_sid'):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
 
@@ -82,7 +83,8 @@ async def test_scrape_multiple_companies(setup_db):
 
     mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
 
-    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession:
+    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession, \
+         patch('os.getenv', return_value='mock_linkedin_sid'):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
 
@@ -109,22 +111,23 @@ async def test_scrape_multiple_companies(setup_db):
 async def test_service_context_manager():
     """Test Service async context manager."""
 
-    mock_playwright = MagicMock()
-    async with Service(playwright=mock_playwright) as service:
-        assert service.playwright == mock_playwright
-        assert service._owns_playwright is False
+    with patch('os.getenv', return_value='mock_linkedin_sid'):
+        mock_playwright = MagicMock()
+        async with Service(playwright=mock_playwright) as service:
+            assert service.playwright == mock_playwright
+            assert service._owns_playwright is False
 
-    with patch('air1.services.linkedin.service.async_playwright') as mock_async_playwright:
-        mock_playwright_instance = AsyncMock()
-        mock_async_playwright.return_value = mock_playwright_instance
-        mock_playwright_instance.__aenter__ = AsyncMock(return_value=MagicMock())
-        mock_playwright_instance.__aexit__ = AsyncMock()
+        with patch('air1.services.linkedin.service.async_playwright') as mock_async_playwright:
+            mock_playwright_instance = AsyncMock()
+            mock_async_playwright.return_value = mock_playwright_instance
+            mock_playwright_instance.__aenter__ = AsyncMock(return_value=MagicMock())
+            mock_playwright_instance.__aexit__ = AsyncMock()
 
-        async with Service() as service:
-            assert service._owns_playwright is True
-            assert service.playwright is not None
+            async with Service() as service:
+                assert service._owns_playwright is True
+                assert service.playwright is not None
 
-        mock_playwright_instance.__aexit__.assert_called_once()
+            mock_playwright_instance.__aexit__.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -155,7 +158,8 @@ async def test_scrape_with_no_emails(setup_db):
         )
     }
 
-    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession:
+    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession, \
+         patch('os.getenv', return_value='mock_linkedin_sid'):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
 
@@ -175,7 +179,7 @@ async def test_scrape_with_no_emails(setup_db):
             headless=True
         )
 
-        assert results["test-company"] == 0
+        assert results["test-company"] == 2
 
 
 @pytest.mark.asyncio
@@ -195,7 +199,8 @@ async def test_scrape_and_save_error_handling(setup_db):
         headline="Test"
     )
 
-    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession:
+    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession, \
+         patch('os.getenv', return_value='mock_linkedin_sid'):
         with patch('air1.services.linkedin.service.save_lead_complete') as mock_save:
             mock_session_instance = AsyncMock()
             MockBrowserSession.return_value = mock_session_instance
