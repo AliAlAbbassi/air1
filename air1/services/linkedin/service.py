@@ -8,6 +8,7 @@ from loguru import logger
 
 from air1.services.linkedin.browser import BrowserSession
 from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeople, Lead
+from air1.services.linkedin.data_mapper import DataMapper
 
 load_dotenv()
 
@@ -48,7 +49,9 @@ class Service(IService):
 
     async def launch_browser(self, headless=True) -> BrowserSession:
         if not self.playwright:
-            raise RuntimeError("Playwright not initialized. Use 'async with Service()' context manager.")
+            raise RuntimeError(
+                "Playwright not initialized. Use 'async with Service()' context manager."
+            )
         browser = await self.playwright.chromium.launch(headless=headless)
         return BrowserSession(browser, self.linkedin_sid)
 
@@ -119,15 +122,8 @@ class Service(IService):
 
             for profile_id in company_people.profile_ids:
                 profile = await session.get_profile_info(profile_id)
-
-                profile.username = profile_id
-
-                lead = Lead(
-                    first_name=profile.first_name,
-                    full_name=profile.full_name,
-                    email=profile.email,
-                    phone_number=profile.phone_number,
-                )
+                profile = DataMapper.enrich_profile_with_username(profile, profile_id)
+                lead = DataMapper.profile_to_lead(profile)
 
                 try:
                     company_url = f"https://www.linkedin.com/company/{company_id}/"
