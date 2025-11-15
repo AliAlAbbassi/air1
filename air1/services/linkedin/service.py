@@ -12,49 +12,15 @@ from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeop
 load_dotenv()
 
 
-def extract_username_from_linkedin_url(linkedin_url: str) -> str:
-    """Extract username from LinkedIn URL. E.g., 'https://linkedin.com/in/johndoe/' -> 'johndoe'"""
-    if not linkedin_url:
-        return ""
-
-    parts = linkedin_url.rstrip("/").split("/")
-
-    try:
-        in_index = parts.index("in")
-        if in_index + 1 < len(parts):
-            username = parts[in_index + 1]
-            return username.split("?")[0]
-    except ValueError:
-        pass
-
-    return ""
-
-
-def extract_company_id_from_linkedin_url(company_url: str) -> str:
-    """Extract company ID from LinkedIn company URL. E.g., 'https://linkedin.com/company/acme/' -> 'acme'"""
-    if not company_url:
-        return ""
-
-    parts = company_url.rstrip("/").split("/")
-
-    try:
-        company_index = parts.index("company")
-        if company_index + 1 < len(parts):
-            company_id = parts[company_index + 1]
-            return company_id.split("?")[0]
-    except ValueError:
-        pass
-
-    return ""
-
-
 class IService(ABC):
     """
     Scrape leads from company's LinkedIn profile
     """
 
     @abstractmethod
-    async def scrape_company_leads(self, company_ids: list[str], limit=10, headless=True):
+    async def scrape_company_leads(
+        self, company_ids: list[str], limit=10, headless=True
+    ):
         pass
 
 
@@ -102,7 +68,7 @@ class Service(IService):
             await session.browser.close()
 
     async def get_company_members(
-            self, company_id: str, limit=10, headless=True
+        self, company_id: str, limit=10, headless=True
     ) -> CompanyPeople:
         """
         Get all profile IDs of people working at a company (launches and closes browser automatically)
@@ -124,7 +90,7 @@ class Service(IService):
             await session.browser.close()
 
     async def scrape_and_save_company_leads(
-            self, company_id: str, limit=10, headless=True
+        self, company_id: str, limit=10, headless=True
     ):
         """
         Scrape LinkedIn company profiles and save leads to database
@@ -144,7 +110,9 @@ class Service(IService):
         try:
             logger.debug(f"Getting company members for {company_id}...")
             company_people = await session.get_company_members(company_id, limit=limit)
-            logger.info(f"Found {len(company_people.profile_ids)} profiles for company {company_id}")
+            logger.info(
+                f"Found {len(company_people.profile_ids)} profiles for company {company_id}"
+            )
 
             for profile_id in company_people.profile_ids:
                 profile = await session.get_profile_info(profile_id)
@@ -177,7 +145,9 @@ class Service(IService):
         logger.info(f"Successfully saved {leads_saved} leads for company {company_id}")
         return leads_saved
 
-    async def scrape_company_leads(self, company_ids: list[str], limit=10, headless=True):
+    async def scrape_company_leads(
+        self, company_ids: list[str], limit=10, headless=True
+    ):
         """
         Args:
             company_ids: List of LinkedIn company IDs to scrape
