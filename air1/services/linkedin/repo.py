@@ -35,7 +35,7 @@ async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=N
             return None
 
         logger.info(
-            f"Inserting LinkedIn profile for lead_id={lead_id}, username={username}"
+            f"Inserting LinkedIn profile for lead_id={lead_id}, username={profile.username}"
         )
         result = await queries.insert_linkedin_profile(
             db_conn,
@@ -52,7 +52,7 @@ async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=N
         return linkedin_profile_id
     except Exception as e:
         logger.error(
-            f"Failed to insert linkedin profile for lead_id={lead_id}, username={username}: {e}"
+            f"Failed to insert linkedin profile for lead_id={lead_id}, username={profile.username}: {e}"
         )
         return None
 
@@ -73,7 +73,7 @@ async def get_company_members_by_username(username: str) -> list[dict]:
     try:
         pool = await db.get_pool()
         results = await queries.get_company_members_by_username(pool, username=username)
-        return [dict(result) for result in results] if results else []
+        return [dict(result.items()) for result in results] if results else []
     except Exception as e:
         logger.error(f"Failed to get company members for username {username}: {e}")
         return []

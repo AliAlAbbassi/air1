@@ -33,12 +33,11 @@ async def test_save_lead_complete(setup_db):
     )
 
     profile = LinkedinProfile(
-        profile_id="johndoe123",
         first_name="John",
         full_name="John Doe",
+        username="johndoe123",
         headline="Software Engineer at Tech Corp",
         location="San Francisco, CA",
-        linkedin_url="https://linkedin.com/in/johndoe123",
         email="john.doe@example.com",
         phone_number="+1234567890",
         about="Experienced software engineer"
@@ -67,12 +66,11 @@ async def test_save_lead_without_company(setup_db):
     )
 
     profile = LinkedinProfile(
-        profile_id="janesmith456",
         first_name="Jane",
         full_name="Jane Smith",
+        username="janesmith456",
         headline="Product Manager",
         location="New York, NY",
-        linkedin_url="https://linkedin.com/in/janesmith456",
         email="jane.smith@example.com",
         phone_number="+9876543210",
         about="Product management professional"
