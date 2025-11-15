@@ -64,3 +64,46 @@ class LinkedinOutreach:
         except Exception as e:
             logger.error(f"Error connecting to {profile_username}: {str(e)}")
             return False
+
+    @staticmethod
+    async def bulk_connect(
+        page: Page,
+        profile_usernames: list[str],
+        message: Optional[str] = None,
+        delay_between_connections: int = 5
+    ) -> dict[str, bool]:
+        """
+        Connect with multiple LinkedIn users sequentially
+
+        Args:
+            page: Playwright page instance with LinkedIn session
+            profile_usernames: List of LinkedIn profile usernames
+            message: Optional connection message for all users
+            delay_between_connections: Delay in seconds between connections (default: 5)
+
+        Returns:
+            dict: Results for each username (True if successful, False otherwise)
+        """
+        results = {}
+
+        logger.info(f"Starting bulk connect for {len(profile_usernames)} profiles")
+
+        for i, username in enumerate(profile_usernames):
+            logger.info(f"Connecting to profile {i+1}/{len(profile_usernames)}: {username}")
+
+            success = await LinkedinOutreach.connect(page, username, message)
+            results[username] = success
+
+            if success:
+                logger.success(f"✓ Connected to {username}")
+            else:
+                logger.warning(f"✗ Failed to connect to {username}")
+
+            if i < len(profile_usernames) - 1:
+                logger.debug(f"Waiting {delay_between_connections} seconds before next connection...")
+                await page.wait_for_timeout(delay_between_connections * 1000)
+
+        successful_connections = sum(1 for success in results.values() if success)
+        logger.info(f"Bulk connect completed: {successful_connections}/{len(profile_usernames)} successful connections")
+
+        return results

@@ -161,3 +161,32 @@ class Service(IService):
             )
             results[company_id] = leads_saved
         return results
+
+    async def connect_with_linkedin_profiles(
+        self,
+        profile_usernames: list[str],
+        message: Optional[str] = None,
+        delay_between_connections: int = 5,
+        headless: bool = True
+    ) -> dict[str, bool]:
+        """
+        Connect with multiple LinkedIn profiles (launches and closes browser automatically)
+
+        Args:
+            profile_usernames: List of LinkedIn profile usernames (e.g., ['john-doe-123', 'jane-smith-456'])
+            message: Optional connection message to send with each request
+            delay_between_connections: Delay in seconds between connections to avoid rate limits
+            headless: Run browser in headless mode
+
+        Returns:
+            dict: Results for each username mapping to success status
+        """
+        logger.info(f"Starting LinkedIn outreach for {len(profile_usernames)} profiles")
+        session = await self.launch_browser(headless=headless)
+
+        try:
+            return await session.connect_with_profiles(
+                profile_usernames, message, delay_between_connections
+            )
+        finally:
+            await session.browser.close()
