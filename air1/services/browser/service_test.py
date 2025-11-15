@@ -1,8 +1,8 @@
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from air1.services.linkedin.service import Service
-from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeople, Lead
+from air1.services.browser.service import Service
+from air1.services.browser.linkedin_profile import LinkedinProfile, CompanyPeople
 from air1.db.db import init_pool, close_pool
 
 
@@ -48,7 +48,7 @@ async def test_scrape_company_leads_with_mock(setup_db):
         )
     }
 
-    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession, \
+    with patch('air1.services.browser.service.BrowserSession') as MockBrowserSession, \
          patch('os.getenv', return_value='mock_linkedin_sid'):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
@@ -83,7 +83,7 @@ async def test_scrape_multiple_companies(setup_db):
 
     mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
 
-    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession, \
+    with patch('air1.services.browser.service.BrowserSession') as MockBrowserSession, \
          patch('os.getenv', return_value='mock_linkedin_sid'):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
@@ -117,7 +117,7 @@ async def test_service_context_manager():
             assert service.playwright == mock_playwright
             assert service._owns_playwright is False
 
-        with patch('air1.services.linkedin.service.async_playwright') as mock_async_playwright:
+        with patch('air1.services.browser.service.async_playwright') as mock_async_playwright:
             mock_playwright_instance = AsyncMock()
             mock_async_playwright.return_value = mock_playwright_instance
             mock_playwright_instance.__aenter__ = AsyncMock(return_value=MagicMock())
@@ -158,7 +158,7 @@ async def test_scrape_with_no_emails(setup_db):
         )
     }
 
-    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession, \
+    with patch('air1.services.browser.service.BrowserSession') as MockBrowserSession, \
          patch('os.getenv', return_value='mock_linkedin_sid'):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
@@ -199,9 +199,9 @@ async def test_scrape_and_save_error_handling(setup_db):
         headline="Test"
     )
 
-    with patch('air1.services.linkedin.service.BrowserSession') as MockBrowserSession, \
+    with patch('air1.services.browser.service.BrowserSession') as MockBrowserSession, \
          patch('os.getenv', return_value='mock_linkedin_sid'):
-        with patch('air1.services.linkedin.service.save_lead_complete') as mock_save:
+        with patch('air1.services.browser.service.save_lead_complete') as mock_save:
             mock_session_instance = AsyncMock()
             MockBrowserSession.return_value = mock_session_instance
 

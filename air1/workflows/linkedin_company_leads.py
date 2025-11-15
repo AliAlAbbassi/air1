@@ -1,6 +1,6 @@
 import asyncio
 from loguru import logger
-from air1.services.linkedin.service import Service
+from air1.services.browser.service import Service
 from air1.db.db import close_pool
 
 

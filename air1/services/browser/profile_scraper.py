@@ -103,7 +103,7 @@ class ProfileScraper:
                     close_button = page.locator('button[aria-label="Dismiss"]')
                     if await close_button.count() > 0:
                         await close_button.click()
-                except:
+                except Exception:
                     pass
         except Exception:
             pass

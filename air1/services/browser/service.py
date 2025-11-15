@@ -1,4 +1,4 @@
-from air1.services.linkedin.repo import save_lead_complete
+from air1.services.browser.repo import save_lead_complete
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv
@@ -6,9 +6,9 @@ from typing import Optional
 from abc import ABC, abstractmethod
 from loguru import logger
 
-from air1.services.linkedin.browser import BrowserSession
-from air1.services.linkedin.linkedin_profile import LinkedinProfile, CompanyPeople, Lead
-from air1.services.linkedin.data_mapper import DataMapper
+from air1.services.browser.browser import BrowserSession
+from air1.services.browser.linkedin_profile import LinkedinProfile, CompanyPeople
+from air1.services.browser.data_mapper import DataMapper
 
 load_dotenv()
 
@@ -126,7 +126,6 @@ class Service(IService):
                 lead = DataMapper.profile_to_lead(profile)
 
                 try:
-                    company_url = f"https://www.linkedin.com/company/{company_id}/"
                     success, lead_id = await save_lead_complete(
                         lead, profile, company_id, company_id
                     )

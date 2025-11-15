@@ -3,6 +3,7 @@ from playwright.async_api import Browser, Page
 from .linkedin_profile import LinkedinProfile, CompanyPeople
 from .profile_scraper import ProfileScraper
 from .company_scraper import CompanyScraper
+from loguru import logger
 
 
 class BrowserSession:
@@ -66,7 +67,7 @@ class BrowserSession:
         try:
             return await ProfileScraper.extract_profile_data(page)
         except Exception as e:
-            print(f"Error scraping profile: {str(e)}")
+            logger.error(f"Error scraping profile {profile_id}: {str(e)}")
             return LinkedinProfile()
 
     async def get_company_members(self, company_id: str, limit=10) -> CompanyPeople:

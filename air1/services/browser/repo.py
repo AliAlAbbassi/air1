@@ -1,7 +1,7 @@
 import aiosql
 import os
 from air1.db.db import db
-from air1.services.linkedin.linkedin_profile import Lead, LinkedinProfile
+from air1.services.browser.linkedin_profile import Lead, LinkedinProfile
 from loguru import logger
 
 query_dir = os.path.join(os.path.dirname(__file__), "..", "..", "db", "query")
@@ -31,7 +31,7 @@ async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=N
         db_conn = conn if conn else await db.get_pool()
 
         if not profile.username:
-            logger.error(f"Username is required for LinkedIn profile insertion")
+            logger.error("Username is required for LinkedIn profile insertion")
             return None
 
         logger.info(
@@ -102,7 +102,7 @@ async def insert_linkedin_company_member(
         db_conn = conn if conn else await db.get_pool()
 
         if not username:
-            logger.error(f"Username is required for company member insertion")
+            logger.error("Username is required for company member insertion")
             return None
 
         logger.info(

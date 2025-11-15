@@ -1,15 +1,14 @@
 import pytest
 import asyncio
 import pytest_asyncio
-from air1.services.linkedin.repo import (
+from air1.services.browser.repo import (
     save_lead_complete,
-    insert_linkedin_profile,
     get_linkedin_profile_by_username,
     insert_linkedin_company_member,
     get_company_members_by_username,
     get_company_member_by_profile_and_username,
 )
-from air1.services.linkedin.linkedin_profile import Lead, LinkedinProfile
+from air1.services.browser.linkedin_profile import Lead, LinkedinProfile
 from air1.db.db import init_pool, close_pool
 
 
