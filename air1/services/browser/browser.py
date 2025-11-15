@@ -14,7 +14,7 @@ class BrowserSession:
         self.linkedin_sid = linkedin_sid
         self.page = None
 
-    async def _setup_page(self, url: str) -> Page:
+    async def _setup_page(self) -> Page:
         """Set up or reuse existing page with authentication cookies"""
         if self.page is None:
             self.page = await self.browser.new_page()
@@ -31,6 +31,13 @@ class BrowserSession:
                     "sameSite": "Lax",
                 }
                 await self.page.context.add_cookies([cookies])
+
+        return self.page
+
+    async def _navigate_to_url(self, url: str) -> None:
+        """Navigate to a specific URL with error handling"""
+        if not self.page:
+            raise Exception("Page not initialized. Call _setup_page() first.")
 
         try:
             await self.page.goto(url, timeout=30000, wait_until="domcontentloaded")
@@ -51,7 +58,6 @@ class BrowserSession:
                     "Please verify your linkedin_sid cookie is valid and try again."
                 )
             raise
-        return self.page
 
     async def get_profile_info(self, profile_id: str) -> LinkedinProfile:
         """
@@ -64,7 +70,8 @@ class BrowserSession:
             LinkedinProfile: Complete profile information
         """
         profile_url = f"https://www.linkedin.com/in/{profile_id}"
-        page = await self._setup_page(profile_url)
+        page = await self._setup_page()
+        await self._navigate_to_url(profile_url)
 
         try:
             return await ProfileScraper.extract_profile_data(page)
@@ -83,7 +90,8 @@ class BrowserSession:
             CompanyPeople: Set of profile IDs
         """
         company_url = f"https://www.linkedin.com/company/{company_id}/people/"
-        page = await self._setup_page(company_url)
+        page = await self._setup_page()
+        await self._navigate_to_url(company_url)
 
         return await CompanyScraper.extract_company_members(page, company_id, limit)
 
@@ -105,7 +113,7 @@ class BrowserSession:
             dict: Results for each username (True if successful, False otherwise)
         """
         if not self.page:
-            await self._setup_page("https://www.linkedin.com/feed/")
+            await self._setup_page()
 
         return await LinkedinOutreach.bulk_connect(
             self.page, profile_usernames, message, delay_between_connections

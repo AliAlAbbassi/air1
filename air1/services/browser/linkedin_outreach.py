@@ -7,7 +7,6 @@ Will include a faster option: fast_connect(). Don't care about it right now tho.
 
 from playwright.async_api import Page
 from loguru import logger
-import asyncio
 from typing import Optional
 
 
