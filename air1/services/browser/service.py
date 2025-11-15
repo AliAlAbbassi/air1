@@ -7,8 +7,7 @@ from abc import ABC, abstractmethod
 from loguru import logger
 
 from air1.services.browser.browser import BrowserSession
-from air1.services.browser.linkedin_profile import LinkedinProfile, CompanyPeople
-from air1.services.browser.data_mapper import DataMapper
+from air1.services.browser.linkedin_profile import LinkedinProfile, CompanyPeople, profile_to_lead, enrich_profile_with_username
 
 load_dotenv()
 
@@ -122,8 +121,8 @@ class Service(IService):
 
             for profile_id in company_people.profile_ids:
                 profile = await session.get_profile_info(profile_id)
-                profile = DataMapper.enrich_profile_with_username(profile, profile_id)
-                lead = DataMapper.profile_to_lead(profile)
+                profile = enrich_profile_with_username(profile, profile_id)
+                lead = profile_to_lead(profile)
 
                 try:
                     success, lead_id = await save_lead_complete(
