@@ -30,9 +30,10 @@ class Service(IService):
         self._owns_playwright = False
         self._playwright_instance = None
 
-        self.linkedin_sid = os.getenv("LINKEDIN_SID")
-        if not self.linkedin_sid:
+        linkedin_sid = os.getenv("LINKEDIN_SID")
+        if not linkedin_sid:
             raise ValueError("linkedin_sid environment variable is required")
+        self.linkedin_sid = linkedin_sid
 
     async def __aenter__(self):
         if self.playwright is None:
@@ -46,6 +47,8 @@ class Service(IService):
             await self._playwright_instance.__aexit__(exc_type, exc_val, exc_tb)
 
     async def launch_browser(self, headless=True) -> BrowserSession:
+        if not self.playwright:
+            raise RuntimeError("Playwright not initialized. Use 'async with Service()' context manager.")
         browser = await self.playwright.chromium.launch(headless=headless)
         return BrowserSession(browser, self.linkedin_sid)
 
