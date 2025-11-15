@@ -20,7 +20,7 @@ class IService(ABC):
     @abstractmethod
     async def scrape_company_leads(
         self, company_ids: list[str], limit=10, headless=True
-    ):
+    ) -> dict[str, int]:
         pass
 
 
@@ -147,11 +147,11 @@ class Service(IService):
 
     async def scrape_company_leads(
         self, company_ids: list[str], limit=10, headless=True
-    ):
+    ) -> dict[str, int]:
         """
         Args:
             company_ids: List of LinkedIn company IDs to scrape
-            limit: Maximum number of profiles per company
+            limit: Maximum number of company member pages
             headless: Run browser in headless mode
 
         Returns:
