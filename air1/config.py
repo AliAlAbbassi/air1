@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     )
     database_user: str = Field(default="postgres", min_length=1, description="Database username")
     database_password: Optional[str] = Field(
-        default="", description="Database password"
+        default="postgres", description="Database password"
     )
 
     database_pool_min: int = Field(
