@@ -15,12 +15,10 @@ class Settings(BaseSettings):
         validate_default=True,
     )
 
-    # Environment
     environment: Literal["development", "staging", "production"] = Field(
         default="development", description="Application environment"
     )
 
-    # Database settings
     database_host: str = Field(default="localhost", description="Database host")
     database_port: int = Field(
         default=5432, ge=1, le=65535, description="Database port"
@@ -33,7 +31,6 @@ class Settings(BaseSettings):
         default="", description="Database password"
     )
 
-    # Connection pool settings
     database_pool_min: int = Field(
         default=10, ge=1, le=100, description="Minimum database pool size"
     )
@@ -47,10 +44,8 @@ class Settings(BaseSettings):
         default=False, description="Echo SQL queries (for debugging)"
     )
 
-    # LinkedIn settings
     linkedin_sid: Optional[str] = Field(default=None, description="LinkedIn session ID")
 
-    # Logging settings
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO", description="Logging level"
     )
@@ -62,7 +57,6 @@ class Settings(BaseSettings):
     log_retention: str = Field(default="10 days", description="Log retention period")
     log_file: Optional[str] = Field(default="logs/app.log", description="Log file path")
 
-    # Application settings
     app_name: str = Field(default="Air1", description="Application name")
     debug: bool = Field(default=False, description="Debug mode")
     cors_origins: list[str] = Field(default=["*"], description="CORS allowed origins")
@@ -97,15 +91,12 @@ class Settings(BaseSettings):
 
     def configure_logging(self) -> None:
         """Configure loguru based on settings"""
-        # Remove default handler
         logger.remove()
 
-        # Add console handler
         logger.add(
             sys.stderr, format=self.log_format, level=self.log_level, colorize=True
         )
 
-        # Add file handler if log_file is specified
         if self.log_file:
             logger.add(
                 self.log_file,
