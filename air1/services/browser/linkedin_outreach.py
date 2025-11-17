@@ -8,6 +8,7 @@ Will include a faster option: fast_connect(). Don't care about it right now tho.
 from playwright.async_api import Page
 from loguru import logger
 from typing import Optional
+from .navigation import navigate_to_linkedin_url
 
 
 class LinkedinOutreach:
@@ -27,7 +28,7 @@ class LinkedinOutreach:
         """
         try:
             profile_url = f"https://www.linkedin.com/in/{profile_username}"
-            await page.goto(profile_url, timeout=30000, wait_until="domcontentloaded")
+            await navigate_to_linkedin_url(page, profile_url)
             await page.wait_for_timeout(2000)
 
             connect_button = page.locator('button:has-text("Connect"), button[aria-label*="Connect"], button[data-control-name="connect"]')
