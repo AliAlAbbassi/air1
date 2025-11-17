@@ -35,7 +35,6 @@ class BrowserSession:
 
         return self.page
 
-
     async def get_profile_info(self, profile_id: str) -> LinkedinProfile:
         """
         Get LinkedIn profile info from a profile ID
@@ -76,7 +75,7 @@ class BrowserSession:
         self,
         profile_usernames: list[str],
         message: Optional[str] = None,
-        delay_between_connections: int = 5
+        delay_between_connections: int = 5,
     ) -> dict[str, bool]:
         """
         Connect with multiple LinkedIn profiles using existing session
@@ -89,9 +88,8 @@ class BrowserSession:
         Returns:
             dict: Results for each username (True if successful, False otherwise)
         """
-        if not self.page:
-            await self._setup_page()
+        page = await self._setup_page()
 
         return await LinkedinOutreach.bulk_connect(
-            self.page, profile_usernames, message, delay_between_connections
+            page, profile_usernames, message, delay_between_connections
         )
