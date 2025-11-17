@@ -35,12 +35,6 @@ class BrowserSession:
 
         return self.page
 
-    async def _navigate_to_url(self, url: str) -> None:
-        """Navigate to a specific URL with error handling"""
-        if not self.page:
-            raise Exception("Page not initialized. Call _setup_page() first.")
-
-        await navigate_to_linkedin_url(self.page, url)
 
     async def get_profile_info(self, profile_id: str) -> LinkedinProfile:
         """
@@ -54,7 +48,7 @@ class BrowserSession:
         """
         profile_url = f"https://www.linkedin.com/in/{profile_id}"
         page = await self._setup_page()
-        await self._navigate_to_url(profile_url)
+        await navigate_to_linkedin_url(page, profile_url)
 
         try:
             return await ProfileScraper.extract_profile_data(page)
@@ -74,7 +68,7 @@ class BrowserSession:
         """
         company_url = f"https://www.linkedin.com/company/{company_id}/people/"
         page = await self._setup_page()
-        await self._navigate_to_url(company_url)
+        await navigate_to_linkedin_url(page, company_url)
 
         return await CompanyScraper.extract_company_members(page, company_id, limit)
 

@@ -9,12 +9,15 @@ async def navigate_to_linkedin_url(page: Page, url: str) -> None:
     Navigate to a LinkedIn URL with proper error handling
 
     Args:
-        page: Playwright page instance
+        page: Playwright page instance (must be initialized)
         url: URL to navigate to
 
     Raises:
         Exception: With specific error messages for LinkedIn authentication issues
     """
+    if not page:
+        raise Exception("Page not initialized. Call setup page method first.")
+
     try:
         await page.goto(url, timeout=30000, wait_until="domcontentloaded")
     except Exception as e:
