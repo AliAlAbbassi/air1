@@ -3,7 +3,9 @@ from playwright.async_api import Browser, Page
 from .linkedin_profile import LinkedinProfile, CompanyPeople
 from .profile_scraper import ProfileScraper
 from .company_scraper import CompanyScraper
+from .linkedin_outreach import LinkedinOutreach
 from loguru import logger
+from typing import Optional
 
 
 class BrowserSession:
@@ -84,3 +86,27 @@ class BrowserSession:
         page = await self._setup_page(company_url)
 
         return await CompanyScraper.extract_company_members(page, company_id, limit)
+
+    async def connect_with_profiles(
+        self,
+        profile_usernames: list[str],
+        message: Optional[str] = None,
+        delay_between_connections: int = 5
+    ) -> dict[str, bool]:
+        """
+        Connect with multiple LinkedIn profiles using existing session
+
+        Args:
+            profile_usernames: List of LinkedIn profile usernames
+            message: Optional connection message
+            delay_between_connections: Delay in seconds between connections
+
+        Returns:
+            dict: Results for each username (True if successful, False otherwise)
+        """
+        if not self.page:
+            await self._setup_page("https://www.linkedin.com/feed/")
+
+        return await LinkedinOutreach.bulk_connect(
+            self.page, profile_usernames, message, delay_between_connections
+        )
