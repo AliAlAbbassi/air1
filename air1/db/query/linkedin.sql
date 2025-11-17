@@ -12,15 +12,17 @@ select linkedin_profile_id, lead_id, username, location, headline, about, create
 from linkedin_profile
 where username = :username;
 
--- name: search_leads_by_headline^
-select lp.lead_id, lp.username, lp.headline, l.first_name, l.full_name, l.email
+-- name: search_company_leads_by_headline
+select lp.lead_id, cm.username as company_name, lp.username, lp.headline, l.first_name, l.full_name, l.email
 from linkedin_profile lp
-inner join lead l on l.lead_id = lp.lead_id
-where lp.headline ilike :search_term;
+         inner join lead l on l.lead_id = lp.lead_id
+         join linkedin_company_members cm on cm.linkedin_profile_id = lp.linkedin_profile_id
+where cm.username = :company_username
+  and lp.headline ilike '%' || :search_term || '%';
 
--- name: search_leads_by_headline_optimized^
--- Optimized version using trigram similarity for fuzzy matching
-select lp.lead_id, lp.username, lp.headline, l.first_name, l.full_name, l.email
+-- name: get_company_leads
+select lp.lead_id, cm.username as company_name, lp.username, lp.headline, l.first_name, l.full_name, l.email
 from linkedin_profile lp
-inner join lead l on l.lead_id = lp.lead_id
-where lp.headline % :search_term;
+         inner join lead l on l.lead_id = lp.lead_id
+         join linkedin_company_members cm on cm.linkedin_profile_id = lp.linkedin_profile_id
+where cm.username = :company_username
