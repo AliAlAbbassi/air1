@@ -47,5 +47,9 @@ I'd love to connect and learn more about your work in the industry."""
         return results
 
 
-if __name__ == "__main__":
+def run():
     asyncio.run(linkedin_outreach_workflow())
+
+
+if __name__ == "__main__":
+    run()
