@@ -150,17 +150,20 @@ async def test_get_linkedin_profile_by_username_not_found(setup_db):
 @pytest.mark.asyncio
 async def test_company_member_insertion_and_retrieval(setup_db):
     """Test company member insertion and retrieval by username"""
-    # First create a lead and profile
+    import uuid
+    unique_suffix = uuid.uuid4().hex[:8]
+
+    # First create a lead and profile with unique identifiers
     lead = Lead(
         first_name="Company",
         full_name="Company Member Test",
-        email="company.member@example.com",
+        email=f"company.member.{unique_suffix}@example.com",
     )
 
     profile = LinkedinProfile(
         first_name="Company",
         full_name="Company Member Test",
-        username="company-member-test",
+        username=f"company-member-test-{unique_suffix}",
         location="Test City",
         headline="Test Engineer",
         about="Test about",
@@ -171,27 +174,30 @@ async def test_company_member_insertion_and_retrieval(setup_db):
     assert lead_id is not None
 
     # Get the LinkedIn profile to get the profile ID
-    retrieved_profile = await get_linkedin_profile_by_username("company-member-test")
+    retrieved_profile = await get_linkedin_profile_by_username(profile.username)
     assert retrieved_profile is not None
     linkedin_profile_id = retrieved_profile["linkedin_profile_id"]
 
+    # Use unique company name
+    company_username = f"testcorp-{unique_suffix}"
+
     # Insert company member
     await insert_linkedin_company_member(
-        linkedin_profile_id, "testcorp", "Senior Engineer"
+        linkedin_profile_id, company_username, "Senior Engineer"
     )
 
-    # Test retrieval by username
-    company_members = await get_company_members_by_username("testcorp")
+    # Test retrieval by username - should only find our specific entry
+    company_members = await get_company_members_by_username(company_username)
     assert len(company_members) == 1
-    assert company_members[0]["username"] == "testcorp"
+    assert company_members[0]["username"] == company_username
     assert company_members[0]["title"] == "Senior Engineer"
 
     # Test retrieval by profile and username
     specific_member = await get_company_member_by_profile_and_username(
-        linkedin_profile_id, "testcorp"
+        linkedin_profile_id, company_username
     )
     assert specific_member is not None
-    assert specific_member["username"] == "testcorp"
+    assert specific_member["username"] == company_username
     assert specific_member["title"] == "Senior Engineer"
 
 
