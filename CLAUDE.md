@@ -45,6 +45,12 @@ uv run pytest
 # Run specific test types
 uv run pytest -m unit
 uv run pytest -m integration
+
+# Run a single test file
+uv run pytest air1/services/browser/repo_test.py
+
+# Run a specific test function
+uv run pytest -k "test_function_name"
 ```
 
 ### Running the Application
@@ -75,6 +81,16 @@ uv run python main.py
 - `models/`: PostgreSQL schema definitions
 - `query/`: SQL templates using aiosql
 - `db.py`: AsyncPG connection pool management
+
+**Repository Layer** (`air1/services/browser/repo.py`):
+- Pydantic-based data models for type-safe database operations
+- Query functions that return structured Pydantic objects
+- Helper functions for database result conversion
+
+**Workflow Layer** (`air1/workflows/`):
+- High-level business logic orchestration
+- LinkedIn lead generation workflows
+- Profile information extraction workflows
 
 **Configuration** (`air1/config.py`):
 - Environment-based settings with Pydantic
