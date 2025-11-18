@@ -85,7 +85,7 @@ class TestSettings:
 
         settings = Settings()
 
-        expected_url = "postgresql+asyncpg://dbuser:dbpass@dbhost:5433/mydb"
+        expected_url = "postgresql+asyncpg://dbuser:dbpass@dbhost:5433/mydb?sslmode=disable"
         assert settings.async_database_url == expected_url
 
     def test_linkedin_sid_optional(self, monkeypatch):

@@ -268,16 +268,17 @@ async def test_get_company_leads(setup_db):
                 "full_name",
             ]
             for field in required_fields:
-                assert field in first_lead, f"Missing required field: {field}"
+                assert hasattr(first_lead, field), f"Missing required field: {field}"
 
-            assert first_lead["company_name"] == "tech-usa"
+            assert first_lead.company_name == "tech-usa"
 
             logger.info(f"Retrieved {len(company_leads)} leads for tech-usa")
-            logger.info(
-                f"Sample lead: {first_lead['full_name']} - {first_lead['headline']}"
-            )
+            logger.info(f"Sample lead: {first_lead.full_name} - {first_lead.headline}")
 
             empty_leads = await service.get_company_leads("nonexistent-company")
             assert (
                 len(empty_leads) == 0
             ), "Should return empty list for non-existent company"
+
+            logger.info("yeet")
+            logger.info(company_leads[0].headline)

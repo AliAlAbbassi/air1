@@ -107,7 +107,7 @@ async def test_save_profile_with_extracted_username(setup_db):
     # Verify username was extracted and stored
     retrieved = await get_linkedin_profile_by_username("test-username-123")
     assert retrieved is not None
-    assert retrieved["username"] == "test-username-123"
+    assert retrieved.username == "test-username-123"
 
 
 @pytest.mark.asyncio
@@ -136,7 +136,7 @@ async def test_save_profile_with_username(setup_db):
     # Should find by the provided username
     retrieved = await get_linkedin_profile_by_username("manually-provided-username")
     assert retrieved is not None
-    assert retrieved["username"] == "manually-provided-username"
+    assert retrieved.username == "manually-provided-username"
 
 
 @pytest.mark.asyncio
@@ -176,7 +176,7 @@ async def test_company_member_insertion_and_retrieval(setup_db):
     # Get the LinkedIn profile to get the profile ID
     retrieved_profile = await get_linkedin_profile_by_username(profile.username)
     assert retrieved_profile is not None
-    linkedin_profile_id = retrieved_profile["linkedin_profile_id"]
+    linkedin_profile_id = retrieved_profile.linkedin_profile_id
 
     # Use unique company name
     company_username = f"testcorp-{unique_suffix}"
@@ -189,16 +189,16 @@ async def test_company_member_insertion_and_retrieval(setup_db):
     # Test retrieval by username - should only find our specific entry
     company_members = await get_company_members_by_username(company_username)
     assert len(company_members) == 1
-    assert company_members[0]["username"] == company_username
-    assert company_members[0]["title"] == "Senior Engineer"
+    assert company_members[0].username == company_username
+    assert company_members[0].title == "Senior Engineer"
 
     # Test retrieval by profile and username
     specific_member = await get_company_member_by_profile_and_username(
         linkedin_profile_id, company_username
     )
     assert specific_member is not None
-    assert specific_member["username"] == company_username
-    assert specific_member["title"] == "Senior Engineer"
+    assert specific_member.username == company_username
+    assert specific_member.title == "Senior Engineer"
 
 
 @pytest.mark.asyncio
@@ -223,7 +223,7 @@ async def test_company_member_title_update_on_conflict(setup_db):
 
     retrieved_profile = await get_linkedin_profile_by_username("update-test")
     assert retrieved_profile is not None
-    linkedin_profile_id = retrieved_profile["linkedin_profile_id"]
+    linkedin_profile_id = retrieved_profile.linkedin_profile_id
 
     # Insert company member with initial title
     await insert_linkedin_company_member(
@@ -240,7 +240,7 @@ async def test_company_member_title_update_on_conflict(setup_db):
         linkedin_profile_id, "updatecorp"
     )
     assert specific_member is not None
-    assert specific_member["title"] == "Senior Engineer"
+    assert specific_member.title == "Senior Engineer"
 
 
 @pytest.mark.asyncio
@@ -285,8 +285,8 @@ async def test_company_member_multiple_profiles_same_username(setup_db):
 
     assert retrieved_profile1 is not None
     assert retrieved_profile2 is not None
-    profile_id1 = retrieved_profile1["linkedin_profile_id"]
-    profile_id2 = retrieved_profile2["linkedin_profile_id"]
+    profile_id1 = retrieved_profile1.linkedin_profile_id
+    profile_id2 = retrieved_profile2.linkedin_profile_id
 
     # Both profiles work at the same company
     await insert_linkedin_company_member(profile_id1, "samecorp", "Engineer 1")
@@ -296,7 +296,7 @@ async def test_company_member_multiple_profiles_same_username(setup_db):
     company_members = await get_company_members_by_username("samecorp")
     assert len(company_members) == 2
 
-    titles = [member["title"] for member in company_members]
+    titles = [member.title for member in company_members]
     assert "Engineer 1" in titles
     assert "Engineer 2" in titles
 
@@ -331,14 +331,14 @@ async def test_get_company_leads_by_headline(setup_db):
     # Search for leads with "talent" in headline
     results = await get_company_leads_by_headline("techcorp", "talent")
     assert len(results) == 1
-    assert results[0]["username"] == "alice-dev"
-    assert "talent" in results[0]["headline"].lower()
+    assert results[0].username == "alice-dev"
+    assert "talent" in results[0].headline.lower()
 
     # Search for leads with "manager" in headline
     results = await get_company_leads_by_headline("techcorp", "manager")
     assert len(results) == 1
-    assert results[0]["username"] == "bob-mgr"
-    assert "manager" in results[0]["headline"].lower()
+    assert results[0].username == "bob-mgr"
+    assert "manager" in results[0].headline.lower()
 
 
 @pytest.mark.asyncio
@@ -372,7 +372,7 @@ async def test_get_company_leads(setup_db):
     results = await get_company_leads("designcorp")
     assert len(results) == 2
 
-    usernames = [result["username"] for result in results]
+    usernames = [result.username for result in results]
     assert "john-smith" in usernames
     assert "jane-doe" in usernames
 
