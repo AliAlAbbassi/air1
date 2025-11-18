@@ -45,6 +45,11 @@ class Settings(BaseSettings):
 
     linkedin_sid: Optional[str] = Field(default=None, description="LinkedIn session ID")
 
+    # Email configuration
+    resend_api_key: Optional[str] = Field(default=None, description="Resend API key")
+    email_from_address: str = Field(default="noreply@yourdomain.com", description="From email address")
+    email_from_name: str = Field(default="Air1 Lead Generation", description="From name for emails")
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO", description="Logging level"
     )
