@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     def async_database_url(self) -> str:
         """Async database URL for SQLModel/SQLAlchemy async connections"""
         password = f":{self.database_password}" if self.database_password else ""
-        return f"postgresql+asyncpg://{self.database_user}{password}@{self.database_host}:{self.database_port}/{self.database_name}"
+        return f"postgresql+asyncpg://{self.database_user}{password}@{self.database_host}:{self.database_port}/{self.database_name}?sslmode=disable"
 
     def configure_logging(self) -> None:
         """Configure loguru based on settings"""

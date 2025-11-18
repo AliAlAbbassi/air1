@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from air1.services.browser.service import Service
 from air1.services.browser.linkedin_profile import LinkedinProfile, CompanyPeople
 from air1.db.db import init_pool, close_pool
+from loguru import logger
 
 
 @pytest_asyncio.fixture
@@ -33,7 +34,7 @@ async def test_scrape_company_leads_with_mock(setup_db):
             headline="Software Engineer",
             location="San Francisco, CA",
             email="john.doe@example.com",
-            phone_number="+1234567890"
+            phone_number="+1234567890",
         ),
         "jane-smith": LinkedinProfile(
             username="jane-smith",
@@ -42,33 +43,39 @@ async def test_scrape_company_leads_with_mock(setup_db):
             headline="Product Manager",
             location="New York, NY",
             email="jane.smith@example.com",
-            phone_number="+9876543210"
-        )
+            phone_number="+9876543210",
+        ),
     }
 
-    with patch('air1.services.browser.service.BrowserSession') as MockBrowserSession, \
-         patch('os.getenv', return_value='mock_linkedin_sid'):
+    with (
+        patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
+        patch("os.getenv", return_value="mock_linkedin_sid"),
+    ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
 
-        mock_session_instance.get_company_members = AsyncMock(return_value=mock_company_people)
+        mock_session_instance.get_company_members = AsyncMock(
+            return_value=mock_company_people
+        )
         mock_session_instance.get_profile_info = AsyncMock(
-            side_effect=lambda profile_id: mock_profiles.get(profile_id, LinkedinProfile())
+            side_effect=lambda profile_id: mock_profiles.get(
+                profile_id, LinkedinProfile()
+            )
         )
         mock_session_instance.browser.close = AsyncMock()
 
         service = Service(playwright=mock_playwright)
 
         results = await service.scrape_company_leads(
-            company_ids=["test-company"],
-            limit=10,
-            headless=True
+            company_ids=["test-company"], limit=10, headless=True
         )
 
         assert "test-company" in results
         assert results["test-company"] == 2
 
-        mock_session_instance.get_company_members.assert_called_once_with("test-company", limit=10)
+        mock_session_instance.get_company_members.assert_called_once_with(
+            "test-company", limit=10
+        )
         assert mock_session_instance.get_profile_info.call_count == 2
 
 
@@ -81,8 +88,10 @@ async def test_scrape_multiple_companies(setup_db):
 
     mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
 
-    with patch('air1.services.browser.service.BrowserSession') as MockBrowserSession, \
-         patch('os.getenv', return_value='mock_linkedin_sid'):
+    with (
+        patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
+        patch("os.getenv", return_value="mock_linkedin_sid"),
+    ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
 
@@ -94,9 +103,7 @@ async def test_scrape_multiple_companies(setup_db):
         service = Service(playwright=mock_playwright)
 
         results = await service.scrape_company_leads(
-            company_ids=["company1", "company2", "company3"],
-            limit=5,
-            headless=True
+            company_ids=["company1", "company2", "company3"], limit=5, headless=True
         )
 
         assert len(results) == 3
@@ -109,13 +116,15 @@ async def test_scrape_multiple_companies(setup_db):
 async def test_service_context_manager():
     """Test Service async context manager."""
 
-    with patch('os.getenv', return_value='mock_linkedin_sid'):
+    with patch("os.getenv", return_value="mock_linkedin_sid"):
         mock_playwright = MagicMock()
         async with Service(playwright=mock_playwright) as service:
             assert service.playwright == mock_playwright
             assert service._owns_playwright is False
 
-        with patch('air1.services.browser.service.async_playwright') as mock_async_playwright:
+        with patch(
+            "air1.services.browser.service.async_playwright"
+        ) as mock_async_playwright:
             mock_playwright_instance = AsyncMock()
             mock_async_playwright.return_value = mock_playwright_instance
             mock_playwright_instance.__aenter__ = AsyncMock(return_value=MagicMock())
@@ -144,7 +153,7 @@ async def test_scrape_with_no_emails(setup_db):
             full_name="Bob Smith",
             headline="Engineer",
             location="Chicago, IL",
-            email=""
+            email="",
         ),
         "no-email-2": LinkedinProfile(
             username="no-email-2",
@@ -152,12 +161,14 @@ async def test_scrape_with_no_emails(setup_db):
             full_name="Alice Johnson",
             headline="Designer",
             location="Austin, TX",
-            email=""
-        )
+            email="",
+        ),
     }
 
-    with patch('air1.services.browser.service.BrowserSession') as MockBrowserSession, \
-         patch('os.getenv', return_value='mock_linkedin_sid'):
+    with (
+        patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
+        patch("os.getenv", return_value="mock_linkedin_sid"),
+    ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
 
@@ -172,9 +183,7 @@ async def test_scrape_with_no_emails(setup_db):
         service = Service(playwright=mock_playwright)
 
         results = await service.scrape_company_leads(
-            company_ids=["test-company"],
-            limit=10,
-            headless=True
+            company_ids=["test-company"], limit=10, headless=True
         )
 
         assert results["test-company"] == 2
@@ -194,19 +203,23 @@ async def test_scrape_and_save_error_handling(setup_db):
         first_name="Error",
         full_name="Error Test",
         email="error@test.com",
-        headline="Test"
+        headline="Test",
     )
 
-    with patch('air1.services.browser.service.BrowserSession') as MockBrowserSession, \
-         patch('os.getenv', return_value='mock_linkedin_sid'):
-        with patch('air1.services.browser.service.save_lead_complete') as mock_save:
+    with (
+        patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
+        patch("os.getenv", return_value="mock_linkedin_sid"),
+    ):
+        with patch("air1.services.browser.service.save_lead_complete") as mock_save:
             mock_session_instance = AsyncMock()
             MockBrowserSession.return_value = mock_session_instance
 
             mock_session_instance.get_company_members = AsyncMock(
                 return_value=CompanyPeople(profile_ids={"error-test"})
             )
-            mock_session_instance.get_profile_info = AsyncMock(return_value=mock_profile)
+            mock_session_instance.get_profile_info = AsyncMock(
+                return_value=mock_profile
+            )
             mock_session_instance.browser.close = AsyncMock()
 
             # Simulate save failure
@@ -215,11 +228,56 @@ async def test_scrape_and_save_error_handling(setup_db):
             service = Service(playwright=mock_playwright)
 
             results = await service.scrape_company_leads(
-                company_ids=["test-company"],
-                limit=10,
-                headless=True
+                company_ids=["test-company"], limit=10, headless=True
             )
 
             # Should return 0 saved due to error
             assert results["test-company"] == 0
             mock_save.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_company_leads(setup_db):
+    """Test retrieving company leads from database"""
+
+    def mock_getenv(key, default=None):
+        if key == "LINKEDIN_SID":
+            return "mock_linkedin_sid"
+        return default
+
+    with (
+        patch("os.getenv", side_effect=mock_getenv),
+        patch("air1.services.browser.service.async_playwright") as mock_playwright,
+    ):
+        mock_playwright_instance = AsyncMock()
+        mock_playwright.return_value = mock_playwright_instance
+        mock_playwright_instance.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_playwright_instance.__aexit__ = AsyncMock()
+
+        async with Service() as service:
+            company_leads = await service.get_company_leads("tech-usa")
+
+            assert len(company_leads) > 0, "Should return at least one company lead"
+
+            first_lead = company_leads[0]
+            required_fields = [
+                "lead_id",
+                "company_name",
+                "username",
+                "first_name",
+                "full_name",
+            ]
+            for field in required_fields:
+                assert field in first_lead, f"Missing required field: {field}"
+
+            assert first_lead["company_name"] == "tech-usa"
+
+            logger.info(f"Retrieved {len(company_leads)} leads for tech-usa")
+            logger.info(
+                f"Sample lead: {first_lead['full_name']} - {first_lead['headline']}"
+            )
+
+            empty_leads = await service.get_company_leads("nonexistent-company")
+            assert (
+                len(empty_leads) == 0
+            ), "Should return empty list for non-existent company"

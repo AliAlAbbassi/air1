@@ -177,4 +177,4 @@ async def get_company_leads(company_username: str) -> list[dict]:
         return [dict(result) for result in results] if results else []
     except Exception as e:
         logger.error(f"Failed to get company leads for {company_username}: {e}")
-        return []
+        raise RuntimeError(f"Repo error retrieving company leads for '{company_username}': {str(e)}") from e

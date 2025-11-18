@@ -16,6 +16,7 @@ async def init_pool() -> asyncpg.Pool:
             password=settings.database_password,
             min_size=1,
             max_size=20,
+            ssl="disable",
         )
     return pool
 
