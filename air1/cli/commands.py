@@ -1,7 +1,7 @@
 import asyncio
 import typer
 from air1.services.browser.service import Service
-from air1.services.browser.email import EmailService, EmailTemplate, EmailRecipient
+from air1.services.browser.email import send_email, EmailTemplate
 from air1.db.db import close_pool
 
 app = typer.Typer()
@@ -38,8 +38,6 @@ def send_test_email(
     """Send a test email using Resend API"""
     async def run():
         try:
-            email_service = EmailService()
-
             template = EmailTemplate(
                 subject=subject,
                 html_content="""
@@ -61,7 +59,7 @@ def send_test_email(
                 """
             )
 
-            result = await email_service.send_email(
+            result = await send_email(
                 to_email=to_email,
                 subject=template.subject,
                 html_content=template.html_content,
