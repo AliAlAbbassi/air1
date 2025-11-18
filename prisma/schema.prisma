@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Lead {
+  leadId          BigInt            @id @default(autoincrement()) @map("lead_id")
+  firstName       String?           @map("first_name") @db.VarChar(255)
+  fullName        String?           @map("full_name") @db.VarChar(255)
+  email           String?           @unique @db.VarChar(255)
+  phoneNumber     String?           @map("phone_number") @db.VarChar(255)
+  createdOn       DateTime          @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn       DateTime          @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  linkedinProfile LinkedinProfile[]
+
+  @@map("lead")
+}
+
+model LinkedinProfile {
+  linkedinProfileId  BigInt                  @id @default(autoincrement()) @map("linkedin_profile_id")
+  leadId             BigInt?                 @map("lead_id")
+  username           String                  @unique @db.VarChar(255)
+  location           String?
+  headline           String?
+  about              String?
+  createdOn          DateTime                @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn          DateTime                @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  companyMemberships LinkedinCompanyMember[]
+  lead               Lead?                   @relation(fields: [leadId], references: [leadId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([headline(ops: raw("gin_trgm_ops"))], map: "idx_linkedin_profile_headline_gin", type: Gin)
+  @@index([leadId], map: "idx_linkedin_profile_lead_id")
+  @@index([username], map: "idx_linkedin_profile_username_btree")
+  @@map("linkedin_profile")
+}
+
+model LinkedinCompanyMember {
+  companyMemberId   BigInt           @id @default(autoincrement()) @map("company_member_id")
+  linkedinProfileId BigInt?          @map("linkedin_profile_id")
+  username          String           @db.VarChar(255)
+  title             String?          @db.VarChar(255)
+  createdOn         DateTime         @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn         DateTime         @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  linkedinProfile   LinkedinProfile? @relation(fields: [linkedinProfileId], references: [linkedinProfileId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([linkedinProfileId, username])
+  @@map("linkedin_company_members")
+}
+
+model alembic_version {
+  version_num String @id(map: "alembic_version_pkc") @db.VarChar(32)
+}

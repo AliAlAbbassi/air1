@@ -1,7 +1,7 @@
 import asyncio
 import typer
 from air1.services.browser.service import Service
-from air1.db.db import close_pool
+from air1.db.prisma_client import disconnect_db
 
 app = typer.Typer()
 
@@ -23,6 +23,6 @@ def company_leads(
                 for company, count in results.items():
                     print(f"{company}: {count} leads saved")
         finally:
-            await close_pool()
+            await disconnect_db()
 
     asyncio.run(run())

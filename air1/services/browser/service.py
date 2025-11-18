@@ -1,4 +1,4 @@
-from air1.services.browser.repo import save_lead_complete, get_company_leads
+from air1.services.browser.prisma_repo import save_lead_complete, get_company_leads
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv

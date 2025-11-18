@@ -1,7 +1,7 @@
 import asyncio
 from loguru import logger
 from air1.services.browser.service import Service
-from air1.db.db import close_pool
+from air1.db.prisma_client import disconnect_db
 
 
 async def company_leads(companies: list[str], limit: int = 10):
@@ -17,7 +17,7 @@ async def company_leads(companies: list[str], limit: int = 10):
         logger.error(f"Error during company leads scraping: {e}")
         raise
     finally:
-        await close_pool()
+        await disconnect_db()
         logger.info("Finished company leads workflow")
 
 
