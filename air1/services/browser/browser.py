@@ -4,6 +4,7 @@ from .linkedin_profile import LinkedinProfile, CompanyPeople
 from .profile_scraper import ProfileScraper
 from .company_scraper import CompanyScraper
 from .linkedin_outreach import LinkedinOutreach
+from .navigation import navigate_to_linkedin_url
 from loguru import logger
 from typing import Optional
 
@@ -14,7 +15,7 @@ class BrowserSession:
         self.linkedin_sid = linkedin_sid
         self.page = None
 
-    async def _setup_page(self, url: str) -> Page:
+    async def _setup_page(self) -> Page:
         """Set up or reuse existing page with authentication cookies"""
         if self.page is None:
             self.page = await self.browser.new_page()
@@ -32,25 +33,6 @@ class BrowserSession:
                 }
                 await self.page.context.add_cookies([cookies])
 
-        try:
-            await self.page.goto(url, timeout=30000, wait_until="domcontentloaded")
-        except Exception as e:
-            error_str = str(e)
-            if "ERR_TOO_MANY_REDIRECTS" in error_str:
-                raise Exception(
-                    "LinkedIn authentication failed. Your session cookie may be expired. "
-                    "Please update the 'linkedin_sid' in your .env file with a fresh cookie value."
-                )
-            elif "Timeout" in error_str:
-                raise Exception(
-                    f"Failed to load LinkedIn page: {url}\n"
-                    "This could be due to:\n"
-                    "1. Invalid or expired linkedin_sid cookie in your .env file\n"
-                    "2. LinkedIn blocking automated access\n"
-                    "3. Network connectivity issues\n"
-                    "Please verify your linkedin_sid cookie is valid and try again."
-                )
-            raise
         return self.page
 
     async def get_profile_info(self, profile_id: str) -> LinkedinProfile:
@@ -64,7 +46,8 @@ class BrowserSession:
             LinkedinProfile: Complete profile information
         """
         profile_url = f"https://www.linkedin.com/in/{profile_id}"
-        page = await self._setup_page(profile_url)
+        page = await self._setup_page()
+        await navigate_to_linkedin_url(page, profile_url)
 
         try:
             return await ProfileScraper.extract_profile_data(page)
@@ -83,7 +66,8 @@ class BrowserSession:
             CompanyPeople: Set of profile IDs
         """
         company_url = f"https://www.linkedin.com/company/{company_id}/people/"
-        page = await self._setup_page(company_url)
+        page = await self._setup_page()
+        await navigate_to_linkedin_url(page, company_url)
 
         return await CompanyScraper.extract_company_members(page, company_id, limit)
 
@@ -91,7 +75,7 @@ class BrowserSession:
         self,
         profile_usernames: list[str],
         message: Optional[str] = None,
-        delay_between_connections: int = 5
+        delay_between_connections: int = 5,
     ) -> dict[str, bool]:
         """
         Connect with multiple LinkedIn profiles using existing session
@@ -104,9 +88,8 @@ class BrowserSession:
         Returns:
             dict: Results for each username (True if successful, False otherwise)
         """
-        if not self.page:
-            await self._setup_page("https://www.linkedin.com/feed/")
+        page = await self._setup_page()
 
         return await LinkedinOutreach.bulk_connect(
-            self.page, profile_usernames, message, delay_between_connections
+            page, profile_usernames, message, delay_between_connections
         )
