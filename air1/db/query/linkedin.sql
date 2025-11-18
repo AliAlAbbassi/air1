@@ -25,4 +25,4 @@ select lp.lead_id, cm.username as company_name, lp.username, lp.headline, l.firs
 from linkedin_profile lp
          inner join lead l on l.lead_id = lp.lead_id
          join linkedin_company_members cm on cm.linkedin_profile_id = lp.linkedin_profile_id
-where cm.username = :company_username
+where cm.username = :company_username;

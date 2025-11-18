@@ -7,6 +7,8 @@ from air1.services.browser.repo import (
     insert_linkedin_company_member,
     get_company_members_by_username,
     get_company_member_by_profile_and_username,
+    get_company_leads_by_headline,
+    get_company_leads,
 )
 from air1.services.browser.linkedin_profile import Lead, LinkedinProfile
 from air1.db.db import init_pool, close_pool
@@ -293,6 +295,110 @@ async def test_company_member_multiple_profiles_same_username(setup_db):
     assert "Engineer 2" in titles
 
 
+@pytest.mark.asyncio
+async def test_get_company_leads_by_headline(setup_db):
+    """Test searching company leads by headline text"""
+    # Create leads with different headlines
+    lead1 = Lead(first_name="Alice", full_name="Alice Developer", email="alice@example.com")
+    profile1 = LinkedinProfile(
+        first_name="Alice",
+        full_name="Alice Developer",
+        username="alice-dev",
+        headline="Senior Software Engineer with talent for innovation",
+        location="SF"
+    )
+
+    lead2 = Lead(first_name="Bob", full_name="Bob Manager", email="bob@example.com")
+    profile2 = LinkedinProfile(
+        first_name="Bob",
+        full_name="Bob Manager",
+        username="bob-mgr",
+        headline="Product Manager at TechCorp",
+        location="NY"
+    )
+
+    # Save both leads
+    success1, _ = await save_lead_complete(lead1, profile1, "techcorp", "Engineer")
+    success2, _ = await save_lead_complete(lead2, profile2, "techcorp", "Manager")
+    assert success1 and success2
+
+    # Search for leads with "talent" in headline
+    results = await get_company_leads_by_headline("techcorp", "talent")
+    assert len(results) == 1
+    assert results[0]["username"] == "alice-dev"
+    assert "talent" in results[0]["headline"].lower()
+
+    # Search for leads with "manager" in headline
+    results = await get_company_leads_by_headline("techcorp", "manager")
+    assert len(results) == 1
+    assert results[0]["username"] == "bob-mgr"
+    assert "manager" in results[0]["headline"].lower()
+
+
+@pytest.mark.asyncio
+async def test_get_company_leads(setup_db):
+    """Test getting all leads for a company"""
+    # Create multiple leads for the same company
+    lead1 = Lead(first_name="John", full_name="John Smith", email="john@example.com")
+    profile1 = LinkedinProfile(
+        first_name="John",
+        full_name="John Smith",
+        username="john-smith",
+        headline="Engineer",
+        location="Seattle"
+    )
+
+    lead2 = Lead(first_name="Jane", full_name="Jane Doe", email="jane@example.com")
+    profile2 = LinkedinProfile(
+        first_name="Jane",
+        full_name="Jane Doe",
+        username="jane-doe",
+        headline="Designer",
+        location="Portland"
+    )
+
+    # Save leads for the same company
+    success1, _ = await save_lead_complete(lead1, profile1, "designcorp", "Senior Engineer")
+    success2, _ = await save_lead_complete(lead2, profile2, "designcorp", "Lead Designer")
+    assert success1 and success2
+
+    # Get all company leads
+    results = await get_company_leads("designcorp")
+    assert len(results) == 2
+
+    usernames = [result["username"] for result in results]
+    assert "john-smith" in usernames
+    assert "jane-doe" in usernames
+
+
+@pytest.mark.asyncio
+async def test_get_company_leads_empty_company(setup_db):
+    """Test getting leads for non-existent company"""
+    results = await get_company_leads("nonexistent-company")
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_get_company_leads_by_headline_no_matches(setup_db):
+    """Test searching company leads with no headline matches"""
+    # Create a lead without the search term
+    lead = Lead(first_name="Test", full_name="Test User", email="test@example.com")
+    profile = LinkedinProfile(
+        first_name="Test",
+        full_name="Test User",
+        username="test-user",
+        headline="Software Developer",
+        location="Austin"
+    )
+
+    success, _ = await save_lead_complete(lead, profile, "testcorp", "Developer")
+    assert success
+
+    # Search for non-matching term
+    results = await get_company_leads_by_headline("testcorp", "marketing")
+    assert results == []
+
+
 if __name__ == "__main__":
     # Run tests directly
     asyncio.run(test_save_lead_complete(None))
@@ -305,3 +411,7 @@ if __name__ == "__main__":
     asyncio.run(test_get_company_members_empty_username(None))
     asyncio.run(test_get_company_member_not_found(None))
     asyncio.run(test_company_member_multiple_profiles_same_username(None))
+    asyncio.run(test_get_company_leads_by_headline(None))
+    asyncio.run(test_get_company_leads(None))
+    asyncio.run(test_get_company_leads_empty_company(None))
+    asyncio.run(test_get_company_leads_by_headline_no_matches(None))
