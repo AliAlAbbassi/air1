@@ -154,3 +154,27 @@ async def save_lead_complete(
     except Exception as e:
         logger.error(f"Failed to save lead complete: {e}")
         return False, None
+
+
+async def get_company_leads_by_headline(company_username: str, search_term: str) -> list[dict]:
+    """Get company leads by headline text"""
+    try:
+        pool = await db.get_pool()
+        results = await queries.search_company_leads_by_headline(
+            pool, company_username=company_username, search_term=search_term
+        )
+        return [dict(result) for result in results] if results else []
+    except Exception as e:
+        logger.error(f"Failed to search company leads by headline for {company_username}: {e}")
+        return []
+
+
+async def get_company_leads(company_username: str) -> list[dict]:
+    """Get all leads for a company"""
+    try:
+        pool = await db.get_pool()
+        results = await queries.get_company_leads(pool, company_username=company_username)
+        return [dict(result) for result in results] if results else []
+    except Exception as e:
+        logger.error(f"Failed to get company leads for {company_username}: {e}")
+        raise RuntimeError(f"Repo error retrieving company leads for '{company_username}': {str(e)}") from e

@@ -7,7 +7,9 @@ class CompanyScraper:
     """Handles LinkedIn company members extraction"""
 
     @staticmethod
-    async def extract_company_members(page: Page, company_id: str, limit: int = 10) -> CompanyPeople:
+    async def extract_company_members(
+        page: Page, company_id: str, limit: int = 10
+    ) -> CompanyPeople:
         """Extract profile IDs of people working at a company"""
         try:
             await page.locator(
@@ -18,7 +20,6 @@ class CompanyScraper:
             clicks = 0
 
             while clicks < limit:
-                # Extract profile IDs from current page
                 profile_links = await page.locator('a[href*="/in/"]').all()
 
                 for link in profile_links:
@@ -28,12 +29,14 @@ class CompanyScraper:
                         if profile_id:
                             profile_ids.add(profile_id)
 
-                # Try to load more results
                 show_more_button = page.locator(
                     'button:has-text("Show more results")'
                 ).first
 
-                if await show_more_button.count() > 0 and await show_more_button.is_visible():
+                if (
+                    await show_more_button.count() > 0
+                    and await show_more_button.is_visible()
+                ):
                     await show_more_button.click()
                     clicks += 1
                     await page.wait_for_timeout(2000)

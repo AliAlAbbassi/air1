@@ -1,4 +1,4 @@
-from air1.services.browser.repo import save_lead_complete
+from air1.services.browser.repo import save_lead_complete, get_company_leads
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv
@@ -7,7 +7,12 @@ from abc import ABC, abstractmethod
 from loguru import logger
 
 from air1.services.browser.browser import BrowserSession
-from air1.services.browser.linkedin_profile import LinkedinProfile, CompanyPeople, profile_to_lead, enrich_profile_with_username
+from air1.services.browser.linkedin_profile import (
+    LinkedinProfile,
+    CompanyPeople,
+    profile_to_lead,
+    enrich_profile_with_username,
+)
 
 load_dotenv()
 
@@ -167,7 +172,7 @@ class Service(IService):
         profile_usernames: list[str],
         message: Optional[str] = None,
         delay_between_connections: int = 5,
-        headless: bool = True
+        headless: bool = True,
     ) -> dict[str, bool]:
         """
         Connect with multiple LinkedIn profiles (launches and closes browser automatically)
@@ -190,3 +195,6 @@ class Service(IService):
             )
         finally:
             await session.browser.close()
+
+    async def get_company_leads(self, company_name: str):
+        return await get_company_leads(company_username=company_name)
