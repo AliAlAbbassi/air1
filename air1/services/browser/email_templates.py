@@ -28,6 +28,7 @@ alialabbassi2001@gmail.com
 Beirut, Lebanon
 linkedin.com/in/alialabbassi/
 hoopaudio.com
+resume https: //docs.google. com/document/d/1zQWErF7AZgEokh7pE76VY_MK3aBwTKLwXzBhn3X2Ig8/edit?usp=sharing
 
 ---
 If you'd prefer not to receive these emails, please reply with "unsubscribe".

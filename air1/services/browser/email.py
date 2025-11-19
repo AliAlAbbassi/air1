@@ -52,12 +52,10 @@ def _personalize_content(content: str, recipient_name: Optional[str]) -> str:
         Personalized content
     """
     if not recipient_name:
-        # Remove personalization placeholders if no name available
         content = content.replace("{{name}}", "there")
         content = content.replace("{{first_name}}", "there")
         return content
 
-    # Replace placeholders with actual values
     content = content.replace("{{name}}", recipient_name)
     content = content.replace("{{first_name}}", recipient_name.split()[0] if recipient_name else "there")
 
@@ -85,11 +83,9 @@ async def send_email(
     try:
         _configure_resend()
 
-        # Personalize the subject and content
         personalized_subject = _personalize_content(subject, recipient_name)
         personalized_content = _personalize_content(content, recipient_name)
 
-        # Prepare email parameters following official example pattern
         params = {
             "from": f"{settings.email_from_name} <{settings.email_from_address}>",
             "to": [to_email],
@@ -97,7 +93,6 @@ async def send_email(
             "text": personalized_content,
         }
 
-        # Send email using Resend following official example
         response = resend.Emails.send(params)
 
         logger.info(f"Email sent successfully to {to_email}, ID: {response.get('id')}")
@@ -156,15 +151,12 @@ async def send_bulk_emails(
                     recipient_name=recipient.name or recipient.first_name,
                 )
 
-                # Small delay between individual emails
                 await asyncio.sleep(DELAY_BETWEEN_EMAILS)
                 return result
 
-        # Send batch concurrently with rate limiting
         tasks = [send_with_delay(recipient) for recipient in batch]
         batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Convert any exceptions to failed results
         for j, result in enumerate(batch_results):
             if isinstance(result, Exception):
                 all_results.append(
@@ -177,16 +169,13 @@ async def send_bulk_emails(
             else:
                 all_results.append(result)
 
-        # Log batch summary
         batch_successful = sum(1 for r in batch_results if hasattr(r, 'success') and r.success)
         logger.info(f"Batch {i//BATCH_SIZE + 1} completed: {batch_successful}/{len(batch)} successful")
 
-        # Delay between batches (except for last batch)
         if i + BATCH_SIZE < len(recipients):
             logger.info(f"Waiting {DELAY_BETWEEN_BATCHES} seconds before next batch...")
             await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-    # Final summary
     total_successful = sum(1 for r in all_results if r.success)
     logger.info(f"All batches completed: {total_successful}/{len(recipients)} total emails sent successfully")
 
@@ -212,7 +201,6 @@ async def send_outreach_emails_to_leads(
         logger.error("Cannot send emails: RESEND_API_KEY not configured")
         return []
 
-    # Convert leads to EmailRecipient objects
     recipients = []
     for lead in leads:
         if lead.get('email'):
@@ -228,7 +216,6 @@ async def send_outreach_emails_to_leads(
         logger.warning("No valid email addresses found in leads")
         return []
 
-    # Send emails
     results = await send_bulk_emails(
         recipients=recipients,
         template=template
