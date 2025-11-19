@@ -12,7 +12,7 @@ select linkedin_profile_id, lead_id, username, location, headline, about, create
 from linkedin_profile
 where username = :username;
 
--- name: search_company_leads_by_headline
+-- name: get_company_leads_by_headline
 select lp.lead_id, cm.username as company_name, lp.username, lp.headline, l.first_name, l.full_name, l.email
 from linkedin_profile lp
          inner join lead l on l.lead_id = lp.lead_id

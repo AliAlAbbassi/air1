@@ -1,55 +1,41 @@
-import aiosql
-import os
-from typing import Any
-from air1.db.db import db
-from air1.services.browser.linkedin_profile import Lead, LinkedinProfile
-from air1.services.browser.models import (
-    LinkedinProfileRecord,
-    LinkedinCompanyMemberRecord,
-    CompanyLeadRecord,
+from typing import Optional
+from prisma import Prisma
+from prisma.models import Lead, LinkedinProfile, LinkedinCompanyMember
+from air1.db.prisma_client import get_prisma
+from air1.services.browser.linkedin_profile import (
+    Lead as LeadData,
+    LinkedinProfile as LinkedinProfileData,
 )
+from air1.services.browser.prisma_models import CompanyLeadRecord
+from air1.db.sql_loader import linkedin_queries, linkedin_company_queries, with_params
 from loguru import logger
-from typing import TypeVar, Type
-
-T = TypeVar('T')
-
-def to_pydantic_list(results, model_class: Type[T]) -> list[T]:
-    """Convert database results to list of Pydantic models"""
-    if not results:
-        return []
-    return [model_class(**dict(result)) for result in results]
-
-def to_pydantic_single(result, model_class: Type[T]) -> T | None:
-    """Convert single database result to Pydantic model"""
-    if not result:
-        return None
-    return model_class(**dict(result))
-
-query_dir = os.path.join(os.path.dirname(__file__), "..", "..", "db", "query")
-queries: Any = aiosql.from_path(query_dir, "asyncpg")
 
 
-async def insert_lead(lead: Lead, conn=None) -> tuple[bool, int | None]:
+async def insert_lead(lead: LeadData) -> tuple[bool, int | None]:
     try:
-        db_conn = conn if conn else await db.get_pool()
-        result = await queries.insert_lead(
-            db_conn,
-            first_name=lead.first_name,
-            full_name=lead.full_name,
-            email=lead.email,
-            phone_number=lead.phone_number,
+        prisma = await get_prisma()
+
+        sql, params = with_params(
+            linkedin_queries["insert_lead"],
+            lead.first_name,
+            lead.full_name,
+            lead.email,
+            lead.phone_number,
         )
-        lead_id = result[0] if result else None
-        return True, lead_id
+        results = await prisma.query_raw(sql, *params)
+
+        if results and len(results) > 0:
+            return True, results[0]["lead_id"]
+        return False, None
     except Exception as e:
         logger.error(f"Failed to insert lead: {e}")
         return False, None
 
 
-async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=None):
+async def insert_linkedin_profile(
+    profile: LinkedinProfileData, lead_id: int
+) -> int | None:
     try:
-        db_conn = conn if conn else await db.get_pool()
-
         if not profile.username:
             logger.error("Username is required for LinkedIn profile insertion")
             return None
@@ -57,19 +43,25 @@ async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=N
         logger.info(
             f"Inserting LinkedIn profile for lead_id={lead_id}, username={profile.username}"
         )
-        result = await queries.insert_linkedin_profile(
-            db_conn,
-            lead_id=lead_id,
-            username=profile.username,
-            location=profile.location,
-            headline=profile.headline,
-            about=profile.about,
+
+        prisma = await get_prisma()
+        sql, params = with_params(
+            linkedin_queries["insert_linkedin_profile"],
+            lead_id,
+            profile.username,
+            profile.location,
+            profile.headline,
+            profile.about,
         )
-        linkedin_profile_id = result[0] if result else None
-        logger.info(
-            f"LinkedIn profile insertion result: linkedin_profile_id={linkedin_profile_id}"
-        )
-        return linkedin_profile_id
+        results = await prisma.query_raw(sql, *params)
+
+        if results and len(results) > 0:
+            profile_id = results[0]["linkedin_profile_id"]
+            logger.info(
+                f"LinkedIn profile insertion result: linkedin_profile_id={profile_id}"
+            )
+            return profile_id
+        return None
     except Exception as e:
         logger.error(
             f"Failed to insert linkedin profile for lead_id={lead_id}, username={profile.username}: {e}"
@@ -77,27 +69,31 @@ async def insert_linkedin_profile(profile: LinkedinProfile, lead_id: int, conn=N
         return None
 
 
-async def get_linkedin_profile_by_username(
-    username: str,
-) -> LinkedinProfileRecord | None:
-    """Fetch LinkedIn profile by username"""
+async def get_linkedin_profile_by_username(username: str) -> LinkedinProfile | None:
     try:
-        pool = await db.get_pool()
-        result = await queries.get_linkedin_profile_by_username(pool, username=username)
-        return to_pydantic_single(result, LinkedinProfileRecord)
+        prisma = await get_prisma()
+        sql, params = with_params(
+            linkedin_queries["get_linkedin_profile_by_username"], username
+        )
+        results = await prisma.query_raw(sql, *params)
+
+        if results and len(results) > 0:
+            return LinkedinProfile(**results[0])
+        return None
     except Exception as e:
         logger.error(f"Failed to get LinkedIn profile for username {username}: {e}")
         return None
 
 
-async def get_company_members_by_username(
-    username: str,
-) -> list[LinkedinCompanyMemberRecord]:
-    """Fetch all company members by username"""
+async def get_company_members_by_username(username: str) -> list[LinkedinCompanyMember]:
     try:
-        pool = await db.get_pool()
-        results = await queries.get_company_members_by_username(pool, username=username)
-        return to_pydantic_list(results, LinkedinCompanyMemberRecord)
+        prisma = await get_prisma()
+        sql, params = with_params(
+            linkedin_company_queries["get_company_members_by_username"], username
+        )
+        results = await prisma.query_raw(sql, *params)
+
+        return [LinkedinCompanyMember(**row) for row in results]
     except Exception as e:
         logger.error(f"Failed to get company members for username {username}: {e}")
         return []
@@ -105,14 +101,19 @@ async def get_company_members_by_username(
 
 async def get_company_member_by_profile_and_username(
     linkedin_profile_id: int, username: str
-) -> LinkedinCompanyMemberRecord | None:
-    """Fetch specific company member by profile ID and username"""
+) -> LinkedinCompanyMember | None:
     try:
-        pool = await db.get_pool()
-        result = await queries.get_company_member_by_profile_and_username(
-            pool, linkedin_profile_id=linkedin_profile_id, username=username
+        prisma = await get_prisma()
+        sql, params = with_params(
+            linkedin_company_queries["get_company_member_by_profile_and_username"],
+            linkedin_profile_id,
+            username,
         )
-        return to_pydantic_single(result, LinkedinCompanyMemberRecord)
+        results = await prisma.query_raw(sql, *params)
+
+        if results and len(results) > 0:
+            return LinkedinCompanyMember(**results[0])
+        return None
     except Exception as e:
         logger.error(
             f"Failed to get company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
@@ -121,11 +122,9 @@ async def get_company_member_by_profile_and_username(
 
 
 async def insert_linkedin_company_member(
-    linkedin_profile_id: int, username: str, title: str | None = None, conn=None
+    linkedin_profile_id: int, username: str, title: str | None = None
 ):
     try:
-        db_conn = conn if conn else await db.get_pool()
-
         if not username:
             logger.error("Username is required for company member insertion")
             return None
@@ -133,12 +132,16 @@ async def insert_linkedin_company_member(
         logger.info(
             f"Inserting company member for linkedin_profile_id={linkedin_profile_id}, username={username}, title={title}"
         )
-        await queries.insert_linkedin_company_member(
-            db_conn,
-            linkedin_profile_id=linkedin_profile_id,
-            username=username,
-            title=title,
+
+        prisma = await get_prisma()
+        sql, params = with_params(
+            linkedin_company_queries["insert_linkedin_company_member"],
+            linkedin_profile_id,
+            username,
+            title,
         )
+        await prisma.query_raw(sql, *params)
+
         logger.info(
             f"Company member insertion successful for linkedin_profile_id={linkedin_profile_id}, username={username}"
         )
@@ -149,32 +152,57 @@ async def insert_linkedin_company_member(
 
 
 async def save_lead_complete(
-    lead: Lead,
-    profile: LinkedinProfile,
+    lead: LeadData,
+    profile: LinkedinProfileData,
     username: str | None = None,
     title: str | None = None,
 ) -> tuple[bool, int | None]:
-    """Save lead with profile and company association in one transaction."""
     try:
-        pool = await db.get_pool()
-        async with pool.acquire() as conn:
-            async with conn.transaction():
-                success, lead_id = await insert_lead(lead, conn)
-                if not success or lead_id is None:
-                    return False, None
+        prisma = await get_prisma()
 
-                linkedin_profile_id = await insert_linkedin_profile(
-                    profile, lead_id, conn
+        async with prisma.tx() as transaction:
+            # Insert lead using raw SQL
+            lead_sql, lead_params = with_params(
+                linkedin_queries["insert_lead"],
+                lead.first_name,
+                lead.full_name,
+                lead.email,
+                lead.phone_number,
+            )
+            lead_results = await transaction.query_raw(lead_sql, *lead_params)
+
+            if not lead_results or len(lead_results) == 0:
+                return False, None
+
+            lead_id = lead_results[0]["lead_id"]
+
+            # Insert LinkedIn profile using raw SQL
+            profile_sql, profile_params = with_params(
+                linkedin_queries["insert_linkedin_profile"],
+                lead_id,
+                profile.username,
+                profile.location,
+                profile.headline,
+                profile.about,
+            )
+            profile_results = await transaction.query_raw(profile_sql, *profile_params)
+
+            if not profile_results or len(profile_results) == 0:
+                return False, None
+
+            profile_id = profile_results[0]["linkedin_profile_id"]
+
+            # Insert company member if username provided
+            if username:
+                company_sql, company_params = with_params(
+                    linkedin_company_queries["insert_linkedin_company_member"],
+                    profile_id,
+                    username,
+                    title,
                 )
-                if not linkedin_profile_id:
-                    return False, None
+                await transaction.query_raw(company_sql, *company_params)
 
-                if username and linkedin_profile_id:
-                    await insert_linkedin_company_member(
-                        linkedin_profile_id, username, title, conn
-                    )
-
-                return True, lead_id
+            return True, lead_id
     except Exception as e:
         logger.error(f"Failed to save lead complete: {e}")
         return False, None
@@ -183,28 +211,36 @@ async def save_lead_complete(
 async def get_company_leads_by_headline(
     company_username: str, search_term: str
 ) -> list[CompanyLeadRecord]:
-    """Get company leads by headline text"""
+    """Get company leads by headline text using raw SQL (complex join query)"""
     try:
-        pool = await db.get_pool()
-        results = await queries.search_company_leads_by_headline(
-            pool, company_username=company_username, search_term=search_term
+        prisma = await get_prisma()
+
+        sql, params = with_params(
+            linkedin_queries["get_company_leads_by_headline"],
+            company_username,
+            search_term,
         )
-        return to_pydantic_list(results, CompanyLeadRecord)
+        results = await prisma.query_raw(sql, *params)
+
+        return [CompanyLeadRecord(**row) for row in results]
     except Exception as e:
         logger.error(
-            f"Failed to search company leads by headline for {company_username}: {e}"
+            f"Failed to get company leads by headline for {company_username}: {e}"
         )
         return []
 
 
 async def get_company_leads(company_username: str) -> list[CompanyLeadRecord]:
-    """Get all leads for a company"""
+    """Get all leads for a company using raw SQL (complex join query)"""
     try:
-        pool = await db.get_pool()
-        results = await queries.get_company_leads(
-            pool, company_username=company_username
+        prisma = await get_prisma()
+
+        sql, params = with_params(
+            linkedin_queries["get_company_leads"], company_username
         )
-        return to_pydantic_list(results, CompanyLeadRecord)
+        results = await prisma.query_raw(sql, *params)
+
+        return [CompanyLeadRecord(**row) for row in results]
     except Exception as e:
         logger.error(f"Failed to get company leads for {company_username}: {e}")
         raise RuntimeError(

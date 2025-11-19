@@ -3,16 +3,16 @@ import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from air1.services.browser.service import Service
 from air1.services.browser.linkedin_profile import LinkedinProfile, CompanyPeople
-from air1.db.db import init_pool, close_pool
+from air1.db.prisma_client import connect_db, disconnect_db
 from loguru import logger
 
 
 @pytest_asyncio.fixture
 async def setup_db():
-    """Initialize database pool for tests."""
-    await init_pool()
+    """Initialize database connection for tests."""
+    await connect_db()
     yield
-    await close_pool()
+    await disconnect_db()
 
 
 @pytest.mark.asyncio
@@ -50,6 +50,7 @@ async def test_scrape_company_leads_with_mock(setup_db):
     with (
         patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
         patch("os.getenv", return_value="mock_linkedin_sid"),
+        patch("air1.services.browser.service.save_lead_complete", return_value=(True, 123)) as mock_save,
     ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
@@ -168,6 +169,7 @@ async def test_scrape_with_no_emails(setup_db):
     with (
         patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
         patch("os.getenv", return_value="mock_linkedin_sid"),
+        patch("air1.services.browser.service.save_lead_complete", return_value=(True, 456)) as mock_save,
     ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
