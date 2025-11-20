@@ -10,7 +10,7 @@ from air1.services.outreach.email import (
     EmailTemplate,
     EmailRecipient,
     EmailResult,
-    send_outreach_emails_to_leads
+    send_outreach_emails_to_leads,
 )
 
 
@@ -19,10 +19,7 @@ class TestEmailService:
 
     def test_email_template_creation(self):
         """Test EmailTemplate model validation"""
-        template = EmailTemplate(
-            subject="Test Subject",
-            content="Test Content"
-        )
+        template = EmailTemplate(subject="Test Subject", content="Test Content")
 
         assert template.subject == "Test Subject"
         assert template.content == "Test Content"
@@ -33,7 +30,7 @@ class TestEmailService:
             email="test@example.com",
             name="John Doe",
             first_name="John",
-            company="Test Corp"
+            company="Test Corp",
         )
 
         assert str(recipient.email) == "test@example.com"
@@ -46,26 +43,28 @@ class TestEmailService:
         with pytest.raises(ValueError):
             EmailRecipient(email="invalid-email")
 
-    @patch('air1.services.outreach.email.settings.resend_api_key', None)
+    @patch("air1.services.outreach.email.settings.resend_api_key", None)
     @pytest.mark.asyncio
     async def test_send_email_missing_api_key(self):
         """Test send_email raises error when API key is missing"""
-        with pytest.raises(ValueError, match="RESEND_API_KEY environment variable is required"):
+        with pytest.raises(
+            ValueError, match="RESEND_API_KEY environment variable is required"
+        ):
             await send_email("test@example.com", "Test", "Content")
 
-    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.outreach.email.resend')
+    @patch("air1.services.outreach.email.settings.resend_api_key", "test-api-key")
+    @patch("air1.services.outreach.email.resend")
     @pytest.mark.asyncio
     async def test_send_email_success(self, mock_resend):
         """Test successful email sending"""
         # Mock successful response
-        mock_resend.Emails.send.return_value = {'id': 'test-message-id'}
+        mock_resend.Emails.send.return_value = {"id": "test-message-id"}
 
         result = await send_email(
             to_email="test@example.com",
             subject="Test Subject",
             content="Test content",
-            recipient_name="John Doe"
+            recipient_name="John Doe",
         )
 
         assert result.success is True
@@ -73,8 +72,8 @@ class TestEmailService:
         assert result.message_id == "test-message-id"
         assert result.error is None
 
-    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.outreach.email.resend')
+    @patch("air1.services.outreach.email.settings.resend_api_key", "test-api-key")
+    @patch("air1.services.outreach.email.resend")
     @pytest.mark.asyncio
     async def test_send_email_failure(self, mock_resend):
         """Test email sending failure"""
@@ -82,15 +81,13 @@ class TestEmailService:
         mock_resend.Emails.send.side_effect = Exception("API Error")
 
         result = await send_email(
-            to_email="test@example.com",
-            subject="Test Subject",
-            content="Test content"
+            to_email="test@example.com", subject="Test Subject", content="Test content"
         )
 
         assert result.success is False
         assert result.recipient == "test@example.com"
         assert result.message_id is None
-        assert "API Error" in result.error
+        assert result.error is not None and "API Error" in result.error
 
     def test_personalize_content_with_name(self):
         """Test content personalization with name"""
@@ -119,32 +116,29 @@ class TestEmailService:
 
         assert result == "Hello there, welcome to our service!"
 
-    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.outreach.email.resend')
+    @patch("air1.services.outreach.email.settings.resend_api_key", "test-api-key")
+    @patch("air1.services.outreach.email.resend")
     @pytest.mark.asyncio
     async def test_bulk_email_sending(self, mock_resend):
         """Test bulk email sending functionality"""
         # Mock successful responses
-        mock_resend.Emails.send.return_value = {'id': 'test-message-id'}
+        mock_resend.Emails.send.return_value = {"id": "test-message-id"}
 
         recipients = [
             EmailRecipient(email="test1@example.com", name="John Doe"),
-            EmailRecipient(email="test2@example.com", name="Jane Smith")
+            EmailRecipient(email="test2@example.com", name="Jane Smith"),
         ]
 
-        template = EmailTemplate(
-            subject="Test Subject",
-            content="Hello {{name}}"
-        )
+        template = EmailTemplate(subject="Test Subject", content="Hello {{name}}")
 
-        results = await send_bulk_emails(
-            recipients=recipients,
-            template=template
-        )
+        results = await send_bulk_emails(recipients=recipients, template=template)
 
         assert len(results) == 2
         assert all(r.success for r in results)
-        assert {r.recipient for r in results} == {"test1@example.com", "test2@example.com"}
+        assert {r.recipient for r in results} == {
+            "test1@example.com",
+            "test2@example.com",
+        }
 
 
 class TestEmailTemplates:
@@ -152,7 +146,10 @@ class TestEmailTemplates:
 
     def test_template_functions_exist(self):
         """Test template functions exist and work"""
-        from air1.services.outreach.email_templates import get_meeting_subject, get_engineering_subject
+        from air1.services.outreach.templates import (
+            get_meeting_subject,
+            get_engineering_subject,
+        )
 
         # Just test they don't crash, don't care about specific names
         meeting_subject = get_meeting_subject("TestPerson")
@@ -165,7 +162,7 @@ class TestEmailTemplates:
 class TestEmailWorkflowFunctions:
     """Test workflow integration functions"""
 
-    @patch('air1.services.outreach.email.settings.resend_api_key', None)
+    @patch("air1.services.outreach.email.settings.resend_api_key", None)
     @pytest.mark.asyncio
     async def test_send_outreach_emails_no_api_key(self):
         """Test that outreach emails return empty list when no API key"""
@@ -176,7 +173,7 @@ class TestEmailWorkflowFunctions:
 
         assert results == []
 
-    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
+    @patch("air1.services.outreach.email.settings.resend_api_key", "test-api-key")
     @pytest.mark.asyncio
     async def test_send_outreach_emails_no_valid_emails(self):
         """Test outreach emails with no valid email addresses"""
@@ -187,8 +184,8 @@ class TestEmailWorkflowFunctions:
 
         assert results == []
 
-    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.outreach.email.send_bulk_emails')
+    @patch("air1.services.outreach.email.settings.resend_api_key", "test-api-key")
+    @patch("air1.services.outreach.email.send_bulk_emails")
     @pytest.mark.asyncio
     async def test_send_outreach_emails_success(self, mock_send_bulk_emails):
         """Test successful outreach email sending"""
@@ -203,7 +200,7 @@ class TestEmailWorkflowFunctions:
                 "email": "test@example.com",
                 "first_name": "John",
                 "full_name": "John Doe",
-                "company_name": "Test Corp"
+                "company_name": "Test Corp",
             }
         ]
 
@@ -216,7 +213,7 @@ class TestEmailWorkflowFunctions:
         # Verify send_bulk_emails was called with correct parameters
         mock_send_bulk_emails.assert_called_once()
         call_args = mock_send_bulk_emails.call_args
-        recipients = call_args[1]['recipients']
+        recipients = call_args[1]["recipients"]
         assert len(recipients) == 1
         assert str(recipients[0].email) == "test@example.com"
         assert recipients[0].name == "John Doe"

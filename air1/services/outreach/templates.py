@@ -10,6 +10,7 @@ def get_meeting_subject(recipient_name: str) -> str:
     """Generate meeting subject line"""
     return f"{recipient_name} x Ali - Meeting"
 
+
 def get_engineering_subject() -> str:
     """Generate engineering subject line"""
     return "Engineering - Ali Abbassi"
@@ -35,6 +36,14 @@ If you'd prefer not to receive these emails, please reply with "unsubscribe".
 """
 
 DEFAULT_COLD_OUTREACH_TEMPLATE = EmailTemplate(
-    subject=get_engineering_subject(),
-    content=DEFAULT_COLD_OUTREACH_EMAIL
+    subject=get_engineering_subject(), content=DEFAULT_COLD_OUTREACH_EMAIL
 )
+
+
+DEFAULT_COLD_CONNECTION_NOTE = """
+Hi, I'm a Senior Backend Engineer at Anghami (4 yrs) building scalable systems and APIs for 30M+ users. Experience across backend, data pipelines, and frontend. Let's chat? alialabbassi2001@gmail.com
+"""
+
+DEFAULT_COLD_CONNECTION_NOTE_BACKEND_ONLY = """
+Hi, I'm a Senior Backend Engineer at Anghami (4 yrs) building scalable systems and APIs for 30M+ users. Experience across backend, data pipelines, and distributed systems. Let's chat? alialabbassi2001@gmail.com
+"""
