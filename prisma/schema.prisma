@@ -15,6 +15,7 @@ model Lead {
   phoneNumber     String?           @map("phone_number") @db.VarChar(255)
   createdOn       DateTime          @default(now()) @map("created_on") @db.Timestamp(6)
   updatedOn       DateTime          @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  contact_point   contact_point[]
   linkedinProfile LinkedinProfile[]
 
   @@map("lead")
@@ -53,4 +54,22 @@ model LinkedinCompanyMember {
 
 model alembic_version {
   version_num String @id(map: "alembic_version_pkc") @db.VarChar(32)
+}
+
+model contact_point {
+  contact_point_id      BigInt               @id @default(autoincrement())
+  lead_id               BigInt?
+  contact_point_type_id BigInt?
+  created_on            DateTime             @default(now()) @db.Timestamp(6)
+  updated_on            DateTime             @default(now()) @db.Timestamp(6)
+  contact_point_types   contact_point_types? @relation(fields: [contact_point_type_id], references: [contact_point_types_id], onDelete: NoAction, onUpdate: NoAction)
+  lead                  Lead?                @relation(fields: [lead_id], references: [leadId], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model contact_point_types {
+  contact_point_types_id BigInt          @id @default(autoincrement())
+  contact_point_type     String          @db.VarChar(255)
+  created_on             DateTime        @default(now()) @db.Timestamp(6)
+  updated_on             DateTime        @default(now()) @db.Timestamp(6)
+  contact_point          contact_point[]
 }

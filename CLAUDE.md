@@ -2,137 +2,91 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Development Commands
 
-Air1 is a LinkedIn lead generation and outreach automation tool built with Python. It scrapes company employee information from LinkedIn and automates connection outreach workflows using browser automation.
+**Package Management & Dependencies:**
+- `uv add <package>` - Add new dependencies
+- `uv sync` - Install dependencies from lock file
+- `uv run <command>` - Run commands in virtual environment
 
-## Technology Stack
+**Testing:**
+- `uv run pytest` - Run all tests
+- `uv run pytest -m unit` - Run only unit tests (fast, no external dependencies)
+- `uv run pytest -m integration` - Run integration tests (requires database)
+- `uv run pytest -m slow` - Run slow tests
+- `uv run pytest -v --tb=short` - Run with verbose output and short tracebacks
+- `uv run pytest --cov=air1` - Run tests with coverage
 
-- **Python 3.13+** with UV package manager
-- **FastAPI** for web API endpoints
-- **Typer** for CLI interface
-- **PostgreSQL** with AsyncPG driver
-- **Playwright** for browser automation
-- **Pytest** for testing
-- **Alembic** for database migrations
-- **Ruff** for linting and formatting
+**Linting & Code Quality:**
+- `./lint.sh` - Run linting with automatic fixes using Ruff
+- `./check.sh` - Check Python compilation
+- `uv run ruff check --fix air1/` - Direct Ruff linting with fixes
+- `uv run python -m compileall air1/` - Check Python compilation
 
-## Essential Commands
+**Application Execution:**
+- `uv run air1` or `uv run python -m air1` - Run CLI application
+- `uv run uvicorn air1.app:app --reload` - Start FastAPI development server
 
-### Development Setup
-```bash
-# Install dependencies
-uv sync
+**Database (Prisma):**
+- `uv run prisma db pull` - Introspect database and update schema from existing DB
+- `uv run prisma generate` - Generate Prisma client
+- `uv run prisma db push` - Push schema changes to database
 
-# Start local PostgreSQL
-docker-compose up -d
+## Architecture Overview
 
-# Run database migrations
-uv run alembic upgrade head
-```
+**Core Structure:**
+- `air1/` - Main package containing all application code
+- `air1/__main__.py` - Entry point that delegates to CLI commands
+- `air1/app.py` - FastAPI application with basic health endpoints
+- `air1/config.py` - Configuration management using Pydantic Settings
 
-### Code Quality
-```bash
-# Lint and auto-fix code
-./lint.sh
+**Key Components:**
 
-# Check for syntax errors
-./check.sh
+**CLI Interface (`air1/cli/`):**
+- Built with Typer framework
+- `commands.py` - Main CLI command definitions and application entry point
 
-# Run all tests
-uv run pytest
+**Database Layer (`air1/db/`):**
+- Uses Prisma ORM for PostgreSQL
+- `prisma_client.py` - Prisma client setup and connection management
+- `sql_loader.py` - SQL query loading utilities
+- Schema includes: Lead, LinkedinProfile, LinkedinCompanyMember models
 
-# Run specific test types
-uv run pytest -m unit
-uv run pytest -m integration
+**Business Logic (`air1/workflows/`):**
+- `linkedin_outreach.py` - LinkedIn outreach automation workflows
+- `linkedin_company_leads.py` - Company lead generation workflows
+- `linkedin_profile_info.py` - Profile information extraction workflows
 
-# Run single test file
-uv run pytest air1/services/browser/service_test.py
+**Services Layer (`air1/services/outreach/`):**
+- `service.py` - Main outreach service orchestration
+- `linkedin_outreach.py` - LinkedIn-specific outreach operations
+- `browser.py` - Browser automation using Playwright
+- `profile_scraper.py` - LinkedIn profile scraping logic
+- `company_scraper.py` - Company information scraping
+- `email.py` - Email sending functionality using Resend
+- `repo.py` - Database repository layer for data access
+- `templates.py` - Email and message template management
 
-# Run tests with coverage
-uv run pytest --cov=air1
-```
+**Technology Stack:**
+- **Web Framework:** FastAPI for HTTP API endpoints
+- **CLI Framework:** Typer for command-line interface
+- **Database:** PostgreSQL with Prisma ORM (prisma-client-py)
+- **Web Automation:** Playwright for browser automation
+- **Email:** Resend service for email delivery
+- **Configuration:** Pydantic Settings with dotenv support
+- **Testing:** Pytest with asyncio support, separate test markers for unit/integration/slow tests
+- **Code Quality:** Ruff for linting and formatting
 
-### Running the Application
-```bash
-# CLI interface
-uv run air1 --help
-uv run air1 company-leads tech-usa --limit 10
+**Test Organization:**
+- Uses pytest with custom markers: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.slow`
+- Test files follow pattern: `*_test.py` or `test_*.py`
+- Asyncio mode enabled for async test support
+- Coverage reporting available via pytest-cov
 
-# Web API server
-uv run python start.py
-# Alternative: uvicorn air1.app:app --reload
-
-# Direct Python execution
-uv run python main.py
-```
-
-## Architecture
-
-### Core Components
-
-**Browser Automation Service** (`air1/services/browser/`):
-- `service.py`: Main service orchestrator for all browser operations
-- `browser.py`: Playwright session management with LinkedIn authentication
-- `linkedin_outreach.py`: Automates connection requests
-- `company_scraper.py`: Extracts employee lists from company pages
-- `profile_scraper.py`: Scrapes individual profile data
-- `email.py`: Email extraction and processing functionality
-- `navigation.py`: Common navigation utilities
-- `repo.py`: Database repository patterns for browser data
-
-**Workflows** (`air1/workflows/`):
-- `linkedin_company_leads.py`: End-to-end company lead generation
-- `linkedin_outreach.py`: Automated connection outreach campaigns
-- `linkedin_profile_info.py`: Profile data extraction workflows
-
-**Database Layer** (`air1/db/`):
-- `models/`: PostgreSQL schema definitions
-- `query/`: SQL templates using aiosql
-- `db.py`: AsyncPG connection pool management
-
-**Configuration** (`air1/config.py`):
-- Environment-based settings with Pydantic
-- LinkedIn session management via `LINKEDIN_SID` environment variable
-
-### Key Patterns
-
-- **Async-first architecture**: All I/O operations use asyncio
-- **Service pattern**: Clean separation between browser automation and business logic
-- **Configuration-driven**: Extensive use of environment variables
-- **Type safety**: Pydantic models for data validation
-
-### Database Schema
-
-Main entities:
-- `leads`: Core lead information
-- `linkedin_profile`: LinkedIn profile data
-- `linkedin_company_members`: Company-employee relationships
-
-### Testing Structure
-
-- Tests embedded within modules as `*_test.py` files
-- Unit tests (fast, no database required)
-- Integration tests (require PostgreSQL)
-- Async test support configured in `pytest.ini`
-
-## Environment Requirements
-
-Required environment variables:
-- `LINKEDIN_SID`: LinkedIn session ID for authentication (required for browser automation)
-- `DATABASE_URL`: PostgreSQL connection string (defaults to local docker-compose setup)
-- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`: Database credentials (optional if using DATABASE_URL)
-
-## Development Workflow
-
-1. **Setup**: `docker-compose up -d && uv sync`
-2. **Database**: `uv run alembic upgrade head`
-3. **Code Quality**: Use `./lint.sh` before commits
-4. **Testing**: `uv run pytest` for validation
-5. **Usage**: `uv run air1 company-leads [companies]` for lead generation
-
-## Entry Points
-
-- **CLI**: `air1/__main__.py` - Main CLI interface
-- **Web API**: `air1/app.py` - FastAPI application
-- **Direct execution**: `main.py` - Direct Python entry point
+**Key Dependencies:**
+- beautifulsoup4, lxml - HTML parsing
+- playwright - Browser automation
+- prisma - Database ORM
+- resend - Email service
+- loguru - Structured logging
+- rich - Terminal output formatting
