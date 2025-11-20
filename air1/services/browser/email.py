@@ -135,7 +135,6 @@ async def send_bulk_emails(
 
     all_results = []
 
-    # Process in batches of 50
     for i in range(0, len(recipients), BATCH_SIZE):
         batch = recipients[i:i + BATCH_SIZE]
         logger.info(f"Sending batch {i//BATCH_SIZE + 1}: {len(batch)} emails")
