@@ -7,7 +7,7 @@ to connect with multiple profiles at once.
 """
 
 import asyncio
-from air1.services.browser.service import Service
+from air1.services.outreach.service import Service
 from loguru import logger
 
 

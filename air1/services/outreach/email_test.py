@@ -4,7 +4,7 @@ Tests for email service functionality
 
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
-from air1.services.browser.email import (
+from air1.services.outreach.email import (
     send_email,
     send_bulk_emails,
     EmailTemplate,
@@ -46,15 +46,15 @@ class TestEmailService:
         with pytest.raises(ValueError):
             EmailRecipient(email="invalid-email")
 
-    @patch('air1.services.browser.email.settings.resend_api_key', None)
+    @patch('air1.services.outreach.email.settings.resend_api_key', None)
     @pytest.mark.asyncio
     async def test_send_email_missing_api_key(self):
         """Test send_email raises error when API key is missing"""
         with pytest.raises(ValueError, match="RESEND_API_KEY environment variable is required"):
             await send_email("test@example.com", "Test", "Content")
 
-    @patch('air1.services.browser.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.browser.email.resend')
+    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
+    @patch('air1.services.outreach.email.resend')
     @pytest.mark.asyncio
     async def test_send_email_success(self, mock_resend):
         """Test successful email sending"""
@@ -73,8 +73,8 @@ class TestEmailService:
         assert result.message_id == "test-message-id"
         assert result.error is None
 
-    @patch('air1.services.browser.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.browser.email.resend')
+    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
+    @patch('air1.services.outreach.email.resend')
     @pytest.mark.asyncio
     async def test_send_email_failure(self, mock_resend):
         """Test email sending failure"""
@@ -94,7 +94,7 @@ class TestEmailService:
 
     def test_personalize_content_with_name(self):
         """Test content personalization with name"""
-        from air1.services.browser.email import _personalize_content
+        from air1.services.outreach.email import _personalize_content
 
         content = "Hello {{name}}, welcome to our service!"
         result = _personalize_content(content, "John Doe")
@@ -103,7 +103,7 @@ class TestEmailService:
 
     def test_personalize_content_with_first_name(self):
         """Test content personalization with first name"""
-        from air1.services.browser.email import _personalize_content
+        from air1.services.outreach.email import _personalize_content
 
         content = "Hi {{first_name}}, how are you?"
         result = _personalize_content(content, "John Doe")
@@ -112,15 +112,15 @@ class TestEmailService:
 
     def test_personalize_content_without_name(self):
         """Test content personalization without name"""
-        from air1.services.browser.email import _personalize_content
+        from air1.services.outreach.email import _personalize_content
 
         content = "Hello {{name}}, welcome to our service!"
         result = _personalize_content(content, None)
 
         assert result == "Hello there, welcome to our service!"
 
-    @patch('air1.services.browser.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.browser.email.resend')
+    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
+    @patch('air1.services.outreach.email.resend')
     @pytest.mark.asyncio
     async def test_bulk_email_sending(self, mock_resend):
         """Test bulk email sending functionality"""
@@ -152,7 +152,7 @@ class TestEmailTemplates:
 
     def test_template_functions_exist(self):
         """Test template functions exist and work"""
-        from air1.services.browser.email_templates import get_meeting_subject, get_engineering_subject
+        from air1.services.outreach.email_templates import get_meeting_subject, get_engineering_subject
 
         # Just test they don't crash, don't care about specific names
         meeting_subject = get_meeting_subject("TestPerson")
@@ -165,7 +165,7 @@ class TestEmailTemplates:
 class TestEmailWorkflowFunctions:
     """Test workflow integration functions"""
 
-    @patch('air1.services.browser.email.settings.resend_api_key', None)
+    @patch('air1.services.outreach.email.settings.resend_api_key', None)
     @pytest.mark.asyncio
     async def test_send_outreach_emails_no_api_key(self):
         """Test that outreach emails return empty list when no API key"""
@@ -176,7 +176,7 @@ class TestEmailWorkflowFunctions:
 
         assert results == []
 
-    @patch('air1.services.browser.email.settings.resend_api_key', 'test-api-key')
+    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
     @pytest.mark.asyncio
     async def test_send_outreach_emails_no_valid_emails(self):
         """Test outreach emails with no valid email addresses"""
@@ -187,8 +187,8 @@ class TestEmailWorkflowFunctions:
 
         assert results == []
 
-    @patch('air1.services.browser.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.browser.email.send_bulk_emails')
+    @patch('air1.services.outreach.email.settings.resend_api_key', 'test-api-key')
+    @patch('air1.services.outreach.email.send_bulk_emails')
     @pytest.mark.asyncio
     async def test_send_outreach_emails_success(self, mock_send_bulk_emails):
         """Test successful outreach email sending"""

@@ -1,7 +1,7 @@
 import asyncio
 import typer
-from air1.services.browser.service import Service
-from air1.services.browser.email import send_email, EmailTemplate
+from air1.services.outreach.service import Service
+from air1.services.outreach.email import send_email, EmailTemplate
 from air1.db.prisma_client import disconnect_db
 
 app = typer.Typer()

@@ -1,6 +1,6 @@
 import asyncio
 from loguru import logger
-from air1.services.browser.service import Service
+from air1.services.outreach.service import Service
 from air1.db.prisma_client import disconnect_db
 
 

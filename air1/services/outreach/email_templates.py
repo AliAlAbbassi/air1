@@ -2,7 +2,7 @@
 Email templates for outreach campaigns
 """
 
-from air1.services.browser.email import EmailTemplate
+from air1.services.outreach.email import EmailTemplate
 
 
 # Template functions

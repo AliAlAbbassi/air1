@@ -1,4 +1,4 @@
-from air1.services.browser.repo import save_lead_complete, get_company_leads
+from air1.services.outreach.repo import save_lead_complete, get_company_leads
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv
@@ -6,14 +6,14 @@ from typing import Optional, List, Dict, Any
 from abc import ABC, abstractmethod
 from loguru import logger
 
-from air1.services.browser.browser import BrowserSession
-from air1.services.browser.linkedin_profile import (
+from air1.services.outreach.browser import BrowserSession
+from air1.services.outreach.linkedin_profile import (
     LinkedinProfile,
     CompanyPeople,
     profile_to_lead,
     enrich_profile_with_username,
 )
-from air1.services.browser.email import EmailTemplate, EmailResult
+from air1.services.outreach.email import EmailTemplate, EmailResult
 
 load_dotenv()
 
@@ -206,5 +206,5 @@ class Service(IService):
 
     async def send_outreach_emails(self, leads, template) -> List[EmailResult]:
         """Send outreach emails to leads using template"""
-        from air1.services.browser.email import send_outreach_emails_to_leads
+        from air1.services.outreach.email import send_outreach_emails_to_leads
         return await send_outreach_emails_to_leads(leads, template)

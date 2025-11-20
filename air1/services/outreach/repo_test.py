@@ -1,6 +1,6 @@
 import pytest
 import uuid
-from air1.services.browser.repo import (
+from air1.services.outreach.repo import (
     insert_lead,
     insert_linkedin_profile,
     get_linkedin_profile_by_username,
@@ -8,8 +8,8 @@ from air1.services.browser.repo import (
     get_company_leads_by_headline,
     save_lead_complete,
 )
-from air1.services.browser.linkedin_profile import Lead, LinkedinProfile
-from air1.services.browser.prisma_models import CompanyLeadRecord
+from air1.services.outreach.linkedin_profile import Lead, LinkedinProfile
+from air1.services.outreach.prisma_models import CompanyLeadRecord
 from air1.db.prisma_client import connect_db, disconnect_db, get_prisma
 from loguru import logger
 

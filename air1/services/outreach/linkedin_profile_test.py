@@ -1,5 +1,5 @@
 import pytest
-from air1.services.browser.linkedin_profile import Lead
+from air1.services.outreach.linkedin_profile import Lead
 
 
 @pytest.mark.unit

@@ -1,8 +1,8 @@
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from air1.services.browser.service import Service
-from air1.services.browser.linkedin_profile import LinkedinProfile, CompanyPeople
+from air1.services.outreach.service import Service
+from air1.services.outreach.linkedin_profile import LinkedinProfile, CompanyPeople
 from air1.db.prisma_client import connect_db, disconnect_db
 from loguru import logger
 
@@ -48,9 +48,9 @@ async def test_scrape_company_leads_with_mock(setup_db):
     }
 
     with (
-        patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
+        patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
         patch("os.getenv", return_value="mock_linkedin_sid"),
-        patch("air1.services.browser.service.save_lead_complete", return_value=(True, 123)) as mock_save,
+        patch("air1.services.outreach.service.save_lead_complete", return_value=(True, 123)) as mock_save,
     ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
@@ -90,7 +90,7 @@ async def test_scrape_multiple_companies(setup_db):
     mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
 
     with (
-        patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
+        patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
         patch("os.getenv", return_value="mock_linkedin_sid"),
     ):
         mock_session_instance = AsyncMock()
@@ -124,7 +124,7 @@ async def test_service_context_manager():
             assert service._owns_playwright is False
 
         with patch(
-            "air1.services.browser.service.async_playwright"
+            "air1.services.outreach.service.async_playwright"
         ) as mock_async_playwright:
             mock_playwright_instance = AsyncMock()
             mock_async_playwright.return_value = mock_playwright_instance
@@ -167,9 +167,9 @@ async def test_scrape_with_no_emails(setup_db):
     }
 
     with (
-        patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
+        patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
         patch("os.getenv", return_value="mock_linkedin_sid"),
-        patch("air1.services.browser.service.save_lead_complete", return_value=(True, 456)) as mock_save,
+        patch("air1.services.outreach.service.save_lead_complete", return_value=(True, 456)) as mock_save,
     ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
@@ -209,10 +209,10 @@ async def test_scrape_and_save_error_handling(setup_db):
     )
 
     with (
-        patch("air1.services.browser.service.BrowserSession") as MockBrowserSession,
+        patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
         patch("os.getenv", return_value="mock_linkedin_sid"),
     ):
-        with patch("air1.services.browser.service.save_lead_complete") as mock_save:
+        with patch("air1.services.outreach.service.save_lead_complete") as mock_save:
             mock_session_instance = AsyncMock()
             MockBrowserSession.return_value = mock_session_instance
 
@@ -249,7 +249,7 @@ async def test_get_company_leads(setup_db):
 
     with (
         patch("os.getenv", side_effect=mock_getenv),
-        patch("air1.services.browser.service.async_playwright") as mock_playwright,
+        patch("air1.services.outreach.service.async_playwright") as mock_playwright,
     ):
         mock_playwright_instance = AsyncMock()
         mock_playwright.return_value = mock_playwright_instance

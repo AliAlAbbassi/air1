@@ -2,11 +2,11 @@ from typing import Optional
 from prisma import Prisma
 from prisma.models import Lead, LinkedinProfile, LinkedinCompanyMember
 from air1.db.prisma_client import get_prisma
-from air1.services.browser.linkedin_profile import (
+from air1.services.outreach.linkedin_profile import (
     Lead as LeadData,
     LinkedinProfile as LinkedinProfileData,
 )
-from air1.services.browser.prisma_models import CompanyLeadRecord
+from air1.services.outreach.prisma_models import CompanyLeadRecord
 from air1.db.sql_loader import linkedin_queries, linkedin_company_queries, with_params
 from loguru import logger
 
