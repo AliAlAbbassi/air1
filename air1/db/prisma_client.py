@@ -7,7 +7,10 @@ prisma = Prisma()
 async def connect_db():
     """Connect to the database using Prisma"""
     if not prisma.is_connected():
+        # Force re-read of environment variables to ensure connection string is fresh
         os.environ['DATABASE_URL'] = settings.database_url
+        
+        # Explicitly connect
         await prisma.connect()
 
 async def disconnect_db():

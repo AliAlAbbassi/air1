@@ -5,11 +5,11 @@ on conflict (linkedin_profile_id, username) do update set
     title = coalesce(excluded.title, linkedin_company_members.title);
 
 -- name: get_company_members_by_username
-select company_member_id, linkedin_profile_id, username, title, created_on, updated_on
+select company_member_id as "companyMemberId", linkedin_profile_id as "linkedinProfileId", username, title, created_on as "createdOn", updated_on as "updatedOn"
 from linkedin_company_members
 where username = :username;
 
 -- name: get_company_member_by_profile_and_username^
-select company_member_id, linkedin_profile_id, username, title, created_on, updated_on
+select company_member_id as "companyMemberId", linkedin_profile_id as "linkedinProfileId", username, title, created_on as "createdOn", updated_on as "updatedOn"
 from linkedin_company_members
 where linkedin_profile_id = :linkedin_profile_id and username = :username;

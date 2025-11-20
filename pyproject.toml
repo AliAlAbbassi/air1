@@ -20,6 +20,7 @@ dependencies = [
     "rich>=14.2.0",
     "typer>=0.20.0",
     "uvicorn>=0.38.0",
+    "aiosql>=13.4",
 ]
 
 [project.scripts]

@@ -7,7 +7,7 @@ from air1.services.outreach.linkedin_profile import (
     LinkedinProfile as LinkedinProfileData,
 )
 from air1.services.outreach.prisma_models import CompanyLeadRecord
-from air1.db.sql_loader import linkedin_queries, linkedin_company_queries, with_params
+from air1.db.sql_loader import queries
 from loguru import logger
 
 
@@ -15,17 +15,16 @@ async def insert_lead(lead: LeadData) -> tuple[bool, int | None]:
     try:
         prisma = await get_prisma()
 
-        sql, params = with_params(
-            linkedin_queries["insert_lead"],
-            lead.first_name,
-            lead.full_name,
-            lead.email,
-            lead.phone_number,
+        result = await queries.insert_lead(
+            prisma,
+            first_name=lead.first_name,
+            full_name=lead.full_name,
+            email=lead.email,
+            phone_number=lead.phone_number,
         )
-        results = await prisma.query_raw(sql, *params)
 
-        if results and len(results) > 0:
-            return True, results[0]["lead_id"]
+        if result:
+            return True, result["leadId"]
         return False, None
     except Exception as e:
         logger.error(f"Failed to insert lead: {e}")
@@ -45,18 +44,17 @@ async def insert_linkedin_profile(
         )
 
         prisma = await get_prisma()
-        sql, params = with_params(
-            linkedin_queries["insert_linkedin_profile"],
-            lead_id,
-            profile.username,
-            profile.location,
-            profile.headline,
-            profile.about,
+        result = await queries.insert_linkedin_profile(
+            prisma,
+            lead_id=int(lead_id),
+            username=profile.username,
+            location=profile.location,
+            headline=profile.headline,
+            about=profile.about,
         )
-        results = await prisma.query_raw(sql, *params)
 
-        if results and len(results) > 0:
-            profile_id = results[0]["linkedin_profile_id"]
+        if result:
+            profile_id = result["linkedinProfileId"]
             logger.info(
                 f"LinkedIn profile insertion result: linkedin_profile_id={profile_id}"
             )
@@ -72,13 +70,10 @@ async def insert_linkedin_profile(
 async def get_linkedin_profile_by_username(username: str) -> LinkedinProfile | None:
     try:
         prisma = await get_prisma()
-        sql, params = with_params(
-            linkedin_queries["get_linkedin_profile_by_username"], username
-        )
-        results = await prisma.query_raw(sql, *params)
+        result = await queries.get_linkedin_profile_by_username(prisma, username=username)
 
-        if results and len(results) > 0:
-            return LinkedinProfile(**results[0])
+        if result:
+            return LinkedinProfile(**result)
         return None
     except Exception as e:
         logger.error(f"Failed to get LinkedIn profile for username {username}: {e}")
@@ -88,10 +83,7 @@ async def get_linkedin_profile_by_username(username: str) -> LinkedinProfile | N
 async def get_company_members_by_username(username: str) -> list[LinkedinCompanyMember]:
     try:
         prisma = await get_prisma()
-        sql, params = with_params(
-            linkedin_company_queries["get_company_members_by_username"], username
-        )
-        results = await prisma.query_raw(sql, *params)
+        results = await queries.get_company_members_by_username(prisma, username=username)
 
         return [LinkedinCompanyMember(**row) for row in results]
     except Exception as e:
@@ -104,15 +96,12 @@ async def get_company_member_by_profile_and_username(
 ) -> LinkedinCompanyMember | None:
     try:
         prisma = await get_prisma()
-        sql, params = with_params(
-            linkedin_company_queries["get_company_member_by_profile_and_username"],
-            linkedin_profile_id,
-            username,
+        result = await queries.get_company_member_by_profile_and_username(
+            prisma, linkedin_profile_id=linkedin_profile_id, username=username
         )
-        results = await prisma.query_raw(sql, *params)
 
-        if results and len(results) > 0:
-            return LinkedinCompanyMember(**results[0])
+        if result:
+            return LinkedinCompanyMember(**result)
         return None
     except Exception as e:
         logger.error(
@@ -134,13 +123,12 @@ async def insert_linkedin_company_member(
         )
 
         prisma = await get_prisma()
-        sql, params = with_params(
-            linkedin_company_queries["insert_linkedin_company_member"],
-            linkedin_profile_id,
-            username,
-            title,
+        await queries.insert_linkedin_company_member(
+            prisma,
+            linkedin_profile_id=linkedin_profile_id,
+            username=username,
+            title=title,
         )
-        await prisma.query_raw(sql, *params)
 
         logger.info(
             f"Company member insertion successful for linkedin_profile_id={linkedin_profile_id}, username={username}"
@@ -161,46 +149,43 @@ async def save_lead_complete(
         prisma = await get_prisma()
 
         async with prisma.tx() as transaction:
-            # Insert lead using raw SQL
-            lead_sql, lead_params = with_params(
-                linkedin_queries["insert_lead"],
-                lead.first_name,
-                lead.full_name,
-                lead.email,
-                lead.phone_number,
+            # Insert lead using aiosql
+            lead_result = await queries.insert_lead(
+                transaction,
+                first_name=lead.first_name,
+                full_name=lead.full_name,
+                email=lead.email,
+                phone_number=lead.phone_number,
             )
-            lead_results = await transaction.query_raw(lead_sql, *lead_params)
 
-            if not lead_results or len(lead_results) == 0:
+            if not lead_result:
                 return False, None
 
-            lead_id = lead_results[0]["lead_id"]
+            lead_id = lead_result["leadId"]
 
-            # Insert LinkedIn profile using raw SQL
-            profile_sql, profile_params = with_params(
-                linkedin_queries["insert_linkedin_profile"],
-                lead_id,
-                profile.username,
-                profile.location,
-                profile.headline,
-                profile.about,
+            # Insert LinkedIn profile using aiosql
+            profile_result = await queries.insert_linkedin_profile(
+                transaction,
+                lead_id=int(lead_id),
+                username=profile.username,
+                location=profile.location,
+                headline=profile.headline,
+                about=profile.about,
             )
-            profile_results = await transaction.query_raw(profile_sql, *profile_params)
 
-            if not profile_results or len(profile_results) == 0:
+            if not profile_result:
                 return False, None
 
-            profile_id = profile_results[0]["linkedin_profile_id"]
+            profile_id = profile_result["linkedinProfileId"]
 
             # Insert company member if username provided
             if username:
-                company_sql, company_params = with_params(
-                    linkedin_company_queries["insert_linkedin_company_member"],
-                    profile_id,
-                    username,
-                    title,
+                await queries.insert_linkedin_company_member(
+                    transaction,
+                    linkedin_profile_id=profile_id,
+                    username=username,
+                    title=title,
                 )
-                await transaction.query_raw(company_sql, *company_params)
 
             return True, lead_id
     except Exception as e:
@@ -215,12 +200,9 @@ async def get_company_leads_by_headline(
     try:
         prisma = await get_prisma()
 
-        sql, params = with_params(
-            linkedin_queries["get_company_leads_by_headline"],
-            company_username,
-            search_term,
+        results = await queries.get_company_leads_by_headline(
+            prisma, company_username=company_username, search_term=search_term
         )
-        results = await prisma.query_raw(sql, *params)
 
         return [CompanyLeadRecord(**row) for row in results]
     except Exception as e:
@@ -235,10 +217,9 @@ async def get_company_leads(company_username: str) -> list[CompanyLeadRecord]:
     try:
         prisma = await get_prisma()
 
-        sql, params = with_params(
-            linkedin_queries["get_company_leads"], company_username
+        results = await queries.get_company_leads(
+            prisma, company_username=company_username
         )
-        results = await prisma.query_raw(sql, *params)
 
         return [CompanyLeadRecord(**row) for row in results]
     except Exception as e:

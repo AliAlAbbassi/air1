@@ -2,13 +2,13 @@
 insert into linkedin_profile (lead_id, username, location, headline, about)
 values (:lead_id, :username, :location, :headline, :about)
 on conflict (username) do update set
-    location = coalesce(linkedin_profile.location, excluded.location),
-    headline = coalesce(linkedin_profile.headline, excluded.headline),
-    about = coalesce(linkedin_profile.about, excluded.about)
-returning linkedin_profile_id;
+    location = coalesce(excluded.location, linkedin_profile.location),
+    headline = coalesce(excluded.headline, linkedin_profile.headline),
+    about = coalesce(excluded.about, linkedin_profile.about)
+returning linkedin_profile_id as "linkedinProfileId";
 
 -- name: get_linkedin_profile_by_username^
-select linkedin_profile_id, lead_id, username, location, headline, about, created_on, updated_on
+select linkedin_profile_id as "linkedinProfileId", lead_id as "leadId", username, location, headline, about, created_on as "createdOn", updated_on as "updatedOn"
 from linkedin_profile
 where username = :username;
 

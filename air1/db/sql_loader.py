@@ -1,53 +1,62 @@
 import os
-import re
-from typing import Dict
+import aiosql
+from aiosql.adapters.asyncpg import AsyncPGAdapter
+from loguru import logger
 
+class PrismaAdapter(AsyncPGAdapter):
+    """
+    Adapter to allow aiosql to work with Prisma Client's query_raw method.
+    Inherits from AsyncPGAdapter to leverage its postgres parameter formatting ($1, $2, ...).
+    """
+    
+    async def select(self, conn, query_name, sql, parameters, record_class=None):
+        """Execute a query and return a list of results."""
+        parameters = self.maybe_order_params(query_name, parameters)
+        logger.debug(f"Executing SQL: {sql} | Params: {parameters}")
+        return await conn.query_raw(sql, *parameters)
 
-def with_params(sql: str, *params) -> tuple[str, tuple]:
-    """Convert :param style to $1, $2 format for Prisma and return params tuple"""
-    param_pattern = r":(\w+)"
-    matches = re.findall(param_pattern, sql)
+    async def select_one(self, conn, query_name, sql, parameters, record_class=None):
+        """Execute a query and return the first result, or None."""
+        parameters = self.maybe_order_params(query_name, parameters)
+        logger.debug(f"Executing SQL (one): {sql} | Params: {parameters}")
+        results = await conn.query_raw(sql, *parameters)
+        if results:
+            return results[0]
+        return None
 
-    converted_sql = sql
-    for i, param_name in enumerate(matches, 1):
-        converted_sql = converted_sql.replace(f":{param_name}", f"${i}")
+    async def select_value(self, conn, query_name, sql, parameters):
+        """Execute a query and return the first value of the first row."""
+        parameters = self.maybe_order_params(query_name, parameters)
+        logger.debug(f"Executing SQL (value): {sql} | Params: {parameters}")
+        results = await conn.query_raw(sql, *parameters)
+        if results:
+            # Get the first value from the dict (e.g., count)
+            return next(iter(results[0].values()))
+        return None
+        
+    async def insert_update_delete(self, conn, query_name, sql, parameters):
+        """Execute a query that returns no result (or we don't care)."""
+        parameters = self.maybe_order_params(query_name, parameters)
+        logger.debug(f"Executing SQL (write): {sql} | Params: {parameters}")
+        await conn.query_raw(sql, *parameters)
+        
+    async def insert_returning(self, conn, query_name, sql, parameters):
+        """Execute a query and return the first row (like select_one)."""
+        # Prisma's query_raw returns a list of dictionaries. 
+        # If RETURNING is used, the list will contain the inserted row(s).
+        parameters = self.maybe_order_params(query_name, parameters)
+        logger.debug(f"Executing SQL (insert+return): {sql} | Params: {parameters}")
+        results = await conn.query_raw(sql, *parameters)
+        if results and len(results) > 0:
+            return results[0]
+        return None
 
-    return converted_sql, params
+# Register the adapter
+aiosql.register_adapter("prisma", PrismaAdapter)
 
-
-def load_sql_queries(file_path: str) -> Dict[str, str]:
-    """Load SQL queries from a file, parsing -- name: comments"""
-    queries = {}
-
-    if not os.path.exists(file_path):
-        return queries
-
-    with open(file_path, "r") as f:
-        content = f.read()
-
-    # Split by -- name: comments
-    parts = re.split(r"-- name: (\w+)", content)
-
-    # parts[0] is empty, then alternates between name and query
-    for i in range(1, len(parts), 2):
-        if i + 1 < len(parts):
-            query_name = parts[i].strip()
-            query_sql = parts[i + 1].strip()
-
-            # Remove the ^ marker if present
-            if query_name.endswith("^"):
-                query_name = query_name[:-1]
-
-            # Clean up the SQL - remove extra whitespace but preserve structure
-            query_sql = re.sub(r"\n\s*\n", "\n", query_sql)  # Remove empty lines
-            query_sql = query_sql.strip()
-
-            queries[query_name] = query_sql
-
-    return queries
-
-
-# Load queries on module import
+# Load queries
 query_dir = os.path.join(os.path.dirname(__file__), "query")
-linkedin_queries = load_sql_queries(os.path.join(query_dir, "linkedin.sql"))
-linkedin_company_queries = load_sql_queries(os.path.join(query_dir, "linkedin_company_members.sql"))
+
+# Load all queries from the directory
+# They will be available as methods on the 'queries' object
+queries = aiosql.from_path(query_dir, "prisma")
