@@ -199,6 +199,9 @@ class Service(IService):
                 profile_usernames, message, delay_between_connections
             )
         finally:
+            import time
+
+            time.sleep(60)
             await session.browser.close()
 
     async def get_company_leads(self, company_name: str):
@@ -207,4 +210,5 @@ class Service(IService):
     async def send_outreach_emails(self, leads, template) -> List[EmailResult]:
         """Send outreach emails to leads using template"""
         from air1.services.outreach.email import send_outreach_emails_to_leads
+
         return await send_outreach_emails_to_leads(leads, template)
