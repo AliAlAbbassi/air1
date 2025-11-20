@@ -2,7 +2,7 @@ from air1.services.browser.repo import save_lead_complete, get_company_leads
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from abc import ABC, abstractmethod
 from loguru import logger
 
@@ -13,19 +13,24 @@ from air1.services.browser.linkedin_profile import (
     profile_to_lead,
     enrich_profile_with_username,
 )
+from air1.services.browser.email import EmailTemplate, EmailResult
 
 load_dotenv()
 
 
 class IService(ABC):
     """
-    Scrape leads from company's LinkedIn profile
+    Service interface for LinkedIn lead generation and email outreach
     """
 
     @abstractmethod
     async def scrape_company_leads(
         self, company_ids: list[str], limit=10, headless=True
     ) -> dict[str, int]:
+        pass
+
+    @abstractmethod
+    async def send_outreach_emails(self, leads, template) -> List[EmailResult]:
         pass
 
 
@@ -198,3 +203,8 @@ class Service(IService):
 
     async def get_company_leads(self, company_name: str):
         return await get_company_leads(company_username=company_name)
+
+    async def send_outreach_emails(self, leads, template) -> List[EmailResult]:
+        """Send outreach emails to leads using template"""
+        from air1.services.browser.email import send_outreach_emails_to_leads
+        return await send_outreach_emails_to_leads(leads, template)

@@ -45,6 +45,12 @@ uv run pytest
 # Run specific test types
 uv run pytest -m unit
 uv run pytest -m integration
+
+# Run single test file
+uv run pytest air1/services/browser/service_test.py
+
+# Run tests with coverage
+uv run pytest --cov=air1
 ```
 
 ### Running the Application
@@ -66,10 +72,19 @@ uv run python main.py
 ### Core Components
 
 **Browser Automation Service** (`air1/services/browser/`):
+- `service.py`: Main service orchestrator for all browser operations
 - `browser.py`: Playwright session management with LinkedIn authentication
 - `linkedin_outreach.py`: Automates connection requests
 - `company_scraper.py`: Extracts employee lists from company pages
 - `profile_scraper.py`: Scrapes individual profile data
+- `email.py`: Email extraction and processing functionality
+- `navigation.py`: Common navigation utilities
+- `repo.py`: Database repository patterns for browser data
+
+**Workflows** (`air1/workflows/`):
+- `linkedin_company_leads.py`: End-to-end company lead generation
+- `linkedin_outreach.py`: Automated connection outreach campaigns
+- `linkedin_profile_info.py`: Profile data extraction workflows
 
 **Database Layer** (`air1/db/`):
 - `models/`: PostgreSQL schema definitions
@@ -104,8 +119,9 @@ Main entities:
 ## Environment Requirements
 
 Required environment variables:
-- `LINKEDIN_SID`: LinkedIn session ID for authentication
-- Database credentials (defaults work for local development with docker-compose)
+- `LINKEDIN_SID`: LinkedIn session ID for authentication (required for browser automation)
+- `DATABASE_URL`: PostgreSQL connection string (defaults to local docker-compose setup)
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`: Database credentials (optional if using DATABASE_URL)
 
 ## Development Workflow
 
