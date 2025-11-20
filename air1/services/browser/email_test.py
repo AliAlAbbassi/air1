@@ -5,11 +5,11 @@ Tests for email service functionality
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from air1.services.browser.email import (
-    EmailService,
+    send_email,
+    send_bulk_emails,
     EmailTemplate,
     EmailRecipient,
     EmailResult,
-    LINKEDIN_CONNECTION_TEMPLATE,
     send_outreach_emails_to_leads
 )
 
@@ -21,13 +21,11 @@ class TestEmailService:
         """Test EmailTemplate model validation"""
         template = EmailTemplate(
             subject="Test Subject",
-            html_content="<h1>Test HTML</h1>",
-            text_content="Test Text"
+            content="Test Content"
         )
 
         assert template.subject == "Test Subject"
-        assert template.html_content == "<h1>Test HTML</h1>"
-        assert template.text_content == "Test Text"
+        assert template.content == "Test Content"
 
     def test_email_recipient_creation(self):
         """Test EmailRecipient model validation"""
@@ -48,18 +46,12 @@ class TestEmailService:
         with pytest.raises(ValueError):
             EmailRecipient(email="invalid-email")
 
-    @patch('air1.services.browser.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.browser.email.resend')
-    def test_email_service_initialization(self, mock_resend):
-        """Test EmailService initialization"""
-        service = EmailService()
-        assert mock_resend.api_key == 'test-api-key'
-
     @patch('air1.services.browser.email.settings.resend_api_key', None)
-    def test_email_service_missing_api_key(self):
-        """Test EmailService raises error when API key is missing"""
+    @pytest.mark.asyncio
+    async def test_send_email_missing_api_key(self):
+        """Test send_email raises error when API key is missing"""
         with pytest.raises(ValueError, match="RESEND_API_KEY environment variable is required"):
-            EmailService()
+            await send_email("test@example.com", "Test", "Content")
 
     @patch('air1.services.browser.email.settings.resend_api_key', 'test-api-key')
     @patch('air1.services.browser.email.resend')
@@ -69,11 +61,10 @@ class TestEmailService:
         # Mock successful response
         mock_resend.Emails.send.return_value = {'id': 'test-message-id'}
 
-        service = EmailService()
-        result = await service.send_email(
+        result = await send_email(
             to_email="test@example.com",
             subject="Test Subject",
-            html_content="<h1>Test</h1>",
+            content="Test content",
             recipient_name="John Doe"
         )
 
@@ -90,11 +81,10 @@ class TestEmailService:
         # Mock API failure
         mock_resend.Emails.send.side_effect = Exception("API Error")
 
-        service = EmailService()
-        result = await service.send_email(
+        result = await send_email(
             to_email="test@example.com",
             subject="Test Subject",
-            html_content="<h1>Test</h1>"
+            content="Test content"
         )
 
         assert result.success is False
@@ -104,28 +94,28 @@ class TestEmailService:
 
     def test_personalize_content_with_name(self):
         """Test content personalization with name"""
-        service = EmailService.__new__(EmailService)  # Skip __init__
+        from air1.services.browser.email import _personalize_content
 
         content = "Hello {{name}}, welcome to our service!"
-        result = service._personalize_content(content, "John Doe")
+        result = _personalize_content(content, "John Doe")
 
         assert result == "Hello John Doe, welcome to our service!"
 
     def test_personalize_content_with_first_name(self):
         """Test content personalization with first name"""
-        service = EmailService.__new__(EmailService)  # Skip __init__
+        from air1.services.browser.email import _personalize_content
 
         content = "Hi {{first_name}}, how are you?"
-        result = service._personalize_content(content, "John Doe")
+        result = _personalize_content(content, "John Doe")
 
         assert result == "Hi John, how are you?"
 
     def test_personalize_content_without_name(self):
         """Test content personalization without name"""
-        service = EmailService.__new__(EmailService)  # Skip __init__
+        from air1.services.browser.email import _personalize_content
 
         content = "Hello {{name}}, welcome to our service!"
-        result = service._personalize_content(content, None)
+        result = _personalize_content(content, None)
 
         assert result == "Hello there, welcome to our service!"
 
@@ -144,15 +134,12 @@ class TestEmailService:
 
         template = EmailTemplate(
             subject="Test Subject",
-            html_content="<h1>Hello {{name}}</h1>"
+            content="Hello {{name}}"
         )
 
-        service = EmailService()
-        results = await service.send_bulk_emails(
+        results = await send_bulk_emails(
             recipients=recipients,
-            template=template,
-            delay_between_emails=0.1,  # Short delay for testing
-            max_concurrent=2
+            template=template
         )
 
         assert len(results) == 2
@@ -163,14 +150,16 @@ class TestEmailService:
 class TestEmailTemplates:
     """Test predefined email templates"""
 
-    def test_linkedin_connection_template(self):
-        """Test LinkedIn connection template structure"""
-        template = LINKEDIN_CONNECTION_TEMPLATE
+    def test_template_functions_exist(self):
+        """Test template functions exist and work"""
+        from air1.services.browser.email_templates import get_meeting_subject, get_engineering_subject
 
-        assert "LinkedIn" in template.subject
-        assert "{{name}}" in template.html_content
-        assert "{{name}}" in template.text_content
-        assert "unsubscribe" in template.html_content.lower()
+        # Just test they don't crash, don't care about specific names
+        meeting_subject = get_meeting_subject("TestPerson")
+        engineering_subject = get_engineering_subject()
+
+        assert "Ali" in meeting_subject
+        assert "Ali" in engineering_subject
 
 
 class TestEmailWorkflowFunctions:
@@ -180,9 +169,10 @@ class TestEmailWorkflowFunctions:
     @pytest.mark.asyncio
     async def test_send_outreach_emails_no_api_key(self):
         """Test that outreach emails return empty list when no API key"""
+        template = EmailTemplate(subject="Test", content="Test content")
         leads = [{"email": "test@example.com", "first_name": "John"}]
 
-        results = await send_outreach_emails_to_leads(leads)
+        results = await send_outreach_emails_to_leads(leads, template)
 
         assert results == []
 
@@ -190,24 +180,24 @@ class TestEmailWorkflowFunctions:
     @pytest.mark.asyncio
     async def test_send_outreach_emails_no_valid_emails(self):
         """Test outreach emails with no valid email addresses"""
+        template = EmailTemplate(subject="Test", content="Test content")
         leads = [{"first_name": "John"}]  # No email field
 
-        results = await send_outreach_emails_to_leads(leads)
+        results = await send_outreach_emails_to_leads(leads, template)
 
         assert results == []
 
     @patch('air1.services.browser.email.settings.resend_api_key', 'test-api-key')
-    @patch('air1.services.browser.email.EmailService')
+    @patch('air1.services.browser.email.send_bulk_emails')
     @pytest.mark.asyncio
-    async def test_send_outreach_emails_success(self, mock_email_service_class):
+    async def test_send_outreach_emails_success(self, mock_send_bulk_emails):
         """Test successful outreach email sending"""
-        # Mock EmailService instance
-        mock_service = AsyncMock()
-        mock_service.send_bulk_emails.return_value = [
+        # Mock send_bulk_emails function
+        mock_send_bulk_emails.return_value = [
             EmailResult(success=True, recipient="test@example.com", message_id="123")
         ]
-        mock_email_service_class.return_value = mock_service
 
+        template = EmailTemplate(subject="Test", content="Test content")
         leads = [
             {
                 "email": "test@example.com",
@@ -217,15 +207,15 @@ class TestEmailWorkflowFunctions:
             }
         ]
 
-        results = await send_outreach_emails_to_leads(leads)
+        results = await send_outreach_emails_to_leads(leads, template)
 
         assert len(results) == 1
         assert results[0].success is True
         assert results[0].recipient == "test@example.com"
 
-        # Verify EmailService was called with correct parameters
-        mock_service.send_bulk_emails.assert_called_once()
-        call_args = mock_service.send_bulk_emails.call_args
+        # Verify send_bulk_emails was called with correct parameters
+        mock_send_bulk_emails.assert_called_once()
+        call_args = mock_send_bulk_emails.call_args
         recipients = call_args[1]['recipients']
         assert len(recipients) == 1
         assert str(recipients[0].email) == "test@example.com"

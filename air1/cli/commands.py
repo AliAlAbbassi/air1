@@ -45,86 +45,21 @@ def send_test_email(
         try:
             template = EmailTemplate(
                 subject=subject,
-                html_content="""
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2>Hello {{name}}!</h2>
-                    <p>This is a test email sent from Air1 using Resend API.</p>
-                    <p>If you received this email, the integration is working correctly!</p>
-                    <p>Best regards,<br>Air1 Team</p>
-                </div>
-                """,
-                text_content="""
-                Hello {{name}}!
+                content="""
+Hello {{name}}!
 
-                This is a test email sent from Air1 using Resend API.
-                If you received this email, the integration is working correctly!
+This is a test email sent from Air1 using Resend API.
+If you received this email, the integration is working correctly!
 
-                Best regards,
-                Air1 Team
+Best regards,
+Air1 Team
                 """,
             )
 
             result = await send_email(
                 to_email=to_email,
                 subject=template.subject,
-                html_content=template.html_content,
-                text_content=template.text_content,
-                recipient_name=name,
-            )
-
-            if result.success:
-                print(f"✅ Email sent successfully to {to_email}")
-                print(f"Message ID: {result.message_id}")
-            else:
-                print(f"❌ Failed to send email to {to_email}")
-                print(f"Error: {result.error}")
-
-        except Exception as e:
-            print(f"❌ Error: {e}")
-
-    asyncio.run(run())
-
-
-@app.command()
-def send_test_email(
-    to_email: str = typer.Argument(..., help="Recipient email address"),
-    subject: str = typer.Option(
-        "Test Email from Air1", "--subject", "-s", help="Email subject"
-    ),
-    name: str = typer.Option(
-        None, "--name", "-n", help="Recipient name for personalization"
-    ),
-):
-    """Send a test email using Resend API"""
-
-    async def run():
-        try:
-            template = EmailTemplate(
-                subject=subject,
-                html_content="""
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2>Hello {{name}}!</h2>
-                    <p>This is a test email sent from Air1 using Resend API.</p>
-                    <p>If you received this email, the integration is working correctly!</p>
-                    <p>Best regards,<br>Air1 Team</p>
-                </div>
-                """,
-                text_content="""
-                Hello {{name}}!
-
-                This is a test email sent from Air1 using Resend API.
-                If you received this email, the integration is working correctly!
-
-                Best regards,
-                Air1 Team
-                """,
-            )
-
-            result = await send_email(
-                to_email=to_email,
-                subject=template.subject,
-                html_content=template.html_content,
-                text_content=template.text_content,
+                content=template.content,
                 recipient_name=name,
             )
 
