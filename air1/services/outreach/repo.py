@@ -1,4 +1,3 @@
-
 from loguru import logger
 from prisma.models import LinkedinCompanyMember, LinkedinProfile
 
@@ -233,3 +232,7 @@ async def get_company_leads(company_username: str) -> list[CompanyLeadRecord]:
         raise RuntimeError(
             f"Repo error retrieving company leads for '{company_username}': {str(e)}"
         ) from e
+
+
+async def insert_contact_point(lead_id: int, contact_point_type_id: str) -> None:
+    return None
