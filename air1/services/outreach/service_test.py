@@ -50,7 +50,7 @@ async def test_scrape_company_leads_with_mock(setup_db):
     with (
         patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
         patch("os.getenv", return_value="mock_linkedin_sid"),
-        patch("air1.services.outreach.service.save_lead_complete", return_value=(True, 123)) as mock_save,
+        patch("air1.services.outreach.service.save_lead_complete", return_value=(True, 123)),
     ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance
@@ -169,7 +169,7 @@ async def test_scrape_with_no_emails(setup_db):
     with (
         patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
         patch("os.getenv", return_value="mock_linkedin_sid"),
-        patch("air1.services.outreach.service.save_lead_complete", return_value=(True, 456)) as mock_save,
+        patch("air1.services.outreach.service.save_lead_complete", return_value=(True, 456)),
     ):
         mock_session_instance = AsyncMock()
         MockBrowserSession.return_value = mock_session_instance

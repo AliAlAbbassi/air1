@@ -78,7 +78,7 @@ class LinkedinOutreach:
                     logger.info(f"Dropdown appeared with selector: {dropdown_selector}")
                     dropdown_appeared = True
                     break
-                except:
+                except Exception:
                     continue
 
             if not dropdown_appeared:
@@ -112,7 +112,7 @@ class LinkedinOutreach:
                 )
                 return False
 
-            logger.info(f"Found visible connect button")
+            logger.info("Found visible connect button")
 
             await connect_button.click(force=True)
             logger.info(f"Clicked connect button for {profile_username}")

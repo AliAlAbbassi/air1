@@ -1,14 +1,16 @@
-from typing import Optional
-from prisma import Prisma
-from prisma.models import Lead, LinkedinProfile, LinkedinCompanyMember
+
+from loguru import logger
+from prisma.models import LinkedinCompanyMember, LinkedinProfile
+
 from air1.db.prisma_client import get_prisma
+from air1.db.sql_loader import outreach_queries as queries
 from air1.services.outreach.linkedin_profile import (
     Lead as LeadData,
+)
+from air1.services.outreach.linkedin_profile import (
     LinkedinProfile as LinkedinProfileData,
 )
 from air1.services.outreach.prisma_models import CompanyLeadRecord
-from air1.db.sql_loader import queries
-from loguru import logger
 
 
 async def insert_lead(lead: LeadData) -> tuple[bool, int | None]:
@@ -70,7 +72,9 @@ async def insert_linkedin_profile(
 async def get_linkedin_profile_by_username(username: str) -> LinkedinProfile | None:
     try:
         prisma = await get_prisma()
-        result = await queries.get_linkedin_profile_by_username(prisma, username=username)
+        result = await queries.get_linkedin_profile_by_username(
+            prisma, username=username
+        )
 
         if result:
             return LinkedinProfile(**result)
@@ -83,7 +87,9 @@ async def get_linkedin_profile_by_username(username: str) -> LinkedinProfile | N
 async def get_company_members_by_username(username: str) -> list[LinkedinCompanyMember]:
     try:
         prisma = await get_prisma()
-        results = await queries.get_company_members_by_username(prisma, username=username)
+        results = await queries.get_company_members_by_username(
+            prisma, username=username
+        )
 
         return [LinkedinCompanyMember(**row) for row in results]
     except Exception as e:

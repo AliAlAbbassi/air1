@@ -3,7 +3,7 @@ Tests for email service functionality
 """
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import patch
 from air1.services.outreach.email import (
     send_email,
     send_bulk_emails,

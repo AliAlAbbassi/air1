@@ -10,7 +10,6 @@ from air1.services.outreach.repo import (
 )
 from air1.services.outreach.linkedin_profile import Lead, LinkedinProfile
 from air1.db.prisma_client import connect_db, disconnect_db, get_prisma
-from loguru import logger
 
 @pytest.mark.asyncio
 @pytest.mark.integration

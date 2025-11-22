@@ -2,7 +2,7 @@ from air1.services.outreach.repo import save_lead_complete, get_company_leads
 from playwright.async_api import Playwright, async_playwright
 import os
 from dotenv import load_dotenv
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from abc import ABC, abstractmethod
 from loguru import logger
 
@@ -13,7 +13,7 @@ from air1.services.outreach.linkedin_profile import (
     profile_to_lead,
     enrich_profile_with_username,
 )
-from air1.services.outreach.email import EmailTemplate, EmailResult
+from air1.services.outreach.email import EmailResult
 
 load_dotenv()
 

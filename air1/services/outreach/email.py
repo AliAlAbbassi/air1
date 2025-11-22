@@ -2,7 +2,6 @@
 Email functionality for outreach campaigns using Resend API.
 """
 
-import os
 import asyncio
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr
