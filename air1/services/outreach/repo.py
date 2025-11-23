@@ -234,5 +234,16 @@ async def get_company_leads(company_username: str) -> list[CompanyLeadRecord]:
         ) from e
 
 
-async def insert_contact_point(lead_id: int, contact_point_type_id: str) -> None:
-    return None
+async def insert_contact_point(lead_id: int, contact_point_type_id: int) -> None:
+    try:
+        prisma = await get_prisma()
+        await queries.insert_contact_point(
+            prisma,
+            lead_id=lead_id,
+            contact_point_type_id=contact_point_type_id,
+        )
+        logger.info(
+            f"Contact point inserted for lead_id={lead_id}, type_id={contact_point_type_id}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to insert contact point for lead_id={lead_id}: {e}")
