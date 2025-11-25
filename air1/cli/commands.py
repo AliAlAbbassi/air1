@@ -15,12 +15,34 @@ def hello(name: str):
 @app.command()
 def company_leads(
     companies: list[str] = typer.Argument(..., help="Companies to scrape"),
-    limit: int = typer.Option(10, "--limit", "-l"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Maximum number of pages to load"),
+    keywords: str = typer.Option(None, "--keywords", "-k", help="Comma-separated keywords to filter by headline (e.g., 'talent,recruitment')"),
 ):
+    """
+    Scrape LinkedIn company members and save as leads.
+
+    Examples:
+        # Scrape all members
+        air1 company-leads aavelabs
+
+        # Filter by single keyword
+        air1 company-leads aavelabs --keywords talent
+
+        # Filter by multiple keywords
+        air1 company-leads aavelabs --keywords "talent,recruitment,hr"
+    """
     async def run():
         try:
+            # Parse keywords if provided
+            keywords_list = None
+            if keywords:
+                keywords_list = [k.strip() for k in keywords.split(",")]
+                print(f"Filtering by keywords: {keywords_list}")
+
             async with Service() as service:
-                results = await service.scrape_company_leads(companies, limit=limit)
+                results = await service.scrape_company_leads(
+                    companies, limit=limit, keywords=keywords_list
+                )
                 for company, count in results.items():
                     print(f"{company}: {count} leads saved")
         finally:

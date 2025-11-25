@@ -25,7 +25,7 @@ class IService(ABC):
 
     @abstractmethod
     async def scrape_company_leads(
-        self, company_ids: list[str], limit=10, headless=True
+        self, company_ids: list[str], limit=10, headless=True, keywords: Optional[List[str]] = None
     ) -> dict[str, int]:
         pass
 
@@ -83,29 +83,31 @@ class Service(IService):
             await session.browser.close()
 
     async def get_company_members(
-        self, company_id: str, limit=10, headless=True
+        self, company_id: str, limit=10, headless=True, keywords: Optional[List[str]] = None
     ) -> CompanyPeople:
         """
         Get all profile IDs of people working at a company (launches and closes browser automatically)
 
         Args:
             company_id (str): LinkedIn company ID (e.g., 'oreyeon')
+            limit (int): Maximum number of pages to load
+            headless (bool): Run browser in headless mode
+            keywords (List[str], optional): Keywords to filter members by headline
 
         Returns:
             CompanyPeople: Set of profile IDs
-            :param company_id:
-            :param limit:
-            :param headless:
         """
         logger.info(f"Fetching Company Profiles for {company_id}...")
+        if keywords:
+            logger.info(f"Filtering by keywords: {keywords}")
         session = await self.launch_browser(headless=headless)
         try:
-            return await session.get_company_members(company_id, limit=limit)
+            return await session.get_company_members(company_id, limit=limit, keywords=keywords)
         finally:
             await session.browser.close()
 
     async def scrape_and_save_company_leads(
-        self, company_id: str, limit=10, headless=True
+        self, company_id: str, limit=10, headless=True, keywords: Optional[List[str]] = None
     ):
         """
         Scrape LinkedIn company profiles and save leads to database
@@ -114,17 +116,20 @@ class Service(IService):
             company_id (str): LinkedIn company ID
             limit (int): Maximum number of profiles to process
             headless (bool): Run browser in headless mode
+            keywords (List[str], optional): Keywords to filter members by headline
 
         Returns:
             int: Number of leads saved
         """
         logger.debug(f"Launching browser for {company_id}...")
+        if keywords:
+            logger.debug(f"Using keywords filter: {keywords}")
         session = await self.launch_browser(headless=headless)
         leads_saved = 0
 
         try:
             logger.debug(f"Getting company members for {company_id}...")
-            company_people = await session.get_company_members(company_id, limit=limit)
+            company_people = await session.get_company_members(company_id, limit=limit, keywords=keywords)
             logger.info(
                 f"Found {len(company_people.profile_ids)} profiles for company {company_id}"
             )
@@ -153,13 +158,14 @@ class Service(IService):
         return leads_saved
 
     async def scrape_company_leads(
-        self, company_ids: list[str], limit=10, headless=True
+        self, company_ids: list[str], limit=10, headless=True, keywords: Optional[List[str]] = None
     ) -> dict[str, int]:
         """
         Args:
             company_ids: List of LinkedIn company IDs to scrape
             limit: Maximum number of company member pages
             headless: Run browser in headless mode
+            keywords: Optional list of keywords to filter members by headline
 
         Returns:
             dict: Results for each company with leads saved count
@@ -167,7 +173,7 @@ class Service(IService):
         results = {}
         for company_id in company_ids:
             leads_saved = await self.scrape_and_save_company_leads(
-                company_id, limit=limit, headless=headless
+                company_id, limit=limit, headless=headless, keywords=keywords
             )
             results[company_id] = leads_saved
         return results

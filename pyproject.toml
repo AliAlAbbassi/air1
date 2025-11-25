@@ -26,6 +26,9 @@ dependencies = [
 [project.scripts]
 air1 = "air1.__main__:main"
 
+[tool.uv]
+package = true
+
 [tool.setuptools]
 packages = ["air1"]
 

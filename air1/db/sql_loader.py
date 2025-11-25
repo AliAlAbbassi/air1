@@ -56,7 +56,7 @@ class PrismaAdapter(AsyncPGAdapter):
 
 
 # Register the adapter
-aiosql.register_adapter("prisma", PrismaAdapter())  # type: ignore
+aiosql.register_adapter("prisma", PrismaAdapter)  # type: ignore
 
 # Load queries
 query_dir = os.path.join(os.path.dirname(__file__), "query")

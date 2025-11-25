@@ -1,3 +1,4 @@
+from typing import Optional
 from playwright._impl._api_structures import SetCookieParam
 from playwright.async_api import Browser, Page
 from .linkedin_profile import LinkedinProfile, CompanyPeople
@@ -6,7 +7,6 @@ from .company_scraper import CompanyScraper
 from .linkedin_outreach import LinkedinOutreach
 from .navigation import navigate_to_linkedin_url
 from loguru import logger
-from typing import Optional
 
 
 class BrowserSession:
@@ -55,17 +55,25 @@ class BrowserSession:
             logger.error(f"Error scraping profile {profile_id}: {str(e)}")
             return LinkedinProfile()
 
-    async def get_company_members(self, company_id: str, limit=10) -> CompanyPeople:
+    async def get_company_members(self, company_id: str, limit=10, keywords: Optional[list[str]] = None) -> CompanyPeople:
         """
         Get all profile IDs of people working at a company
 
         Args:
             company_id (str): LinkedIn company ID (e.g., 'oreyeon')
+            limit (int): Maximum number of pages to load
+            keywords (list[str], optional): Keywords to filter members by headline
 
         Returns:
             CompanyPeople: Set of profile IDs
         """
+        # Build URL with optional keywords parameter
         company_url = f"https://www.linkedin.com/company/{company_id}/people/"
+        if keywords:
+            # Join keywords with comma for LinkedIn's URL format
+            keywords_param = ",".join(keywords)
+            company_url = f"{company_url}?keywords={keywords_param}"
+
         page = await self._setup_page()
         await navigate_to_linkedin_url(page, company_url)
 

@@ -49,8 +49,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Database Layer (`air1/db/`):**
 - Uses Prisma ORM for PostgreSQL
 - `prisma_client.py` - Prisma client setup and connection management
-- `sql_loader.py` - SQL query loading utilities
-- Schema includes: Lead, LinkedinProfile, LinkedinCompanyMember models
+- `sql_loader.py` - SQL query loading with aiosql and custom PrismaAdapter
+- `query/` directory contains raw SQL queries:
+  - `leads.sql` - Lead management queries
+  - `linkedin.sql` - LinkedIn profile queries
+  - `linkedin_company_members.sql` - Company member queries
+  - `contact_point.sql` - Contact point management
+- Schema includes: Lead, LinkedinProfile, LinkedinCompanyMember, ContactPoint models
 
 **Business Logic (`air1/workflows/`):**
 - `linkedin_outreach.py` - LinkedIn outreach automation workflows
@@ -58,24 +63,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `linkedin_profile_info.py` - Profile information extraction workflows
 
 **Services Layer (`air1/services/outreach/`):**
-- `service.py` - Main outreach service orchestration
+- `service.py` - Main outreach service orchestration (implements IService interface)
 - `linkedin_outreach.py` - LinkedIn-specific outreach operations
 - `browser.py` - Browser automation using Playwright
 - `profile_scraper.py` - LinkedIn profile scraping logic
 - `company_scraper.py` - Company information scraping
 - `email.py` - Email sending functionality using Resend
-- `repo.py` - Database repository layer for data access
+- `repo.py` - Database repository layer with aiosql integration
 - `templates.py` - Email and message template management
+- `contact_point.py` - Contact point management module
 
 **Technology Stack:**
 - **Web Framework:** FastAPI for HTTP API endpoints
 - **CLI Framework:** Typer for command-line interface
-- **Database:** PostgreSQL with Prisma ORM (prisma-client-py)
+- **Database:** PostgreSQL with Prisma ORM (prisma-client-py) + aiosql for raw SQL queries
 - **Web Automation:** Playwright for browser automation
 - **Email:** Resend service for email delivery
 - **Configuration:** Pydantic Settings with dotenv support
 - **Testing:** Pytest with asyncio support, separate test markers for unit/integration/slow tests
 - **Code Quality:** Ruff for linting and formatting
+- **Package Management:** UV for Python dependency management
 
 **Test Organization:**
 - Uses pytest with custom markers: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.slow`
@@ -84,6 +91,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Coverage reporting available via pytest-cov
 
 **Key Dependencies:**
+- aiosql - SQL query management from .sql files
 - beautifulsoup4, lxml - HTML parsing
 - playwright - Browser automation
 - prisma - Database ORM

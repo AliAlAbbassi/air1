@@ -1,7 +1,9 @@
 import asyncio
+
 from loguru import logger
-from air1.services.outreach.service import Service
+
 from air1.db.prisma_client import disconnect_db
+from air1.services.outreach.service import Service
 
 
 async def company_leads(companies: list[str], limit: int = 10):
@@ -22,7 +24,7 @@ async def company_leads(companies: list[str], limit: int = 10):
 
 
 def run():
-    companies = ["tech-usa"]
+    companies = ["aavelabs"]
     asyncio.run(company_leads(companies, limit=10))
 
 

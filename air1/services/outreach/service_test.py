@@ -75,7 +75,7 @@ async def test_scrape_company_leads_with_mock(setup_db):
         assert results["test-company"] == 2
 
         mock_session_instance.get_company_members.assert_called_once_with(
-            "test-company", limit=10
+            "test-company", limit=10, keywords=None
         )
         assert mock_session_instance.get_profile_info.call_count == 2
 
@@ -284,3 +284,161 @@ async def test_get_company_leads(setup_db):
 
             logger.info("yeet")
             logger.info(company_leads[0].headline)
+
+
+@pytest.mark.asyncio
+async def test_scrape_company_leads_with_keywords(setup_db):
+    """Test scraping company leads with keyword filtering."""
+
+    mock_playwright = MagicMock()
+    mock_browser = AsyncMock()
+
+    mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
+
+    mock_company_people = CompanyPeople(profile_ids={"talent-manager", "hr-specialist"})
+
+    mock_profiles = {
+        "talent-manager": LinkedinProfile(
+            username="talent-manager",
+            first_name="Sarah",
+            full_name="Sarah Johnson",
+            headline="Talent Acquisition Manager | Tech Recruitment",
+            location="San Francisco, CA",
+            email="sarah.johnson@example.com",
+        ),
+        "hr-specialist": LinkedinProfile(
+            username="hr-specialist",
+            first_name="Mike",
+            full_name="Mike Brown",
+            headline="HR Specialist | People Operations",
+            location="Austin, TX",
+            email="mike.brown@example.com",
+        ),
+    }
+
+    with (
+        patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
+        patch("os.getenv", return_value="mock_linkedin_sid"),
+        patch("air1.services.outreach.service.save_lead_complete", return_value=(True, 123)),
+    ):
+        mock_session_instance = AsyncMock()
+        MockBrowserSession.return_value = mock_session_instance
+
+        mock_session_instance.get_company_members = AsyncMock(
+            return_value=mock_company_people
+        )
+        mock_session_instance.get_profile_info = AsyncMock(
+            side_effect=lambda profile_id: mock_profiles.get(
+                profile_id, LinkedinProfile()
+            )
+        )
+        mock_session_instance.browser.close = AsyncMock()
+
+        service = Service(playwright=mock_playwright)
+
+        # Test with single keyword
+        results = await service.scrape_company_leads(
+            company_ids=["test-company"],
+            limit=10,
+            headless=True,
+            keywords=["talent"]
+        )
+
+        assert "test-company" in results
+        assert results["test-company"] == 2
+
+        mock_session_instance.get_company_members.assert_called_once_with(
+            "test-company", limit=10, keywords=["talent"]
+        )
+
+        # Reset mock for next test
+        mock_session_instance.get_company_members.reset_mock()
+
+        # Test with multiple keywords
+        results = await service.scrape_company_leads(
+            company_ids=["test-company"],
+            limit=5,
+            headless=False,
+            keywords=["talent", "recruitment", "hr"]
+        )
+
+        mock_session_instance.get_company_members.assert_called_once_with(
+            "test-company", limit=5, keywords=["talent", "recruitment", "hr"]
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_company_members_with_keywords(setup_db):
+    """Test get_company_members method with keyword filtering."""
+
+    mock_playwright = MagicMock()
+    mock_browser = AsyncMock()
+
+    mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
+
+    with (
+        patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
+        patch("os.getenv", return_value="mock_linkedin_sid"),
+    ):
+        mock_session_instance = AsyncMock()
+        MockBrowserSession.return_value = mock_session_instance
+
+        mock_company_people = CompanyPeople(profile_ids={"engineer-1", "engineer-2"})
+        mock_session_instance.get_company_members = AsyncMock(
+            return_value=mock_company_people
+        )
+        mock_session_instance.browser.close = AsyncMock()
+
+        service = Service(playwright=mock_playwright)
+
+        # Test get_company_members with keywords
+        result = await service.get_company_members(
+            company_id="tech-corp",
+            limit=20,
+            headless=True,
+            keywords=["software", "engineer"]
+        )
+
+        assert result == mock_company_people
+        mock_session_instance.get_company_members.assert_called_once_with(
+            "tech-corp", limit=20, keywords=["software", "engineer"]
+        )
+
+
+@pytest.mark.asyncio
+async def test_scrape_multiple_companies_with_keywords(setup_db):
+    """Test scraping multiple companies with keyword filtering."""
+
+    mock_playwright = MagicMock()
+    mock_browser = AsyncMock()
+
+    mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
+
+    with (
+        patch("air1.services.outreach.service.BrowserSession") as MockBrowserSession,
+        patch("os.getenv", return_value="mock_linkedin_sid"),
+    ):
+        mock_session_instance = AsyncMock()
+        MockBrowserSession.return_value = mock_session_instance
+
+        mock_session_instance.get_company_members = AsyncMock(
+            return_value=CompanyPeople(profile_ids=set())
+        )
+        mock_session_instance.browser.close = AsyncMock()
+
+        service = Service(playwright=mock_playwright)
+
+        results = await service.scrape_company_leads(
+            company_ids=["company1", "company2", "company3"],
+            limit=5,
+            headless=True,
+            keywords=["product", "manager"]
+        )
+
+        assert len(results) == 3
+        assert mock_session_instance.get_company_members.call_count == 3
+
+        # Verify each call had the keywords parameter
+        for call in mock_session_instance.get_company_members.call_args_list:
+            assert call[1]["keywords"] == ["product", "manager"]
+            assert call[1]["limit"] == 5
