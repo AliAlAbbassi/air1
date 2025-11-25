@@ -199,14 +199,17 @@ async def save_lead_complete(
 
 
 async def get_company_leads_by_headline(
-    company_username: str, search_term: str
+    company_username: str, search_term: str, limit: int = 10
 ) -> list[CompanyLeadRecord]:
     """Get company leads by headline text using raw SQL (complex join query)"""
     try:
         prisma = await get_prisma()
 
         results = await queries.get_company_leads_by_headline(
-            prisma, company_username=company_username, search_term=search_term
+            prisma,
+            company_username=company_username,
+            search_term=search_term,
+            limit=limit,
         )
 
         return [CompanyLeadRecord(**row) for row in results]
@@ -234,16 +237,24 @@ async def get_company_leads(company_username: str) -> list[CompanyLeadRecord]:
         ) from e
 
 
-async def insert_contact_point(lead_id: int, contact_point_type_id: int) -> None:
+async def insert_contact_point(lead_id: int, contact_point_type_id: int) -> bool:
     try:
+        logger.debug(f"Attempting to insert contact point for lead_id={lead_id}, type_id={contact_point_type_id}")
         prisma = await get_prisma()
-        await queries.insert_contact_point(
+        result = await queries.insert_contact_point(
             prisma,
             lead_id=lead_id,
             contact_point_type_id=contact_point_type_id,
         )
-        logger.info(
-            f"Contact point inserted for lead_id={lead_id}, type_id={contact_point_type_id}"
-        )
+
+        if result and result.get("contact_point_id"):
+            logger.info(
+                f"Contact point inserted successfully: id={result['contact_point_id']}, lead_id={lead_id}, type_id={contact_point_type_id}"
+            )
+            return True
+        else:
+            logger.error(f"Insert contact point returned no result for lead_id={lead_id}")
+            return False
     except Exception as e:
-        logger.error(f"Failed to insert contact point for lead_id={lead_id}: {e}")
+        logger.error(f"Failed to insert contact point for lead_id={lead_id}: {e}", exc_info=True)
+        raise  # Re-raise to see the full error

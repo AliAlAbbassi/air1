@@ -1,19 +1,25 @@
-from air1.services.outreach.repo import save_lead_complete, get_company_leads
-from playwright.async_api import Playwright, async_playwright
 import os
-from dotenv import load_dotenv
-from typing import Optional, List
 from abc import ABC, abstractmethod
+from typing import List, Optional
+
+from dotenv import load_dotenv
 from loguru import logger
+from playwright.async_api import Playwright, async_playwright
 
 from air1.services.outreach.browser import BrowserSession
-from air1.services.outreach.linkedin_profile import (
-    LinkedinProfile,
-    CompanyPeople,
-    profile_to_lead,
-    enrich_profile_with_username,
-)
 from air1.services.outreach.email import EmailResult
+from air1.services.outreach.linkedin_profile import (
+    CompanyPeople,
+    LinkedinProfile,
+    enrich_profile_with_username,
+    profile_to_lead,
+)
+from air1.services.outreach.prisma_models import CompanyLeadRecord
+from air1.services.outreach.repo import (
+    get_company_leads,
+    get_company_leads_by_headline,
+    save_lead_complete,
+)
 
 load_dotenv()
 
@@ -25,12 +31,32 @@ class IService(ABC):
 
     @abstractmethod
     async def scrape_company_leads(
-        self, company_ids: list[str], limit=10, headless=True, keywords: Optional[List[str]] = None
+        self,
+        company_ids: list[str],
+        limit=10,
+        headless=True,
+        keywords: Optional[List[str]] = None,
     ) -> dict[str, int]:
         pass
 
     @abstractmethod
     async def send_outreach_emails(self, leads, template) -> List[EmailResult]:
+        pass
+
+    @abstractmethod
+    async def get_company_leads_by_headline(
+        self, company_username: str, search_term: str, limit: int = 10
+    ) -> list[CompanyLeadRecord]:
+        pass
+
+    @abstractmethod
+    async def connect_with_linkedin_profiles_tracked(
+        self,
+        username_lead_mapping: dict[str, int],
+        message: Optional[str] = None,
+        delay_between_connections: int = 5,
+        headless: bool = True,
+    ) -> dict[str, bool]:
         pass
 
 
@@ -83,7 +109,11 @@ class Service(IService):
             await session.browser.close()
 
     async def get_company_members(
-        self, company_id: str, limit=10, headless=True, keywords: Optional[List[str]] = None
+        self,
+        company_id: str,
+        limit=10,
+        headless=True,
+        keywords: Optional[List[str]] = None,
     ) -> CompanyPeople:
         """
         Get all profile IDs of people working at a company (launches and closes browser automatically)
@@ -102,12 +132,18 @@ class Service(IService):
             logger.info(f"Filtering by keywords: {keywords}")
         session = await self.launch_browser(headless=headless)
         try:
-            return await session.get_company_members(company_id, limit=limit, keywords=keywords)
+            return await session.get_company_members(
+                company_id, limit=limit, keywords=keywords
+            )
         finally:
             await session.browser.close()
 
     async def scrape_and_save_company_leads(
-        self, company_id: str, limit=10, headless=True, keywords: Optional[List[str]] = None
+        self,
+        company_id: str,
+        limit=10,
+        headless=True,
+        keywords: Optional[List[str]] = None,
     ):
         """
         Scrape LinkedIn company profiles and save leads to database
@@ -129,7 +165,9 @@ class Service(IService):
 
         try:
             logger.debug(f"Getting company members for {company_id}...")
-            company_people = await session.get_company_members(company_id, limit=limit, keywords=keywords)
+            company_people = await session.get_company_members(
+                company_id, limit=limit, keywords=keywords
+            )
             logger.info(
                 f"Found {len(company_people.profile_ids)} profiles for company {company_id}"
             )
@@ -158,7 +196,11 @@ class Service(IService):
         return leads_saved
 
     async def scrape_company_leads(
-        self, company_ids: list[str], limit=10, headless=True, keywords: Optional[List[str]] = None
+        self,
+        company_ids: list[str],
+        limit=10,
+        headless=True,
+        keywords: Optional[List[str]] = None,
     ) -> dict[str, int]:
         """
         Args:
@@ -205,9 +247,6 @@ class Service(IService):
                 profile_usernames, message, delay_between_connections
             )
         finally:
-            import time
-
-            time.sleep(60)
             await session.browser.close()
 
     async def get_company_leads(self, company_name: str):
@@ -218,3 +257,45 @@ class Service(IService):
         from air1.services.outreach.email import send_outreach_emails_to_leads
 
         return await send_outreach_emails_to_leads(leads, template)
+
+    async def get_company_leads_by_headline(
+        self, company_username: str, search_term: str, limit: int = 10
+    ) -> list[CompanyLeadRecord]:
+        return await get_company_leads_by_headline(company_username, search_term, limit)
+
+    async def connect_with_linkedin_profiles_tracked(
+        self,
+        username_lead_mapping: dict[str, int],
+        message: Optional[str] = None,
+        delay_between_connections: int = 5,
+        headless: bool = True,
+    ) -> dict[str, bool]:
+        """
+        Connect with LinkedIn profiles and track successful connections.
+
+        Args:
+            username_lead_mapping: Dict mapping LinkedIn usernames to lead_ids
+            message: Optional connection message to send with each request
+            delay_between_connections: Delay in seconds between connections to avoid rate limits
+            headless: Run browser in headless mode
+
+        Returns:
+            dict: Results for each username mapping to success status
+        """
+        from air1.services.outreach.contact_point import insert_linkedin_connection
+
+        profile_usernames = list(username_lead_mapping.keys())
+
+        results = await self.connect_with_linkedin_profiles(
+            profile_usernames=profile_usernames,
+            message=message,
+            delay_between_connections=delay_between_connections,
+            headless=headless,
+        )
+
+        for username, success in results.items():
+            if success and username in username_lead_mapping:
+                lead_id = username_lead_mapping[username]
+                await insert_linkedin_connection(lead_id)
+
+        return results

@@ -16,7 +16,22 @@ class PrismaAdapter(AsyncPGAdapter):
         """Execute a query and return a list of results."""
         parameters = self.maybe_order_params(query_name, parameters)
         logger.debug(f"Executing SQL: {sql} | Params: {parameters}")
-        return await conn.query_raw(sql, *parameters)
+        try:
+            return await conn.query_raw(sql, *parameters)
+        except Exception as e:
+            from prisma.errors import PrismaError
+
+            logger.error(f"SQL Error in {query_name}: {e}")
+            if isinstance(e, PrismaError):
+                if hasattr(e, 'code'):
+                    logger.error(f"Prisma error code: {e.code}")
+                if hasattr(e, 'meta') and e.meta:
+                    logger.error(f"Prisma meta: {e.meta}")
+                    if isinstance(e.meta, dict) and 'cause' in e.meta:
+                        logger.error(f"Database error: {e.meta['cause']}")
+            logger.error(f"SQL: {sql}")
+            logger.error(f"Parameters: {parameters}")
+            raise
 
     async def select_one(self, conn, query_name, sql, parameters, record_class=None):
         """Execute a query and return the first result, or None."""
@@ -41,7 +56,22 @@ class PrismaAdapter(AsyncPGAdapter):
         """Execute a query that returns no result (or we don't care)."""
         parameters = self.maybe_order_params(query_name, parameters)
         logger.debug(f"Executing SQL (write): {sql} | Params: {parameters}")
-        await conn.query_raw(sql, *parameters)
+        try:
+            await conn.query_raw(sql, *parameters)
+        except Exception as e:
+            from prisma.errors import PrismaError
+
+            logger.error(f"SQL Error in {query_name}: {e}")
+            if isinstance(e, PrismaError):
+                if hasattr(e, 'code'):
+                    logger.error(f"Prisma error code: {e.code}")
+                if hasattr(e, 'meta') and e.meta:
+                    logger.error(f"Prisma meta: {e.meta}")
+                    if isinstance(e.meta, dict) and 'cause' in e.meta:
+                        logger.error(f"Database error: {e.meta['cause']}")
+            logger.error(f"SQL: {sql}")
+            logger.error(f"Parameters: {parameters}")
+            raise
 
     async def insert_returning(self, conn, query_name, sql, parameters):
         """Execute a query and return the first row (like select_one)."""
@@ -49,10 +79,33 @@ class PrismaAdapter(AsyncPGAdapter):
         # If RETURNING is used, the list will contain the inserted row(s).
         parameters = self.maybe_order_params(query_name, parameters)
         logger.debug(f"Executing SQL (insert+return): {sql} | Params: {parameters}")
-        results = await conn.query_raw(sql, *parameters)
-        if results and len(results) > 0:
-            return results[0]
-        return None
+        try:
+            results = await conn.query_raw(sql, *parameters)
+            logger.debug(f"Query result: {results}")
+            if results and len(results) > 0:
+                return results[0]
+            return None
+        except Exception as e:
+            from prisma.errors import PrismaError
+
+            logger.error(f"SQL Error in {query_name}: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"SQL: {sql}")
+            logger.error(f"Parameters: {parameters}")
+
+            # Check if it's a Prisma error with more details
+            if isinstance(e, PrismaError):
+                if hasattr(e, 'code'):
+                    logger.error(f"Prisma error code: {e.code}")
+                if hasattr(e, 'meta') and e.meta:
+                    logger.error(f"Prisma meta: {e.meta}")
+                    if 'cause' in e.meta:
+                        logger.error(f"Database error: {e.meta['cause']}")
+                    if 'message' in e.meta:
+                        logger.error(f"Error message: {e.meta['message']}")
+                    if 'target' in e.meta:
+                        logger.error(f"Error target: {e.meta['target']}")
+            raise
 
 
 # Register the adapter
@@ -93,7 +146,7 @@ class OutreachQueries(Protocol):
     ) -> Optional[Dict[str, Any]]: ...
 
     async def get_company_leads_by_headline(
-        self, conn: Any, *, company_username: str, search_term: str
+        self, conn: Any, *, company_username: str, search_term: str, limit: int
     ) -> List[Dict[str, Any]]: ...
 
     async def get_company_leads(
