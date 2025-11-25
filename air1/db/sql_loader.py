@@ -118,6 +118,14 @@ class OutreachQueries(Protocol):
         self, conn: Any, *, linkedin_profile_id: int, username: str
     ) -> Optional[Dict[str, Any]]: ...
 
+    async def insert_contact_point(
+        self, conn: Any, *, lead_id: int, contact_point_type_id: int
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_contact_point_type(
+        self, conn: Any, *, contact_point_type: str
+    ) -> Optional[Dict[str, Any]]: ...
+
 
 # Load queries for the Outreach service
 # This object contains methods from all SQL files in the directory
