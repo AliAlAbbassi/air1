@@ -7,15 +7,15 @@ to connect with multiple profiles at once.
 """
 
 import asyncio
+
+from loguru import logger
+
 from air1.services.outreach.service import Service
 from air1.services.outreach.templates import DEFAULT_COLD_CONNECTION_NOTE
-from loguru import logger
 
 
 async def linkedin_outreach_workflow():
-    profile_usernames = [
-        "samahalnasser",
-    ]
+    profile_usernames = ["alexhaffner"]
 
     async with Service() as service:
         results = await service.connect_with_linkedin_profiles(

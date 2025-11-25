@@ -5,14 +5,15 @@ Automated outreach, but done sequentially to emulate human behavior and avoid bo
 Will include a faster option: fast_connect(). Don't care about it right now tho.
 """
 
-from playwright.async_api import Page
-from loguru import logger
 from typing import Optional
+
+from loguru import logger
+from playwright.async_api import Page
+
 from .navigation import navigate_to_linkedin_url
 
 
 class LinkedinOutreach:
-
     @staticmethod
     async def connect(
         page: Page, profile_username: str, message: Optional[str] = None
@@ -31,119 +32,157 @@ class LinkedinOutreach:
         try:
             profile_url = f"https://www.linkedin.com/in/{profile_username}"
             await navigate_to_linkedin_url(page, profile_url)
-            await page.wait_for_timeout(2000)
 
-            # Try multiple selectors for the More button - be more specific to profile actions
-            more_selectors = [
-                '.pvs-profile-actions__custom button:has-text("More")',
-                '.pv-top-card-v2-ctas button:has-text("More")',
-                'button[aria-label*="More actions"]',
-                'button[id*="profile-overflow-action"]',
-                '.artdeco-dropdown__trigger:has-text("More")',
-            ]
+            logger.info("Waiting for profile actions to load...")
+            try:
+                await page.wait_for_selector(
+                    'button[id*="profile-overflow-action"]',
+                    state="attached",
+                    timeout=20000,
+                )
+                logger.info("More button loaded")
+            except Exception as e:
+                logger.warning(f"More button taking long to appear: {e}")
+
+            # Get all More buttons and click the visible one
+            more_buttons = await page.query_selector_all(
+                'button[id*="profile-overflow-action"]'
+            )
 
             more_button = None
-            for selector in more_selectors:
-                more_button = await page.query_selector(selector)
-                if more_button:
-                    logger.info(f"Found More button with selector: {selector}")
-                    break
-
-            if not more_button:
-                logger.warning(f"No More button found for {profile_username}")
-                buttons = await page.query_selector_all("button")
-                logger.info(f"Available buttons: {len(buttons)}")
-                for i, btn in enumerate(buttons[:5]):
-                    text = await btn.text_content()
-                    logger.info(f"Button {i}: {text}")
-                return False
-
-            await more_button.scroll_into_view_if_needed()
-            await page.wait_for_timeout(500)
-            await more_button.click(force=True)
-            logger.info(f"Clicked More button for {profile_username}")
-            await page.wait_for_timeout(1000)
-
-            dropdown_appeared = False
-            dropdown_selectors = [
-                ".artdeco-dropdown__content",
-                '[role="menu"]',
-                ".artdeco-dropdown--is-open",
-                ".artdeco-dropdown__content--is-open",
-            ]
-
-            for dropdown_selector in dropdown_selectors:
-                try:
-                    await page.wait_for_selector(dropdown_selector, timeout=1000)
-                    logger.info(f"Dropdown appeared with selector: {dropdown_selector}")
-                    dropdown_appeared = True
-                    break
-                except Exception:
-                    continue
-
-            if not dropdown_appeared:
-                logger.warning(f"Dropdown didn't appear for {profile_username}")
-                all_dropdowns = await page.query_selector_all('[class*="dropdown"]')
-                logger.info(
-                    f"Found {len(all_dropdowns)} elements with 'dropdown' in class"
-                )
-                return False
-
-            connect_button = await page.query_selector(
-                '.artdeco-dropdown--is-open .artdeco-dropdown__item:has([data-test-icon="connect-medium"])'
-            )
-
-            if not connect_button:
-                # Fallback - find visible dropdown items and get the connect one
-                visible_items = await page.query_selector_all(
-                    ".artdeco-dropdown--is-open .artdeco-dropdown__item"
-                )
-                for item in visible_items:
-                    icon = await item.query_selector(
-                        '[data-test-icon="connect-medium"]'
-                    )
-                    if icon:
-                        connect_button = item
+            if more_buttons:
+                logger.info(f"Found {len(more_buttons)} More button(s)")
+                # Try to click the first visible one
+                for btn in more_buttons:
+                    if await btn.is_visible():
+                        more_button = btn
                         break
 
+                if not more_button and more_buttons:
+                    # Just use the first one if none are marked visible
+                    more_button = more_buttons[0]
+
+            if more_button:
+                await more_button.click()
+                logger.info("Clicked More button to open dropdown")
+                await page.wait_for_timeout(1000)
+            else:
+                logger.error("No More button found")
+                return False
+
+            # Get all Connect buttons and use the visible one
+            connect_buttons = await page.query_selector_all(
+                'div[aria-label*="Invite"][aria-label*="to connect"]'
+            )
+
+            connect_button = None
+            if connect_buttons:
+                logger.info(f"Found {len(connect_buttons)} Connect button(s)")
+                # Use the first visible one
+                for btn in connect_buttons:
+                    if await btn.is_visible():
+                        connect_button = btn
+                        logger.info("Using visible Connect button")
+                        break
+
+                if not connect_button and connect_buttons:
+                    # Just use the first one if none are marked visible
+                    connect_button = connect_buttons[0]
+                    logger.info("Using first Connect button")
+
             if not connect_button:
-                logger.warning(
-                    f"No visible connect button found for {profile_username}"
+                logger.error(
+                    f"Connect button not found in dropdown for {profile_username}"
                 )
                 return False
 
-            logger.info("Found visible connect button")
+            # Try to click the connect button
+            try:
+                # First try normal click
+                await connect_button.click()
+            except Exception as e:
+                logger.info(f"Normal click failed: {e}, trying force click")
+                try:
+                    await connect_button.click(force=True)
+                except Exception as e2:
+                    logger.info(
+                        f"Force click also failed: {e2}, trying JavaScript click"
+                    )
+                    # Last resort - use JavaScript
+                    await page.evaluate("(element) => element.click()", connect_button)
 
-            await connect_button.click(force=True)
             logger.info(f"Clicked connect button for {profile_username}")
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(2000)
 
-            if message:
-                add_note_button = await page.query_selector(
-                    'button:has-text("Add a note")'
-                )
-                if add_note_button:
-                    await add_note_button.click()
-                    await page.wait_for_timeout(1000)
+            # Wait for connection modal to appear
+            try:
+                # Look for the modal that appears after clicking Connect
+                modal_appeared = False
+                modal_selectors = [
+                    ".artdeco-modal",
+                    '[role="dialog"]',
+                    "div[data-test-modal]",
+                ]
 
-                    message_textarea = await page.query_selector("textarea")
-                    if message_textarea:
-                        await message_textarea.fill(message)
-                        logger.info(f"Added message for {profile_username}")
+                for selector in modal_selectors:
+                    modal = await page.query_selector(selector)
+                    if modal and await modal.is_visible():
+                        logger.info("Connection modal appeared")
+                        modal_appeared = True
+                        break
 
-            send_button = await page.query_selector(
-                'button[aria-label*="Send"], button:has-text("Send")'
-            )
-            if send_button:
-                await send_button.click()
-                logger.success(f"Connection request sent to {profile_username}")
-                await page.wait_for_timeout(2000)
-                return True
-            else:
-                await page.keyboard.press("Enter")
-                logger.info(f"Sent connection with Enter for {profile_username}")
-                await page.wait_for_timeout(2000)
-                return True
+                if modal_appeared:
+                    if message:
+                        add_note_button = await page.query_selector(
+                            'button:has-text("Add a note")'
+                        )
+                        if add_note_button:
+                            await add_note_button.click()
+                            await page.wait_for_timeout(1000)
+
+                            message_textarea = await page.query_selector("textarea")
+                            if message_textarea:
+                                await message_textarea.fill(message)
+                                logger.info(f"Added message for {profile_username}")
+
+                    # Look for Send button
+                    send_selectors = [
+                        'button[aria-label*="Send now"]',
+                        'button[aria-label*="Send invitation"]',
+                        'button:has-text("Send")',
+                        ".artdeco-modal button.artdeco-button--primary",
+                    ]
+
+                    send_button = None
+                    for selector in send_selectors:
+                        send_button = await page.query_selector(selector)
+                        if send_button and await send_button.is_visible():
+                            logger.info(f"Found send button with selector: {selector}")
+                            break
+
+                    if send_button:
+                        await send_button.click()
+                        logger.success(f"Connection request sent to {profile_username}")
+                        await page.wait_for_timeout(2000)
+                        return True
+                    else:
+                        logger.warning("No send button found in modal")
+                        # Try pressing Enter as fallback
+                        await page.keyboard.press("Enter")
+                        logger.info(
+                            f"Sent connection with Enter for {profile_username}"
+                        )
+                        await page.wait_for_timeout(2000)
+                        return True
+                else:
+                    logger.warning(
+                        "No connection modal appeared after clicking Connect"
+                    )
+                    return False
+
+            except Exception as e:
+                logger.error(f"Error handling connection modal: {e}")
+                return False
 
         except Exception as e:
             logger.error(f"Error connecting to {profile_username}: {str(e)}")
@@ -174,7 +213,7 @@ class LinkedinOutreach:
 
         for i, username in enumerate(profile_usernames):
             logger.info(
-                f"Connecting to profile {i+1}/{len(profile_usernames)}: {username}"
+                f"Connecting to profile {i + 1}/{len(profile_usernames)}: {username}"
             )
 
             success = await LinkedinOutreach.connect(page, username, message)
