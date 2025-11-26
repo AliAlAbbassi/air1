@@ -61,6 +61,8 @@ class BrowserSession:
 
         try:
             profile = await ProfileScraper.extract_profile_data(page)
+            # Set username from the profile_id we navigated to
+            profile.username = profile_id
             # Also extract experience data
             experiences = await ProfileScraper.extract_profile_experience(page)
             profile.experiences = experiences

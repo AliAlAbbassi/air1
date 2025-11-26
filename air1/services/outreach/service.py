@@ -11,7 +11,7 @@ from air1.services.outreach.email import EmailResult
 from air1.services.outreach.linkedin_profile import (
     CompanyPeople,
     LinkedinProfile,
-    enrich_profile_with_username,
+    get_current_company_info,
     profile_to_lead,
 )
 from air1.services.outreach.prisma_models import CompanyLeadRecord
@@ -193,7 +193,6 @@ class Service(IService):
 
             for profile_id in company_people.profile_ids:
                 profile = await session.get_profile_info(profile_id)
-                profile = enrich_profile_with_username(profile, profile_id)
                 lead = profile_to_lead(profile)
 
                 try:
@@ -342,9 +341,7 @@ class Service(IService):
         session = await self.launch_browser(headless=headless)
 
         try:
-            # Get profile info
             profile = await session.get_profile_info(profile_username)
-            profile = enrich_profile_with_username(profile, profile_username)
 
             if not profile.full_name:
                 logger.warning(
@@ -352,18 +349,12 @@ class Service(IService):
                 )
                 return None
 
-            # Find current company from profile experiences (first is typically current job)
-            company_username = None
-            job_title = None
-            if profile.experiences:
-                current_experience = profile.experiences[0]
-                company_username = current_experience.company_id
-                job_title = current_experience.title
+            company_username, job_title = get_current_company_info(profile)
+            if company_username:
                 logger.debug(
                     f"Found current company: {company_username}, title: {job_title}"
                 )
 
-            # Convert profile to lead and save
             lead = profile_to_lead(profile)
 
             success, lead_id = await save_lead_complete(
