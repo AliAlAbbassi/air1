@@ -46,9 +46,9 @@ model LinkedinCompanyMember {
   title             String?          @db.VarChar(255)
   createdOn         DateTime         @default(now()) @map("created_on") @db.Timestamp(6)
   updatedOn         DateTime         @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  joined_at         DateTime?        @db.Date
   linkedinProfile   LinkedinProfile? @relation(fields: [linkedinProfileId], references: [linkedinProfileId], onDelete: NoAction, onUpdate: NoAction)
 
-  @@unique([linkedinProfileId, username])
   @@map("linkedin_company_members")
 }
 

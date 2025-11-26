@@ -67,7 +67,7 @@ async def linkedin_outreach_single_profile_workflow(
 
 def run():
     # Manual input - specify profile usernames here
-    profile_usernames = ["profile_id_here", "another_one"]
+    profile_usernames = ["jamesskelt"]
 
     asyncio.run(
         linkedin_outreach_single_profile_workflow(

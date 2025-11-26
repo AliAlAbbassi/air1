@@ -1,7 +1,10 @@
-from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
-from .linkedin_profile import LinkedinProfile
-from loguru import logger
 import re
+
+from loguru import logger
+from playwright.async_api import Page
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+from .linkedin_profile import LinkedinProfile, ProfileExperience
 
 # Exception handling note:
 # We catch AttributeError alongside PlaywrightTimeoutError because Playwright locator
@@ -63,7 +66,9 @@ class ProfileScraper:
                 logger.debug(f"Selector {selector} failed for name extraction: {e}")
                 continue
             except Exception as e:
-                logger.warning(f"Unexpected error extracting name with selector {selector}: {e}")
+                logger.warning(
+                    f"Unexpected error extracting name with selector {selector}: {e}"
+                )
                 continue
         return False
 
@@ -86,7 +91,9 @@ class ProfileScraper:
                 logger.debug(f"Selector {selector} failed for headline extraction: {e}")
                 continue
             except Exception as e:
-                logger.warning(f"Unexpected error extracting headline with selector {selector}: {e}")
+                logger.warning(
+                    f"Unexpected error extracting headline with selector {selector}: {e}"
+                )
                 continue
 
     @staticmethod
@@ -108,7 +115,9 @@ class ProfileScraper:
                 logger.debug(f"Selector {selector} failed for location extraction: {e}")
                 continue
             except Exception as e:
-                logger.warning(f"Unexpected error extracting location with selector {selector}: {e}")
+                logger.warning(
+                    f"Unexpected error extracting location with selector {selector}: {e}"
+                )
                 continue
 
     @staticmethod
@@ -171,3 +180,136 @@ class ProfileScraper:
             logger.debug(f"Failed to extract phone: {e}")
         except Exception as e:
             logger.warning(f"Unexpected error extracting phone: {e}")
+
+    @staticmethod
+    async def extract_profile_experience(page: Page) -> list[ProfileExperience]:
+        """Extract work experience data from LinkedIn profile page.
+
+        Args:
+            page: Playwright page instance on a LinkedIn profile
+
+        Returns:
+            List of ProfileExperience objects with title, company_id, and start_date
+        """
+        experiences: list[ProfileExperience] = []
+
+        try:
+            # Wait for experience section to load - look for the experience entity divs
+            experience_selector = 'div[data-view-name="profile-component-entity"]:has(a[href*="/company/"])'
+            try:
+                await page.wait_for_selector(experience_selector, timeout=10000)
+            except Exception:
+                # Experience section might not exist or need scrolling
+                await page.evaluate("window.scrollBy(0, 1000)")
+                try:
+                    await page.wait_for_selector(experience_selector, timeout=5000)
+                except Exception:
+                    logger.debug("No experience section found after scrolling")
+                    return experiences
+
+            # Find experience items directly using data-view-name attribute
+            # Each experience entry has data-view-name="profile-component-entity"
+            # and contains a link to /company/
+            experience_items = await page.locator(experience_selector).all()
+
+            logger.debug(f"Found {len(experience_items)} experience items")
+
+            for item in experience_items:
+                try:
+                    experience = await ProfileScraper._parse_experience_item(item)
+                    if experience and (experience.title or experience.company_id):
+                        experiences.append(experience)
+                except (PlaywrightTimeoutError, AttributeError) as e:
+                    logger.debug(f"Failed to parse experience item: {e}")
+                    continue
+                except Exception as e:
+                    logger.warning(f"Unexpected error parsing experience item: {e}")
+                    continue
+
+        except (PlaywrightTimeoutError, AttributeError) as e:
+            logger.debug(f"Failed to extract experience: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error extracting experience: {e}")
+
+        logger.info(f"Extracted {len(experiences)} experience entries")
+        return experiences
+
+    @staticmethod
+    async def _parse_experience_item(item) -> ProfileExperience | None:
+        """Parse a single experience item element.
+
+        Args:
+            item: Playwright locator for an experience list item
+
+        Returns:
+            ProfileExperience object or None if parsing fails
+        """
+        title = ""
+        company_id = None
+        start_date = None
+
+        # Extract title from div with t-bold class containing span with aria-hidden
+        # Structure: <div class="...t-bold"><span aria-hidden="true">Title</span></div>
+        title_selectors = [
+            'div.t-bold span[aria-hidden="true"]',
+            '.hoverable-link-text.t-bold span[aria-hidden="true"]',
+            '.mr1.t-bold span[aria-hidden="true"]',
+        ]
+
+        for selector in title_selectors:
+            try:
+                title_elem = item.locator(selector).first
+                if await title_elem.count() > 0:
+                    title_text = await title_elem.text_content()
+                    if title_text and title_text.strip():
+                        title = title_text.strip()
+                        break
+            except Exception:
+                continue
+
+        # Extract company ID from link href
+        # Links look like: href="https://www.linkedin.com/company/1113019/"
+        try:
+            company_link = item.locator('a[href*="/company/"]').first
+            if await company_link.count() > 0:
+                href = await company_link.get_attribute("href")
+                if href:
+                    match = re.search(r"/company/([^/]+)/?", href)
+                    if match:
+                        company_id = match.group(1)
+        except Exception as e:
+            logger.debug(f"Failed to extract company ID: {e}")
+
+        # Extract start date from pvs-entity__caption-wrapper
+        # Structure: <span class="pvs-entity__caption-wrapper" aria-hidden="true">Jan 2025 - Present · 11 mos</span>
+        date_selectors = [
+            'span.pvs-entity__caption-wrapper[aria-hidden="true"]',
+            "span.pvs-entity__caption-wrapper",
+            ".t-black--light span[aria-hidden='true']",
+        ]
+
+        for selector in date_selectors:
+            try:
+                date_elem = item.locator(selector).first
+                if await date_elem.count() > 0:
+                    date_text = await date_elem.text_content()
+                    if date_text:
+                        date_text = date_text.strip()
+                        # Match patterns like "Jan 2025", "Feb 2023", "2020"
+                        date_match = re.search(
+                            r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+)?\d{4}",
+                            date_text,
+                            re.IGNORECASE,
+                        )
+                        if date_match:
+                            start_date = date_match.group(0).strip()
+                            break
+            except Exception:
+                continue
+
+        if not title and not company_id:
+            return None
+
+        return ProfileExperience(
+            title=title, company_id=company_id, start_date=start_date
+        )

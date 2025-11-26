@@ -1,4 +1,12 @@
+from typing import Optional
+
 from pydantic import BaseModel
+
+
+class ProfileExperience(BaseModel):
+    title: str = ""
+    company_id: Optional[str] = None
+    start_date: Optional[str] = None
 
 
 class LinkedinProfile(BaseModel):
