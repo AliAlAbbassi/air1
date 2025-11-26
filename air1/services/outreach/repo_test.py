@@ -1,6 +1,6 @@
 import pytest
 import uuid
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 from air1.services.outreach.repo import (
     insert_lead,
     insert_linkedin_profile,
