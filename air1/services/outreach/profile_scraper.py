@@ -3,9 +3,21 @@ from .linkedin_profile import LinkedinProfile
 from loguru import logger
 import re
 
+# Exception handling note:
+# We catch AttributeError alongside PlaywrightTimeoutError because Playwright locator
+# operations can raise AttributeError when elements are detached from the DOM or when
+# accessing properties on None results. This is expected behavior when scraping dynamic
+# pages where elements may not exist or may disappear during extraction.
+
 
 class ProfileScraper:
-    """Handles LinkedIn profile data extraction from page"""
+    """Handles LinkedIn profile data extraction from page.
+
+    This scraper tries multiple CSS selectors for each field and gracefully handles
+    failures. Expected errors (timeouts, missing elements) are logged at debug level
+    and silently skipped. Unexpected errors are logged at warning level but also
+    skipped to allow partial data extraction.
+    """
 
     @staticmethod
     async def extract_profile_data(page: Page) -> LinkedinProfile:

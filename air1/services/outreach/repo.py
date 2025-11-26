@@ -1,3 +1,24 @@
+"""Repository functions for outreach data persistence.
+
+API Contract for Error Handling:
+--------------------------------
+All functions in this module follow a consistent error handling pattern:
+
+1. **Database errors (PrismaError)**: These are expected operational failures
+   (connection issues, constraint violations, etc.). Functions return a failure
+   indicator (False, None, or empty list) and log at ERROR level. Callers should
+   check return values.
+
+2. **Unexpected errors**: Any non-database exception indicates a potential bug or
+   infrastructure issue. Functions raise domain-specific exceptions (LeadInsertionError,
+   ProfileInsertionError, QueryError) wrapping the original error. Callers should
+   let these propagate for investigation.
+
+Return Value Conventions:
+- Insert functions: Return (bool, id|None) or id|None - check for None/False
+- Query functions: Return object|None or list - check for None or empty list
+- All functions: Raise on unexpected errors
+"""
 from loguru import logger
 from prisma.models import LinkedinCompanyMember, LinkedinProfile
 from prisma.errors import PrismaError

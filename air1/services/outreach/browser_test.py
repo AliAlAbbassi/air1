@@ -1,7 +1,9 @@
 import pytest
 from unittest.mock import AsyncMock, patch
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from air1.services.outreach.browser import BrowserSession
-from air1.services.outreach.linkedin_profile import CompanyPeople
+from air1.services.outreach.linkedin_profile import CompanyPeople, LinkedinProfile
+from air1.services.outreach.exceptions import ProfileScrapingError
 
 
 @pytest.mark.asyncio
@@ -141,3 +143,74 @@ async def test_get_company_members_keywords_with_special_chars():
             mock_page,
             "https://www.linkedin.com/company/testcompany/people/?keywords=software engineer,C++,full-stack"
         )
+
+
+# Exception handling tests
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_get_profile_info_returns_empty_on_timeout():
+    """Test that TimeoutError returns empty LinkedinProfile instead of raising."""
+    mock_browser = AsyncMock()
+    session = BrowserSession(browser=mock_browser, linkedin_sid="test_sid")
+    mock_page = AsyncMock()
+
+    with (
+        patch.object(session, '_setup_page', return_value=mock_page),
+        patch('air1.services.outreach.browser.navigate_to_linkedin_url'),
+        patch(
+            'air1.services.outreach.browser.ProfileScraper.extract_profile_data',
+            AsyncMock(side_effect=PlaywrightTimeoutError("Timeout"))
+        ),
+    ):
+        result = await session.get_profile_info("test-user")
+
+        # Should return empty profile, not raise
+        assert isinstance(result, LinkedinProfile)
+        assert result.full_name == ""
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_get_profile_info_returns_empty_on_attribute_error():
+    """Test that AttributeError (detached DOM) returns empty LinkedinProfile."""
+    mock_browser = AsyncMock()
+    session = BrowserSession(browser=mock_browser, linkedin_sid="test_sid")
+    mock_page = AsyncMock()
+
+    with (
+        patch.object(session, '_setup_page', return_value=mock_page),
+        patch('air1.services.outreach.browser.navigate_to_linkedin_url'),
+        patch(
+            'air1.services.outreach.browser.ProfileScraper.extract_profile_data',
+            AsyncMock(side_effect=AttributeError("Element detached"))
+        ),
+    ):
+        result = await session.get_profile_info("test-user")
+
+        # Should return empty profile, not raise
+        assert isinstance(result, LinkedinProfile)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_get_profile_info_raises_on_unexpected_error():
+    """Test that unexpected errors are wrapped in ProfileScrapingError."""
+    mock_browser = AsyncMock()
+    session = BrowserSession(browser=mock_browser, linkedin_sid="test_sid")
+    mock_page = AsyncMock()
+
+    with (
+        patch.object(session, '_setup_page', return_value=mock_page),
+        patch('air1.services.outreach.browser.navigate_to_linkedin_url'),
+        patch(
+            'air1.services.outreach.browser.ProfileScraper.extract_profile_data',
+            AsyncMock(side_effect=RuntimeError("Unexpected bug"))
+        ),
+    ):
+        with pytest.raises(ProfileScrapingError) as exc_info:
+            await session.get_profile_info("test-user")
+
+        assert "Unexpected error" in str(exc_info.value)
+        assert exc_info.value.__cause__ is not None  # Original exception preserved

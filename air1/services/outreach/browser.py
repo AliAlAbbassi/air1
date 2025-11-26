@@ -38,13 +38,22 @@ class BrowserSession:
 
     async def get_profile_info(self, profile_id: str) -> LinkedinProfile:
         """
-        Get LinkedIn profile info from a profile ID
+        Get LinkedIn profile info from a profile ID.
 
         Args:
-            profile_id (str): LinkedIn profile ID (e.g., '')
+            profile_id: LinkedIn profile ID (e.g., 'john-doe-123')
 
         Returns:
-            LinkedinProfile: Complete profile information
+            LinkedinProfile with extracted data, or empty LinkedinProfile on expected
+            scraping failures (timeouts, missing elements, parse errors).
+
+        Raises:
+            ProfileScrapingError: On unexpected errors that may indicate bugs or
+            significant issues requiring investigation.
+
+        Note:
+            AttributeError is caught as an expected error because Playwright locators
+            can raise it when elements are detached from the DOM during scraping.
         """
         profile_url = f"https://www.linkedin.com/in/{profile_id}"
         page = await self._setup_page()
@@ -53,6 +62,7 @@ class BrowserSession:
         try:
             return await ProfileScraper.extract_profile_data(page)
         except (PlaywrightTimeoutError, AttributeError, ValueError) as e:
+            # Expected errors: timeouts, detached elements, parse failures
             logger.error(f"Failed to scrape profile {profile_id}: {str(e)}")
             return LinkedinProfile()
         except Exception as e:
