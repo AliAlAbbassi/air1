@@ -9,29 +9,42 @@ from .navigation import navigate_to_linkedin_url
 from loguru import logger
 
 
-class BrowserSession:
-    def __init__(self, browser: Browser, linkedin_sid: str):
-        self.browser = browser
+class LinkedInAuthenticator:
+    """Handles LinkedIn authentication via cookies"""
+
+    def __init__(self, linkedin_sid: str, domain: str = ".linkedin.com"):
         self.linkedin_sid = linkedin_sid
+        self.domain = domain
+
+    async def authenticate_page(self, page: Page) -> None:
+        """Apply authentication cookies to a page"""
+        if self.linkedin_sid:
+            cookies: SetCookieParam = {
+                "name": "li_at",
+                "value": self.linkedin_sid,
+                "domain": self.domain,
+                "path": "/",
+                "secure": True,
+                "httpOnly": True,
+                "sameSite": "Lax",
+            }
+            await page.context.add_cookies([cookies])
+
+
+class BrowserSession:
+    """Manages browser page lifecycle and delegates to scrapers"""
+
+    def __init__(self, browser: Browser, authenticator: LinkedInAuthenticator):
+        self.browser = browser
+        self.authenticator = authenticator
         self.page = None
 
     async def _setup_page(self) -> Page:
-        """Set up or reuse existing page with authentication cookies"""
+        """Set up or reuse existing page with authentication"""
         if self.page is None:
             self.page = await self.browser.new_page()
             self.page.set_default_timeout(60000)
-
-            if self.linkedin_sid:
-                cookies: SetCookieParam = {
-                    "name": "li_at",
-                    "value": self.linkedin_sid,
-                    "domain": ".linkedin.com",
-                    "path": "/",
-                    "secure": True,
-                    "httpOnly": True,
-                    "sameSite": "Lax",
-                }
-                await self.page.context.add_cookies([cookies])
+            await self.authenticator.authenticate_page(self.page)
 
         return self.page
 

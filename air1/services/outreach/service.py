@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from loguru import logger
 from playwright.async_api import Playwright, async_playwright
 
-from air1.services.outreach.browser import BrowserSession
+from air1.services.outreach.browser import BrowserSession, LinkedInAuthenticator
 from air1.services.outreach.email import EmailResult
 from air1.services.outreach.linkedin_profile import (
     CompanyPeople,
@@ -88,7 +88,8 @@ class Service(IService):
                 "Playwright not initialized. Use 'async with Service()' context manager."
             )
         browser = await self.playwright.chromium.launch(headless=headless)
-        return BrowserSession(browser, self.linkedin_sid)
+        authenticator = LinkedInAuthenticator(self.linkedin_sid)
+        return BrowserSession(browser, authenticator)
 
     async def get_profile_info(self, profile_id: str, headless=True) -> LinkedinProfile:
         """
