@@ -14,6 +14,7 @@ from air1.services.outreach.linkedin_profile import (
     enrich_profile_with_username,
     profile_to_lead,
 )
+from air1.services.outreach.profile_scraper import ProfileScraper
 from air1.services.outreach.prisma_models import CompanyLeadRecord
 from air1.services.outreach.repo import (
     get_company_leads,
@@ -57,6 +58,25 @@ class IService(ABC):
         delay_between_connections: int = 5,
         headless: bool = True,
     ) -> dict[str, bool]:
+        pass
+
+    @abstractmethod
+    async def save_lead_from_linkedin_profile(
+        self, profile_username: str, headless: bool = True
+    ) -> int | None:
+        """
+        Scrape a LinkedIn profile and save it as a new lead.
+
+        This method scrapes the profile data and experience information,
+        then creates a lead with the associated LinkedIn profile and company membership.
+
+        Args:
+            profile_username: LinkedIn profile username (e.g., 'john-doe-123')
+            headless: Run browser in headless mode
+
+        Returns:
+            lead_id if successful, None otherwise
+        """
         pass
 
 
@@ -302,3 +322,73 @@ class Service(IService):
                 await insert_linkedin_connection(lead_id)
 
         return results
+
+    async def save_lead_from_linkedin_profile(
+        self, profile_username: str, headless: bool = True
+    ) -> int | None:
+        """
+        Scrape a LinkedIn profile and save it as a new lead.
+
+        This method scrapes the profile data and experience information,
+        then creates a lead with the associated LinkedIn profile and company membership.
+
+        Args:
+            profile_username: LinkedIn profile username (e.g., 'john-doe-123')
+            headless: Run browser in headless mode
+
+        Returns:
+            lead_id if successful, None otherwise
+        """
+        logger.info(f"Scraping and saving lead for profile: {profile_username}")
+        session = await self.launch_browser(headless=headless)
+
+        try:
+            # Get profile info
+            profile = await session.get_profile_info(profile_username)
+            profile = enrich_profile_with_username(profile, profile_username)
+
+            if not profile.full_name:
+                logger.warning(
+                    f"Could not extract profile data for {profile_username}"
+                )
+                return None
+
+            # Get experience to find current company
+            page = session.page
+            experiences = await ProfileScraper.extract_profile_experience(page)
+
+            # Find current company (first experience is typically current job)
+            company_username = None
+            job_title = None
+            if experiences:
+                current_experience = experiences[0]
+                company_username = current_experience.company_id
+                job_title = current_experience.title
+                logger.debug(
+                    f"Found current company: {company_username}, title: {job_title}"
+                )
+
+            # Convert profile to lead and save
+            lead = profile_to_lead(profile)
+
+            success, lead_id = await save_lead_complete(
+                lead,
+                profile,
+                company_username=company_username,
+                job_title=job_title,
+            )
+
+            if success and lead_id:
+                logger.success(
+                    f"Saved lead from profile {profile_username}: {lead.full_name} (ID: {lead_id})"
+                )
+                return lead_id
+            else:
+                logger.error(f"Failed to save lead for profile {profile_username}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error saving lead from profile {profile_username}: {e}")
+            return None
+        finally:
+            await session.browser.close()

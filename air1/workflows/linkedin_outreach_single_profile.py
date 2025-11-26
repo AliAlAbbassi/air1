@@ -55,9 +55,23 @@ async def linkedin_outreach_single_profile_workflow(
                             f"Tracked connection for {username} (lead_id={linkedin_profile.leadId})"
                         )
                     else:
-                        logger.warning(
-                            f"Could not track connection for {username}: profile not found in database"
+                        # Lead not found, create from LinkedIn profile
+                        logger.info(
+                            f"Lead not found for {username}, creating from LinkedIn profile"
                         )
+                        lead_id = await service.save_lead_from_linkedin_profile(
+                            profile_username=username,
+                            headless=headless,
+                        )
+                        if lead_id:
+                            await insert_linkedin_connection(lead_id)
+                            logger.info(
+                                f"Created and tracked connection for {username} (lead_id={lead_id})"
+                            )
+                        else:
+                            logger.warning(
+                                f"Could not create lead for {username}"
+                            )
                 except Exception as e:
                     logger.error(f"Failed to track connection for {username}: {e}")
 
