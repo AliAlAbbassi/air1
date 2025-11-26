@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Protocol
 import aiosql
 from aiosql.adapters.asyncpg import AsyncPGAdapter
 from loguru import logger
+from prisma.errors import PrismaError
 
 
 class PrismaAdapter(AsyncPGAdapter):
@@ -12,6 +13,29 @@ class PrismaAdapter(AsyncPGAdapter):
     Inherits from AsyncPGAdapter to leverage its postgres parameter formatting ($1, $2, ...).
     """
 
+    def _handle_prisma_error(
+        self, query_name: str, sql: str, parameters: Any, e: Exception
+    ) -> None:
+        """Handle Prisma database errors consistently."""
+        logger.error(f"SQL Error in {query_name}: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+
+        if isinstance(e, PrismaError):
+            if hasattr(e, "code"):
+                logger.error(f"Prisma error code: {e.code}")
+            if hasattr(e, "meta") and e.meta:
+                logger.error(f"Prisma meta: {e.meta}")
+                if isinstance(e.meta, dict):
+                    if "cause" in e.meta:
+                        logger.error(f"Database error: {e.meta['cause']}")
+                    if "message" in e.meta:
+                        logger.error(f"Error message: {e.meta['message']}")
+                    if "target" in e.meta:
+                        logger.error(f"Error target: {e.meta['target']}")
+
+        logger.error(f"SQL: {sql}")
+        logger.error(f"Parameters: {parameters}")
+
     async def select(self, conn, query_name, sql, parameters, record_class=None):
         """Execute a query and return a list of results."""
         parameters = self.maybe_order_params(query_name, parameters)
@@ -19,18 +43,7 @@ class PrismaAdapter(AsyncPGAdapter):
         try:
             return await conn.query_raw(sql, *parameters)
         except Exception as e:
-            from prisma.errors import PrismaError
-
-            logger.error(f"SQL Error in {query_name}: {e}")
-            if isinstance(e, PrismaError):
-                if hasattr(e, 'code'):
-                    logger.error(f"Prisma error code: {e.code}")
-                if hasattr(e, 'meta') and e.meta:
-                    logger.error(f"Prisma meta: {e.meta}")
-                    if isinstance(e.meta, dict) and 'cause' in e.meta:
-                        logger.error(f"Database error: {e.meta['cause']}")
-            logger.error(f"SQL: {sql}")
-            logger.error(f"Parameters: {parameters}")
+            self._handle_prisma_error(query_name, sql, parameters, e)
             raise
 
     async def select_one(self, conn, query_name, sql, parameters, record_class=None):
@@ -59,18 +72,7 @@ class PrismaAdapter(AsyncPGAdapter):
         try:
             await conn.query_raw(sql, *parameters)
         except Exception as e:
-            from prisma.errors import PrismaError
-
-            logger.error(f"SQL Error in {query_name}: {e}")
-            if isinstance(e, PrismaError):
-                if hasattr(e, 'code'):
-                    logger.error(f"Prisma error code: {e.code}")
-                if hasattr(e, 'meta') and e.meta:
-                    logger.error(f"Prisma meta: {e.meta}")
-                    if isinstance(e.meta, dict) and 'cause' in e.meta:
-                        logger.error(f"Database error: {e.meta['cause']}")
-            logger.error(f"SQL: {sql}")
-            logger.error(f"Parameters: {parameters}")
+            self._handle_prisma_error(query_name, sql, parameters, e)
             raise
 
     async def insert_returning(self, conn, query_name, sql, parameters):
@@ -86,25 +88,7 @@ class PrismaAdapter(AsyncPGAdapter):
                 return results[0]
             return None
         except Exception as e:
-            from prisma.errors import PrismaError
-
-            logger.error(f"SQL Error in {query_name}: {e}")
-            logger.error(f"Error type: {type(e).__name__}")
-            logger.error(f"SQL: {sql}")
-            logger.error(f"Parameters: {parameters}")
-
-            # Check if it's a Prisma error with more details
-            if isinstance(e, PrismaError):
-                if hasattr(e, 'code'):
-                    logger.error(f"Prisma error code: {e.code}")
-                if hasattr(e, 'meta') and e.meta:
-                    logger.error(f"Prisma meta: {e.meta}")
-                    if 'cause' in e.meta:
-                        logger.error(f"Database error: {e.meta['cause']}")
-                    if 'message' in e.meta:
-                        logger.error(f"Error message: {e.meta['message']}")
-                    if 'target' in e.meta:
-                        logger.error(f"Error target: {e.meta['target']}")
+            self._handle_prisma_error(query_name, sql, parameters, e)
             raise
 
 
