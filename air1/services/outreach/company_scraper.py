@@ -1,5 +1,6 @@
-from playwright.async_api import Page
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from .linkedin_profile import CompanyPeople
+from .exceptions import CompanyScrapingError
 from loguru import logger
 
 
@@ -46,6 +47,14 @@ class CompanyScraper:
             logger.info(f"Found {len(profile_ids)} profiles for company {company_id}")
             return CompanyPeople(profile_ids=profile_ids)
 
-        except Exception as e:
-            logger.error(f"Error scraping company profiles: {str(e)}")
+        except PlaywrightTimeoutError as e:
+            logger.error(f"Timeout while scraping company {company_id}: {str(e)}")
             return CompanyPeople(profile_ids=set())
+        except (AttributeError, ValueError) as e:
+            logger.error(f"Failed to parse company {company_id} page: {str(e)}")
+            return CompanyPeople(profile_ids=set())
+        except Exception as e:
+            logger.error(f"Unexpected error scraping company {company_id}: {str(e)}")
+            raise CompanyScrapingError(
+                f"Unexpected error scraping company {company_id}: {str(e)}"
+            ) from e

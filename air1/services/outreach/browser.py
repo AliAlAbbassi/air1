@@ -1,11 +1,12 @@
 from typing import Optional
 from playwright._impl._api_structures import SetCookieParam
-from playwright.async_api import Browser, Page
+from playwright.async_api import Browser, Page, TimeoutError as PlaywrightTimeoutError
 from .linkedin_profile import LinkedinProfile, CompanyPeople
 from .profile_scraper import ProfileScraper
 from .company_scraper import CompanyScraper
 from .linkedin_outreach import LinkedinOutreach
 from .navigation import navigate_to_linkedin_url
+from .exceptions import ProfileScrapingError
 from loguru import logger
 
 
@@ -51,9 +52,14 @@ class BrowserSession:
 
         try:
             return await ProfileScraper.extract_profile_data(page)
-        except Exception as e:
-            logger.error(f"Error scraping profile {profile_id}: {str(e)}")
+        except (PlaywrightTimeoutError, AttributeError, ValueError) as e:
+            logger.error(f"Failed to scrape profile {profile_id}: {str(e)}")
             return LinkedinProfile()
+        except Exception as e:
+            logger.error(f"Unexpected error scraping profile {profile_id}: {str(e)}")
+            raise ProfileScrapingError(
+                f"Unexpected error scraping profile {profile_id}: {str(e)}"
+            ) from e
 
     async def get_company_members(self, company_id: str, limit=10, keywords: Optional[list[str]] = None) -> CompanyPeople:
         """
