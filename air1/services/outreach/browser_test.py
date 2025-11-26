@@ -214,3 +214,31 @@ async def test_browser_session_uses_authenticator():
     await session._setup_page()
 
     mock_authenticator.authenticate_page.assert_called_once_with(mock_page)
+
+
+@pytest.mark.asyncio
+async def test_linkedin_authenticator_none_sid_skips_cookies():
+    """Test that LinkedInAuthenticator with None SID does not add cookies."""
+    authenticator = LinkedInAuthenticator(linkedin_sid=None)
+
+    mock_page = AsyncMock()
+    mock_context = AsyncMock()
+    mock_page.context = mock_context
+
+    await authenticator.authenticate_page(mock_page)
+
+    mock_context.add_cookies.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_linkedin_authenticator_whitespace_sid_skips_cookies():
+    """Test that LinkedInAuthenticator with whitespace-only SID does not add cookies."""
+    authenticator = LinkedInAuthenticator(linkedin_sid="   ")
+
+    mock_page = AsyncMock()
+    mock_context = AsyncMock()
+    mock_page.context = mock_context
+
+    await authenticator.authenticate_page(mock_page)
+
+    mock_context.add_cookies.assert_not_called()

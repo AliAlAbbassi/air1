@@ -12,13 +12,13 @@ from loguru import logger
 class LinkedInAuthenticator:
     """Handles LinkedIn authentication via cookies"""
 
-    def __init__(self, linkedin_sid: str, domain: str = ".linkedin.com"):
+    def __init__(self, linkedin_sid: Optional[str], domain: str = ".linkedin.com"):
         self.linkedin_sid = linkedin_sid
         self.domain = domain
 
     async def authenticate_page(self, page: Page) -> None:
         """Apply authentication cookies to a page"""
-        if self.linkedin_sid:
+        if self.linkedin_sid and self.linkedin_sid.strip():
             cookies: SetCookieParam = {
                 "name": "li_at",
                 "value": self.linkedin_sid,
