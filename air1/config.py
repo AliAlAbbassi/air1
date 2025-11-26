@@ -57,14 +57,14 @@ class Settings(BaseSettings):
         le=1000,
         description="Number of emails to send in each batch"
     )
-    email_delay_between_batches: int = Field(
-        default=60,
+    email_delay_between_batches: float = Field(
+        default=60.0,
         ge=0,
         le=3600,
         description="Delay in seconds between email batches (prevents rate limiting)"
     )
-    email_delay_between_emails: int = Field(
-        default=2,
+    email_delay_between_emails: float = Field(
+        default=2.0,
         ge=0,
         le=60,
         description="Delay in seconds between individual emails within a batch"
