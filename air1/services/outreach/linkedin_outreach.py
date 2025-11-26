@@ -43,7 +43,8 @@ class RateLimitHandler:
     def _add_jitter(self, delay: float) -> float:
         """Add random jitter to delay to avoid predictable patterns"""
         jitter_range = delay * self.jitter_factor
-        return delay + random.uniform(-jitter_range, jitter_range)
+        # Ensure delay never goes below 1 second
+        return max(1.0, delay + random.uniform(-jitter_range, jitter_range))
 
     async def detect_rate_limit(self, page: Page) -> bool:
         """
@@ -62,18 +63,17 @@ class RateLimitHandler:
             bool: True if rate limit detected, False otherwise
         """
         rate_limit_indicators = [
-            # Text content indicators
+            # LinkedIn-specific rate limit text indicators
             'text="Too many requests"',
             'text="You\'ve reached the limit"',
+            'text="You\'ve reached the weekly invitation limit"',
             'text="Please try again later"',
-            'text="slow down"',
-            # CAPTCHA indicators
+            # CAPTCHA indicators (LinkedIn uses specific challenge pages)
             'iframe[src*="captcha"]',
-            '[class*="captcha"]',
+            'iframe[src*="challenge"]',
+            '[data-test-id="captcha"]',
             'text="security verification"',
-            # Error page indicators
-            '[class*="error-page"]',
-            'text="Something went wrong"',
+            'text="Let\'s do a quick security check"',
         ]
 
         for indicator in rate_limit_indicators:
@@ -82,9 +82,9 @@ class RateLimitHandler:
                 if element and await element.is_visible():
                     logger.warning(f"Rate limit indicator detected: {indicator}")
                     return True
-            except Exception:
+            except Exception as e:
                 # Selector might be invalid for some page states
-                pass
+                logger.debug(f"Selector check failed for '{indicator}': {e}")
 
         # Check page URL for error redirects
         current_url = page.url

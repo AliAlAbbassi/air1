@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 from air1.services.outreach.linkedin_outreach import RateLimitHandler, LinkedinOutreach
 
 
+@pytest.mark.unit
 class TestRateLimitHandler:
     """Tests for RateLimitHandler class"""
 
@@ -47,6 +48,15 @@ class TestRateLimitHandler:
         result = handler._add_jitter(10)
         assert result == 10
 
+    def test_add_jitter_has_minimum_floor(self):
+        """Test that jitter never returns values below 1 second."""
+        handler = RateLimitHandler(jitter_factor=0.9)
+
+        # With very low delay and high jitter, should still be >= 1
+        for _ in range(100):
+            result = handler._add_jitter(1)
+            assert result >= 1.0
+
     def test_reset(self):
         """Test reset method returns handler to initial state."""
         handler = RateLimitHandler(initial_delay=5)
@@ -59,6 +69,7 @@ class TestRateLimitHandler:
         assert handler.consecutive_rate_limits == 0
 
 
+@pytest.mark.unit
 class TestRateLimitHandlerDetection:
     """Tests for rate limit detection"""
 
@@ -142,6 +153,7 @@ class TestRateLimitHandlerDetection:
         assert result is True
 
 
+@pytest.mark.unit
 class TestRateLimitHandlerBackoff:
     """Tests for exponential backoff behavior"""
 
@@ -239,6 +251,7 @@ class TestRateLimitHandlerBackoff:
         assert handler.current_delay == 80
 
 
+@pytest.mark.unit
 class TestBulkConnectWithRateLimiting:
     """Tests for bulk_connect with rate limiting integration"""
 
