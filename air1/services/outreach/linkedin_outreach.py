@@ -5,12 +5,143 @@ Automated outreach, but done sequentially to emulate human behavior and avoid bo
 Will include a faster option: fast_connect(). Don't care about it right now tho.
 """
 
+import random
 from typing import Optional
 
 from loguru import logger
 from playwright.async_api import Page
 
 from .navigation import navigate_to_linkedin_url
+
+
+class RateLimitHandler:
+    """Handles LinkedIn rate limiting with exponential backoff and jitter"""
+
+    def __init__(
+        self,
+        initial_delay: int = 5,
+        max_delay: int = 300,
+        max_retries: int = 5,
+        jitter_factor: float = 0.3,
+    ):
+        """
+        Initialize the rate limit handler.
+
+        Args:
+            initial_delay: Base delay in seconds between requests (default: 5)
+            max_delay: Maximum delay in seconds during backoff (default: 300 / 5 min)
+            max_retries: Maximum consecutive retries before giving up (default: 5)
+            jitter_factor: Random variation factor (0.0-1.0) to avoid patterns (default: 0.3)
+        """
+        self.initial_delay = initial_delay
+        self.max_delay = max_delay
+        self.max_retries = max_retries
+        self.jitter_factor = jitter_factor
+        self.current_delay = initial_delay
+        self.consecutive_rate_limits = 0
+
+    def _add_jitter(self, delay: float) -> float:
+        """Add random jitter to delay to avoid predictable patterns"""
+        jitter_range = delay * self.jitter_factor
+        # Ensure delay never goes below 1 second
+        return max(1.0, delay + random.uniform(-jitter_range, jitter_range))
+
+    async def detect_rate_limit(self, page: Page) -> bool:
+        """
+        Check if LinkedIn returned rate limit indicators.
+
+        Looks for:
+        - "Too many requests" messages
+        - CAPTCHA challenges
+        - Rate limit error pages
+        - Unusual error states
+
+        Args:
+            page: Playwright page instance
+
+        Returns:
+            bool: True if rate limit detected, False otherwise
+        """
+        rate_limit_indicators = [
+            # LinkedIn-specific rate limit text indicators
+            'text="Too many requests"',
+            'text="You\'ve reached the limit"',
+            'text="You\'ve reached the weekly invitation limit"',
+            'text="Please try again later"',
+            # CAPTCHA indicators (LinkedIn uses specific challenge pages)
+            'iframe[src*="captcha"]',
+            'iframe[src*="challenge"]',
+            '[data-test-id="captcha"]',
+            'text="security verification"',
+            'text="Let\'s do a quick security check"',
+        ]
+
+        for indicator in rate_limit_indicators:
+            try:
+                element = await page.query_selector(indicator)
+                if element and await element.is_visible():
+                    logger.warning(f"Rate limit indicator detected: {indicator}")
+                    return True
+            except Exception as e:
+                # Selector might be invalid for some page states
+                logger.debug(f"Selector check failed for '{indicator}': {e}")
+
+        # Check page URL for error redirects
+        current_url = page.url
+        if any(
+            error_path in current_url
+            for error_path in ["/checkpoint/", "/error/", "/captcha/"]
+        ):
+            logger.warning(f"Rate limit redirect detected: {current_url}")
+            return True
+
+        return False
+
+    async def wait_with_backoff(
+        self, page: Page, detected_rate_limit: bool = False
+    ) -> bool:
+        """
+        Wait with exponential backoff if rate limit is detected.
+
+        Args:
+            page: Playwright page instance
+            detected_rate_limit: Whether a rate limit was detected
+
+        Returns:
+            bool: True if should continue, False if max retries exceeded
+        """
+        if detected_rate_limit:
+            self.consecutive_rate_limits += 1
+
+            if self.consecutive_rate_limits > self.max_retries:
+                logger.error(
+                    f"Max retries ({self.max_retries}) exceeded. Stopping to prevent account issues."
+                )
+                return False
+
+            # Exponential backoff: double the delay each time
+            self.current_delay = min(self.current_delay * 2, self.max_delay)
+            delay_with_jitter = self._add_jitter(self.current_delay)
+
+            logger.warning(
+                f"Rate limit detected (attempt {self.consecutive_rate_limits}/{self.max_retries}). "
+                f"Waiting {delay_with_jitter:.1f}s before retry"
+            )
+        else:
+            # Reset on successful request
+            self.consecutive_rate_limits = 0
+            self.current_delay = self.initial_delay
+            delay_with_jitter = self._add_jitter(self.current_delay)
+
+            logger.debug(f"Waiting {delay_with_jitter:.1f}s before next request")
+
+        await page.wait_for_timeout(int(delay_with_jitter * 1000))
+        return True
+
+    def reset(self) -> None:
+        """Reset the handler to initial state"""
+        self.current_delay = self.initial_delay
+        self.consecutive_rate_limits = 0
 
 
 class LinkedinOutreach:
@@ -194,20 +325,29 @@ class LinkedinOutreach:
         profile_usernames: list[str],
         message: Optional[str] = None,
         delay_between_connections: int = 5,
+        max_delay: int = 300,
+        max_retries: int = 5,
     ) -> dict[str, bool]:
         """
-        Connect with multiple LinkedIn users sequentially
+        Connect with multiple LinkedIn users sequentially with rate limit protection.
 
         Args:
             page: Playwright page instance with LinkedIn session
             profile_usernames: List of LinkedIn profile usernames
             message: Optional connection message for all users
-            delay_between_connections: Delay in seconds between connections (default: 5)
+            delay_between_connections: Base delay in seconds between connections (default: 5)
+            max_delay: Maximum delay in seconds during backoff (default: 300 / 5 min)
+            max_retries: Maximum consecutive retries before stopping (default: 5)
 
         Returns:
             dict: Results for each username (True if successful, False otherwise)
         """
         results = {}
+        rate_limiter = RateLimitHandler(
+            initial_delay=delay_between_connections,
+            max_delay=max_delay,
+            max_retries=max_retries,
+        )
 
         logger.info(f"Starting bulk connect for {len(profile_usernames)} profiles")
 
@@ -224,11 +364,21 @@ class LinkedinOutreach:
             else:
                 logger.warning(f"✗ Failed to connect to {username}")
 
+            # Check for rate limiting after each connection attempt
+            rate_limited = await rate_limiter.detect_rate_limit(page)
+
             if i < len(profile_usernames) - 1:
-                logger.debug(
-                    f"Waiting {delay_between_connections} seconds before next connection..."
+                should_continue = await rate_limiter.wait_with_backoff(
+                    page, rate_limited
                 )
-                await page.wait_for_timeout(delay_between_connections * 1000)
+                if not should_continue:
+                    logger.error(
+                        "Stopping bulk connect due to persistent rate limiting"
+                    )
+                    # Mark remaining profiles as not attempted
+                    for remaining_username in profile_usernames[i + 1 :]:
+                        results[remaining_username] = False
+                    break
 
         successful_connections = sum(1 for success in results.values() if success)
         logger.info(
