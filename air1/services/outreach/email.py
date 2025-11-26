@@ -127,18 +127,18 @@ async def send_bulk_emails(
     Returns:
         List of EmailResult objects
     """
-    BATCH_SIZE = 50
-    DELAY_BETWEEN_BATCHES = 60  # 1 minute delay between batches
-    DELAY_BETWEEN_EMAILS = 2   # 2 seconds between individual emails
-    MAX_CONCURRENT = 5
+    batch_size = settings.email_batch_size
+    delay_between_batches = settings.email_delay_between_batches
+    delay_between_emails = settings.email_delay_between_emails
+    max_concurrent = settings.email_max_concurrent
 
     all_results = []
 
-    for i in range(0, len(recipients), BATCH_SIZE):
-        batch = recipients[i:i + BATCH_SIZE]
-        logger.info(f"Sending batch {i//BATCH_SIZE + 1}: {len(batch)} emails")
+    for i in range(0, len(recipients), batch_size):
+        batch = recipients[i:i + batch_size]
+        logger.info(f"Sending batch {i//batch_size + 1}: {len(batch)} emails")
 
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+        semaphore = asyncio.Semaphore(max_concurrent)
 
         async def send_with_delay(recipient: EmailRecipient) -> EmailResult:
             async with semaphore:
@@ -149,7 +149,7 @@ async def send_bulk_emails(
                     recipient_name=recipient.name or recipient.first_name,
                 )
 
-                await asyncio.sleep(DELAY_BETWEEN_EMAILS)
+                await asyncio.sleep(delay_between_emails)
                 return result
 
         tasks = [send_with_delay(recipient) for recipient in batch]
@@ -168,11 +168,11 @@ async def send_bulk_emails(
                 all_results.append(result)
 
         batch_successful = sum(1 for r in batch_results if hasattr(r, 'success') and r.success)
-        logger.info(f"Batch {i//BATCH_SIZE + 1} completed: {batch_successful}/{len(batch)} successful")
+        logger.info(f"Batch {i//batch_size + 1} completed: {batch_successful}/{len(batch)} successful")
 
-        if i + BATCH_SIZE < len(recipients):
-            logger.info(f"Waiting {DELAY_BETWEEN_BATCHES} seconds before next batch...")
-            await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+        if i + batch_size < len(recipients):
+            logger.info(f"Waiting {delay_between_batches} seconds before next batch...")
+            await asyncio.sleep(delay_between_batches)
 
     total_successful = sum(1 for r in all_results if r.success)
     logger.info(f"All batches completed: {total_successful}/{len(recipients)} total emails sent successfully")
