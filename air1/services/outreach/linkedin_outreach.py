@@ -165,71 +165,90 @@ class LinkedinOutreach:
             await navigate_to_linkedin_url(page, profile_url)
 
             logger.info("Waiting for profile actions to load...")
+
+            # Wait for either a direct Connect button or the More button
+            # Direct Connect button selector: button with aria-label "Invite ... to connect"
+            direct_connect_selector = (
+                'button[aria-label*="Invite"][aria-label*="to connect"]'
+            )
+            more_button_selector = 'button[id*="profile-overflow-action"]'
+
             try:
+                # Wait for either selector to appear
                 await page.wait_for_selector(
-                    'button[id*="profile-overflow-action"]',
+                    f"{direct_connect_selector}, {more_button_selector}",
                     state="attached",
                     timeout=20000,
                 )
-                logger.info("More button loaded")
+                logger.info("Profile action buttons loaded")
             except Exception as e:
-                logger.warning(f"More button taking long to appear: {e}")
-
-            # Get all More buttons and click the visible one
-            more_buttons = await page.query_selector_all(
-                'button[id*="profile-overflow-action"]'
-            )
-
-            more_button = None
-            if more_buttons:
-                logger.info(f"Found {len(more_buttons)} More button(s)")
-                # Try to click the first visible one
-                for btn in more_buttons:
-                    if await btn.is_visible():
-                        more_button = btn
-                        break
-
-                if not more_button and more_buttons:
-                    # Just use the first one if none are marked visible
-                    more_button = more_buttons[0]
-
-            if more_button:
-                await more_button.click()
-                logger.info("Clicked More button to open dropdown")
-                await page.wait_for_timeout(1000)
-            else:
-                logger.error("No More button found")
-                return False
-
-            # Get all Connect buttons and use the visible one
-            connect_buttons = await page.query_selector_all(
-                'div[aria-label*="Invite"][aria-label*="to connect"]'
-            )
+                logger.warning(f"Profile action buttons taking long to appear: {e}")
 
             connect_button = None
-            if connect_buttons:
-                logger.info(f"Found {len(connect_buttons)} Connect button(s)")
-                # Use the first visible one
-                for btn in connect_buttons:
+
+            # First, check if there's a direct Connect button visible on the page
+            direct_connect_buttons = await page.query_selector_all(
+                direct_connect_selector
+            )
+            if direct_connect_buttons:
+                logger.info(
+                    f"Found {len(direct_connect_buttons)} direct Connect button(s)"
+                )
+                for btn in direct_connect_buttons:
                     if await btn.is_visible():
                         connect_button = btn
-                        logger.info("Using visible Connect button")
+                        logger.info("Using direct Connect button from profile actions")
                         break
 
-                if not connect_button and connect_buttons:
-                    # Just use the first one if none are marked visible
-                    connect_button = connect_buttons[0]
-                    logger.info("Using first Connect button")
+            # If no direct Connect button found, try the More dropdown
+            if not connect_button:
+                logger.info("No direct Connect button found, checking More dropdown...")
+
+                more_buttons = await page.query_selector_all(more_button_selector)
+                more_button = None
+
+                if more_buttons:
+                    logger.info(f"Found {len(more_buttons)} More button(s)")
+                    for btn in more_buttons:
+                        if await btn.is_visible():
+                            more_button = btn
+                            break
+
+                    if not more_button and more_buttons:
+                        more_button = more_buttons[0]
+
+                if more_button:
+                    await more_button.click()
+                    logger.info("Clicked More button to open dropdown")
+                    await page.wait_for_timeout(1000)
+
+                    # Look for Connect button in the dropdown (div element)
+                    dropdown_connect_buttons = await page.query_selector_all(
+                        'div[aria-label*="Invite"][aria-label*="to connect"]'
+                    )
+
+                    if dropdown_connect_buttons:
+                        logger.info(
+                            f"Found {len(dropdown_connect_buttons)} Connect button(s) in dropdown"
+                        )
+                        for btn in dropdown_connect_buttons:
+                            if await btn.is_visible():
+                                connect_button = btn
+                                logger.info("Using Connect button from dropdown")
+                                break
+
+                        if not connect_button and dropdown_connect_buttons:
+                            connect_button = dropdown_connect_buttons[0]
+                            logger.info("Using first Connect button from dropdown")
+                else:
+                    logger.error("No More button found")
 
             if not connect_button:
-                logger.error(
-                    f"Connect button not found in dropdown for {profile_username}"
-                )
+                logger.error(f"Connect button not found for {profile_username}")
                 return False
 
             # Try to click the connect button
             try:
-                # First try normal click
                 await connect_button.click()
             except Exception as e:
                 logger.info(f"Normal click failed: {e}, trying force click")
@@ -239,7 +258,6 @@ class LinkedinOutreach:
                     logger.info(
                         f"Force click also failed: {e2}, trying JavaScript click"
                     )
-                    # Last resort - use JavaScript
                     await page.evaluate("(element) => element.click()", connect_button)
 
             logger.info(f"Clicked connect button for {profile_username}")
