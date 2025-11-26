@@ -23,6 +23,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `uv run prisma db pull` - Sync schema from existing DB
 - `uv run prisma generate` - Generate client after schema changes
 
+**Workflows:**
+- `uv run python air1/workflows/linkedin_outreach_single_profile.py` - Connect with LinkedIn profiles (edit usernames in file first)
+- `uv run python air1/workflows/linkedin_outreach.py` - LinkedIn outreach workflow
+- `uv run python air1/workflows/linkedin_company_leads.py` - Company leads workflow
+- `uv run python air1/workflows/linkedin_profile_info.py` - Profile info workflow
+
 ## Architecture Overview
 
 **Entry Points:**
