@@ -18,6 +18,7 @@ class LinkedinProfile(BaseModel):
     location: str = ""
     headline: str = ""
     about: str = ""
+    experiences: list["ProfileExperience"] = []
 
 
 class CompanyPeople(BaseModel):

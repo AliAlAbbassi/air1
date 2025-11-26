@@ -14,7 +14,6 @@ from air1.services.outreach.linkedin_profile import (
     enrich_profile_with_username,
     profile_to_lead,
 )
-from air1.services.outreach.profile_scraper import ProfileScraper
 from air1.services.outreach.prisma_models import CompanyLeadRecord
 from air1.services.outreach.repo import (
     get_company_leads,
@@ -353,15 +352,11 @@ class Service(IService):
                 )
                 return None
 
-            # Get experience to find current company
-            page = session.page
-            experiences = await ProfileScraper.extract_profile_experience(page)
-
-            # Find current company (first experience is typically current job)
+            # Find current company from profile experiences (first is typically current job)
             company_username = None
             job_title = None
-            if experiences:
-                current_experience = experiences[0]
+            if profile.experiences:
+                current_experience = profile.experiences[0]
                 company_username = current_experience.company_id
                 job_title = current_experience.title
                 logger.debug(
