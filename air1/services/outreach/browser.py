@@ -1,7 +1,7 @@
 from typing import Optional
 from playwright._impl._api_structures import SetCookieParam
 from playwright.async_api import Browser, Page, TimeoutError as PlaywrightTimeoutError
-from .linkedin_profile import LinkedinProfile, CompanyPeople
+from .linkedin_profile import LinkedinProfile, CompanyPeople, ProfileExperience
 from .profile_scraper import ProfileScraper
 from .company_scraper import CompanyScraper
 from .linkedin_outreach import LinkedinOutreach
@@ -70,6 +70,33 @@ class BrowserSession:
             raise ProfileScrapingError(
                 f"Unexpected error scraping profile {profile_id}: {str(e)}"
             ) from e
+
+    async def get_profile_experience(self, profile_id: str) -> list[ProfileExperience]:
+        """
+        Get LinkedIn profile experience from a profile ID.
+
+        Args:
+            profile_id: LinkedIn profile ID (e.g., 'john-doe-123')
+
+        Returns:
+            List of ProfileExperience with extracted data, or empty list on expected
+            scraping failures (timeouts, missing elements, parse errors).
+
+        Note:
+            This assumes the profile page is already loaded from get_profile_info.
+        """
+        if self.page is None:
+            logger.error("Page not initialized. Call get_profile_info first.")
+            return []
+
+        try:
+            return await ProfileScraper.extract_profile_experience(self.page)
+        except (PlaywrightTimeoutError, AttributeError, ValueError) as e:
+            logger.error(f"Failed to scrape experience for {profile_id}: {str(e)}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error scraping experience for {profile_id}: {str(e)}")
+            return []
 
     async def get_company_members(self, company_id: str, limit=10, keywords: Optional[list[str]] = None) -> CompanyPeople:
         """
