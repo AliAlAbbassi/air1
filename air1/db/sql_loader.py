@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Protocol
 import aiosql
 from aiosql.adapters.asyncpg import AsyncPGAdapter
 from loguru import logger
+from prisma.errors import PrismaError
 
 
 class PrismaAdapter(AsyncPGAdapter):
@@ -16,8 +17,6 @@ class PrismaAdapter(AsyncPGAdapter):
         self, query_name: str, sql: str, parameters: Any, e: Exception
     ) -> None:
         """Handle Prisma database errors consistently."""
-        from prisma.errors import PrismaError
-
         logger.error(f"SQL Error in {query_name}: {e}")
         logger.error(f"Error type: {type(e).__name__}")
 
