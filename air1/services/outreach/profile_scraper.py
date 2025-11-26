@@ -1,10 +1,23 @@
-from playwright.async_api import Page
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from .linkedin_profile import LinkedinProfile
+from loguru import logger
 import re
+
+# Exception handling note:
+# We catch AttributeError alongside PlaywrightTimeoutError because Playwright locator
+# operations can raise AttributeError when elements are detached from the DOM or when
+# accessing properties on None results. This is expected behavior when scraping dynamic
+# pages where elements may not exist or may disappear during extraction.
 
 
 class ProfileScraper:
-    """Handles LinkedIn profile data extraction from page"""
+    """Handles LinkedIn profile data extraction from page.
+
+    This scraper tries multiple CSS selectors for each field and gracefully handles
+    failures. Expected errors (timeouts, missing elements) are logged at debug level
+    and silently skipped. Unexpected errors are logged at warning level but also
+    skipped to allow partial data extraction.
+    """
 
     @staticmethod
     async def extract_profile_data(page: Page) -> LinkedinProfile:
@@ -46,45 +59,57 @@ class ProfileScraper:
                             " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
                         )
                         return True
-            except Exception:
+            except (PlaywrightTimeoutError, AttributeError) as e:
+                logger.debug(f"Selector {selector} failed for name extraction: {e}")
+                continue
+            except Exception as e:
+                logger.warning(f"Unexpected error extracting name with selector {selector}: {e}")
                 continue
         return False
 
     @staticmethod
     async def _extract_headline(page: Page, profile_data: dict):
         """Extract headline from profile page"""
-        try:
-            headline_selectors = [
-                ".text-body-medium.break-words",
-                "div.text-body-medium",
-            ]
-            for selector in headline_selectors:
+        headline_selectors = [
+            ".text-body-medium.break-words",
+            "div.text-body-medium",
+        ]
+        for selector in headline_selectors:
+            try:
                 elements = await page.locator(selector).all()
                 for elem in elements:
                     headline = await elem.text_content()
                     if headline and headline.strip() and "headline" not in profile_data:
                         profile_data["headline"] = headline.strip()
                         return
-        except Exception:
-            pass
+            except (PlaywrightTimeoutError, AttributeError) as e:
+                logger.debug(f"Selector {selector} failed for headline extraction: {e}")
+                continue
+            except Exception as e:
+                logger.warning(f"Unexpected error extracting headline with selector {selector}: {e}")
+                continue
 
     @staticmethod
     async def _extract_location(page: Page, profile_data: dict):
         """Extract location from profile page"""
-        try:
-            location_selectors = [
-                "span.text-body-small",
-                "span:has-text('Located in')",
-            ]
-            for selector in location_selectors:
+        location_selectors = [
+            "span.text-body-small",
+            "span:has-text('Located in')",
+        ]
+        for selector in location_selectors:
+            try:
                 elements = await page.locator(selector).all()
                 for elem in elements:
                     location = await elem.text_content()
                     if location and location.strip() and "location" not in profile_data:
                         profile_data["location"] = location.strip()
                         return
-        except Exception:
-            pass
+            except (PlaywrightTimeoutError, AttributeError) as e:
+                logger.debug(f"Selector {selector} failed for location extraction: {e}")
+                continue
+            except Exception as e:
+                logger.warning(f"Unexpected error extracting location with selector {selector}: {e}")
+                continue
 
     @staticmethod
     async def _extract_contact_info(page: Page, profile_data: dict):
@@ -103,10 +128,14 @@ class ProfileScraper:
                     close_button = page.locator('button[aria-label="Dismiss"]')
                     if await close_button.count() > 0:
                         await close_button.click()
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except (PlaywrightTimeoutError, AttributeError) as e:
+                    logger.debug(f"Failed to close contact info modal: {e}")
+                except Exception as e:
+                    logger.warning(f"Unexpected error closing contact info modal: {e}")
+        except (PlaywrightTimeoutError, AttributeError) as e:
+            logger.debug(f"Failed to extract contact info: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error extracting contact info: {e}")
 
     @staticmethod
     async def _extract_email(page: Page, profile_data: dict):
@@ -119,8 +148,10 @@ class ProfileScraper:
                     email = email_href.replace("mailto:", "").split("?")[0].strip()
                     profile_data["email"] = email
                     return
-        except Exception:
-            pass
+        except (PlaywrightTimeoutError, AttributeError) as e:
+            logger.debug(f"Failed to extract email: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error extracting email: {e}")
 
     @staticmethod
     async def _extract_phone(page: Page, profile_data: dict):
@@ -136,5 +167,7 @@ class ProfileScraper:
                     if matches:
                         profile_data["phone_number"] = matches[0].strip()
                         return
-        except Exception:
-            pass
+        except (PlaywrightTimeoutError, AttributeError) as e:
+            logger.debug(f"Failed to extract phone: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error extracting phone: {e}")
