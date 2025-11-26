@@ -1,5 +1,6 @@
 import pytest
 import uuid
+from unittest.mock import AsyncMock, patch
 from air1.services.outreach.repo import (
     insert_lead,
     insert_linkedin_profile,
@@ -7,6 +8,7 @@ from air1.services.outreach.repo import (
     get_company_leads,
     get_company_leads_by_headline,
     save_lead_complete,
+    insert_contact_point,
 )
 from air1.services.outreach.linkedin_profile import Lead, LinkedinProfile
 from air1.services.outreach.prisma_models import CompanyLeadRecord
@@ -196,3 +198,52 @@ async def test_get_company_leads_by_headline():
         raise
     finally:
         await disconnect_db()
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_insert_contact_point_returns_false_on_error():
+    """Test that insert_contact_point returns False (not raises) on database error.
+
+    This test verifies the fix for issue #12: insert_contact_point should return
+    False on error to be consistent with other repo functions, not re-raise.
+    """
+    with patch("air1.services.outreach.repo.get_prisma") as mock_get_prisma:
+        mock_get_prisma.side_effect = Exception("Database connection failed")
+
+        # Should return False, not raise an exception
+        result = await insert_contact_point(lead_id=1, contact_point_type_id=1)
+
+        assert result is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_insert_contact_point_returns_true_on_success():
+    """Test that insert_contact_point returns True on successful insertion."""
+    with patch("air1.services.outreach.repo.get_prisma") as mock_get_prisma, \
+         patch("air1.services.outreach.repo.queries") as mock_queries:
+        mock_prisma = AsyncMock()
+        mock_get_prisma.return_value = mock_prisma
+        mock_queries.insert_contact_point = AsyncMock(
+            return_value={"contact_point_id": 123}
+        )
+
+        result = await insert_contact_point(lead_id=1, contact_point_type_id=1)
+
+        assert result is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_insert_contact_point_returns_false_when_no_result():
+    """Test that insert_contact_point returns False when query returns no result."""
+    with patch("air1.services.outreach.repo.get_prisma") as mock_get_prisma, \
+         patch("air1.services.outreach.repo.queries") as mock_queries:
+        mock_prisma = AsyncMock()
+        mock_get_prisma.return_value = mock_prisma
+        mock_queries.insert_contact_point = AsyncMock(return_value=None)
+
+        result = await insert_contact_point(lead_id=1, contact_point_type_id=1)
+
+        assert result is False

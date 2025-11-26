@@ -331,5 +331,5 @@ async def insert_contact_point(lead_id: int, contact_point_type_id: int) -> bool
         logger.error(f"Database error inserting contact point for lead_id={lead_id}: {e}", exc_info=True)
         raise QueryError(f"Database error inserting contact point for lead_id={lead_id}: {e}") from e
     except Exception as e:
-        logger.error(f"Unexpected error inserting contact point for lead_id={lead_id}: {e}", exc_info=True)
-        raise QueryError(f"Unexpected error inserting contact point for lead_id={lead_id}: {e}") from e
+        logger.error(f"Failed to insert contact point for lead_id={lead_id}: {e}", exc_info=True)
+        return False
