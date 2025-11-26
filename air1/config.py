@@ -50,6 +50,32 @@ class Settings(BaseSettings):
     email_from_address: str = Field(default="noreply@yourdomain.com", description="From email address")
     email_from_name: str = Field(default="Air1 Lead Generation", description="From name for emails")
 
+    # Email batching and rate limiting configuration
+    email_batch_size: int = Field(
+        default=50,
+        ge=1,
+        le=1000,
+        description="Number of emails to send in each batch"
+    )
+    email_delay_between_batches: int = Field(
+        default=60,
+        ge=0,
+        le=3600,
+        description="Delay in seconds between email batches (prevents rate limiting)"
+    )
+    email_delay_between_emails: int = Field(
+        default=2,
+        ge=0,
+        le=60,
+        description="Delay in seconds between individual emails within a batch"
+    )
+    email_max_concurrent: int = Field(
+        default=5,
+        ge=1,
+        le=100,
+        description="Maximum number of concurrent email sends"
+    )
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO", description="Logging level"
     )
