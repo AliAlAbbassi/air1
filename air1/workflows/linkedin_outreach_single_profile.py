@@ -17,58 +17,61 @@ from air1.services.outreach.templates import DEFAULT_COLD_CONNECTION_NOTE
 
 
 async def linkedin_outreach_single_profile_workflow(
-    profile_ids: list[str],
+    profile_usernames: list[str],
     message: str | None = DEFAULT_COLD_CONNECTION_NOTE,
     delay_between_connections: int = 5,
     headless: bool = False,
 ) -> dict[str, bool]:
     """
-    Connect with LinkedIn profiles by their profile IDs and track successful connections.
+    Connect with LinkedIn profiles by their usernames and track successful connections.
 
     Args:
-        profile_ids: List of LinkedIn profile IDs/usernames (e.g., ['john-doe-123', 'jane-smith'])
+        profile_usernames: List of LinkedIn profile usernames (e.g., ['john-doe-123', 'jane-smith'])
         message: Optional connection message to send with each request
         delay_between_connections: Delay in seconds between connections to avoid rate limits
         headless: Run browser in headless mode
 
     Returns:
-        dict: Results for each profile ID mapping to success status
+        dict: Results for each username mapping to success status
     """
-    logger.info(f"Starting LinkedIn outreach for {len(profile_ids)} profile(s)")
+    logger.info(f"Starting LinkedIn outreach for {len(profile_usernames)} profile(s)")
 
     async with Service() as service:
         results = await service.connect_with_linkedin_profiles(
-            profile_usernames=profile_ids,
+            profile_usernames=profile_usernames,
             message=message,
             delay_between_connections=delay_between_connections,
             headless=headless,
         )
 
         # Track successful connections
-        for profile_id, success in results.items():
+        for username, success in results.items():
             if success:
-                linkedin_profile = await get_linkedin_profile_by_username(profile_id)
-                if linkedin_profile and linkedin_profile.leadId:
-                    await insert_linkedin_connection(linkedin_profile.leadId)
-                    logger.info(
-                        f"Tracked connection for {profile_id} (lead_id={linkedin_profile.leadId})"
-                    )
-                else:
-                    logger.warning(
-                        f"Could not track connection for {profile_id}: profile not found in database"
-                    )
+                try:
+                    linkedin_profile = await get_linkedin_profile_by_username(username)
+                    if linkedin_profile and linkedin_profile.leadId:
+                        await insert_linkedin_connection(linkedin_profile.leadId)
+                        logger.info(
+                            f"Tracked connection for {username} (lead_id={linkedin_profile.leadId})"
+                        )
+                    else:
+                        logger.warning(
+                            f"Could not track connection for {username}: profile not found in database"
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to track connection for {username}: {e}")
 
         logger.info(f"Connection results: {results}")
         return results
 
 
 def run():
-    # Manual input - specify profile IDs here
-    profile_ids = ["profile_id_here", "another_one"]
+    # Manual input - specify profile usernames here
+    profile_usernames = ["profile_id_here", "another_one"]
 
     asyncio.run(
         linkedin_outreach_single_profile_workflow(
-            profile_ids=profile_ids,
+            profile_usernames=profile_usernames,
         )
     )
 
