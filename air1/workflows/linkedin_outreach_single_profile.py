@@ -48,14 +48,11 @@ async def linkedin_outreach_single_profile_workflow(
         for username, success in results.items():
             if success:
                 try:
+                    # Get existing lead_id or create new lead
                     linkedin_profile = await get_linkedin_profile_by_username(username)
-                    if linkedin_profile and linkedin_profile.leadId:
-                        await insert_linkedin_connection(linkedin_profile.leadId)
-                        logger.info(
-                            f"Tracked connection for {username} (lead_id={linkedin_profile.leadId})"
-                        )
-                    else:
-                        # Lead not found, create from LinkedIn profile
+                    lead_id = linkedin_profile.leadId if linkedin_profile else None
+
+                    if not lead_id:
                         logger.info(
                             f"Lead not found for {username}, creating from LinkedIn profile"
                         )
@@ -63,15 +60,12 @@ async def linkedin_outreach_single_profile_workflow(
                             profile_username=username,
                             headless=headless,
                         )
-                        if lead_id:
-                            await insert_linkedin_connection(lead_id)
-                            logger.info(
-                                f"Created and tracked connection for {username} (lead_id={lead_id})"
-                            )
-                        else:
-                            logger.warning(
-                                f"Could not create lead for {username}"
-                            )
+
+                    if lead_id:
+                        await insert_linkedin_connection(lead_id)
+                        logger.info(f"Tracked connection for {username} (lead_id={lead_id})")
+                    else:
+                        logger.warning(f"Could not create lead for {username}")
                 except Exception as e:
                     logger.error(f"Failed to track connection for {username}: {e}")
 
