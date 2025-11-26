@@ -1,5 +1,27 @@
+"""Repository functions for outreach data persistence.
+
+API Contract for Error Handling:
+--------------------------------
+All functions in this module follow a consistent error handling pattern:
+
+1. **Database errors (PrismaError)**: These are expected operational failures
+   (connection issues, constraint violations, etc.). Functions return a failure
+   indicator (False, None, or empty list) and log at ERROR level. Callers should
+   check return values.
+
+2. **Unexpected errors**: Any non-database exception indicates a potential bug or
+   infrastructure issue. Functions raise domain-specific exceptions (LeadInsertionError,
+   ProfileInsertionError, QueryError) wrapping the original error. Callers should
+   let these propagate for investigation.
+
+Return Value Conventions:
+- Insert functions: Return (bool, id|None) or id|None - check for None/False
+- Query functions: Return object|None or list - check for None or empty list
+- All functions: Raise on unexpected errors
+"""
 from loguru import logger
 from prisma.models import LinkedinCompanyMember, LinkedinProfile
+from prisma.errors import PrismaError
 
 from air1.db.prisma_client import get_prisma
 from air1.db.sql_loader import outreach_queries as queries
@@ -10,6 +32,11 @@ from air1.services.outreach.linkedin_profile import (
     LinkedinProfile as LinkedinProfileData,
 )
 from air1.services.outreach.prisma_models import CompanyLeadRecord
+from air1.services.outreach.exceptions import (
+    LeadInsertionError,
+    ProfileInsertionError,
+    QueryError,
+)
 
 
 async def insert_lead(lead: LeadData) -> tuple[bool, int | None]:
@@ -27,9 +54,12 @@ async def insert_lead(lead: LeadData) -> tuple[bool, int | None]:
         if result:
             return True, result["leadId"]
         return False, None
-    except Exception as e:
-        logger.error(f"Failed to insert lead: {e}")
+    except PrismaError as e:
+        logger.error(f"Database error inserting lead: {e}")
         return False, None
+    except Exception as e:
+        logger.error(f"Unexpected error inserting lead: {e}")
+        raise LeadInsertionError(f"Unexpected error inserting lead: {e}") from e
 
 
 async def insert_linkedin_profile(
@@ -61,11 +91,18 @@ async def insert_linkedin_profile(
             )
             return profile_id
         return None
-    except Exception as e:
+    except PrismaError as e:
         logger.error(
-            f"Failed to insert linkedin profile for lead_id={lead_id}, username={profile.username}: {e}"
+            f"Database error inserting linkedin profile for lead_id={lead_id}, username={profile.username}: {e}"
         )
         return None
+    except Exception as e:
+        logger.error(
+            f"Unexpected error inserting linkedin profile for lead_id={lead_id}, username={profile.username}: {e}"
+        )
+        raise ProfileInsertionError(
+            f"Unexpected error inserting linkedin profile for lead_id={lead_id}: {e}"
+        ) from e
 
 
 async def get_linkedin_profile_by_username(username: str) -> LinkedinProfile | None:
@@ -78,9 +115,12 @@ async def get_linkedin_profile_by_username(username: str) -> LinkedinProfile | N
         if result:
             return LinkedinProfile(**result)
         return None
-    except Exception as e:
-        logger.error(f"Failed to get LinkedIn profile for username {username}: {e}")
+    except PrismaError as e:
+        logger.error(f"Database error getting LinkedIn profile for username {username}: {e}")
         return None
+    except Exception as e:
+        logger.error(f"Unexpected error getting LinkedIn profile for username {username}: {e}")
+        raise QueryError(f"Unexpected error getting LinkedIn profile for username {username}: {e}") from e
 
 
 async def get_company_members_by_username(username: str) -> list[LinkedinCompanyMember]:
@@ -91,9 +131,12 @@ async def get_company_members_by_username(username: str) -> list[LinkedinCompany
         )
 
         return [LinkedinCompanyMember(**row) for row in results]
-    except Exception as e:
-        logger.error(f"Failed to get company members for username {username}: {e}")
+    except PrismaError as e:
+        logger.error(f"Database error getting company members for username {username}: {e}")
         return []
+    except Exception as e:
+        logger.error(f"Unexpected error getting company members for username {username}: {e}")
+        raise QueryError(f"Unexpected error getting company members for username {username}: {e}") from e
 
 
 async def get_company_member_by_profile_and_username(
@@ -108,11 +151,18 @@ async def get_company_member_by_profile_and_username(
         if result:
             return LinkedinCompanyMember(**result)
         return None
-    except Exception as e:
+    except PrismaError as e:
         logger.error(
-            f"Failed to get company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
+            f"Database error getting company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
         )
         return None
+    except Exception as e:
+        logger.error(
+            f"Unexpected error getting company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
+        )
+        raise QueryError(
+            f"Unexpected error getting company member for linkedin_profile_id={linkedin_profile_id}: {e}"
+        ) from e
 
 
 async def insert_linkedin_company_member(
@@ -138,10 +188,17 @@ async def insert_linkedin_company_member(
         logger.info(
             f"Company member insertion successful for linkedin_profile_id={linkedin_profile_id}, username={username}"
         )
+    except PrismaError as e:
+        logger.error(
+            f"Database error inserting company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
+        )
     except Exception as e:
         logger.error(
-            f"Failed to insert company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
+            f"Unexpected error inserting company member for linkedin_profile_id={linkedin_profile_id}, username={username}: {e}"
         )
+        raise QueryError(
+            f"Unexpected error inserting company member for linkedin_profile_id={linkedin_profile_id}: {e}"
+        ) from e
 
 
 async def save_lead_complete(
@@ -193,9 +250,12 @@ async def save_lead_complete(
                 )
 
             return True, lead_id
-    except Exception as e:
-        logger.error(f"Failed to save lead complete: {e}")
+    except PrismaError as e:
+        logger.error(f"Database error saving lead complete: {e}")
         return False, None
+    except Exception as e:
+        logger.error(f"Unexpected error saving lead complete: {e}")
+        raise LeadInsertionError(f"Unexpected error saving lead complete: {e}") from e
 
 
 async def get_company_leads_by_headline(
@@ -213,11 +273,18 @@ async def get_company_leads_by_headline(
         )
 
         return [CompanyLeadRecord(**row) for row in results]
-    except Exception as e:
+    except PrismaError as e:
         logger.error(
-            f"Failed to get company leads by headline for {company_username}: {e}"
+            f"Database error getting company leads by headline for {company_username}: {e}"
         )
         return []
+    except Exception as e:
+        logger.error(
+            f"Unexpected error getting company leads by headline for {company_username}: {e}"
+        )
+        raise QueryError(
+            f"Unexpected error getting company leads by headline for {company_username}: {e}"
+        ) from e
 
 
 async def get_company_leads(company_username: str) -> list[CompanyLeadRecord]:
@@ -230,10 +297,15 @@ async def get_company_leads(company_username: str) -> list[CompanyLeadRecord]:
         )
 
         return [CompanyLeadRecord(**row) for row in results]
+    except PrismaError as e:
+        logger.error(f"Database error getting company leads for {company_username}: {e}")
+        raise QueryError(
+            f"Database error retrieving company leads for '{company_username}': {str(e)}"
+        ) from e
     except Exception as e:
-        logger.error(f"Failed to get company leads for {company_username}: {e}")
-        raise RuntimeError(
-            f"Repo error retrieving company leads for '{company_username}': {str(e)}"
+        logger.error(f"Unexpected error getting company leads for {company_username}: {e}")
+        raise QueryError(
+            f"Unexpected error retrieving company leads for '{company_username}': {str(e)}"
         ) from e
 
 
@@ -255,6 +327,9 @@ async def insert_contact_point(lead_id: int, contact_point_type_id: int) -> bool
         else:
             logger.error(f"Insert contact point returned no result for lead_id={lead_id}")
             return False
+    except PrismaError as e:
+        logger.error(f"Database error inserting contact point for lead_id={lead_id}: {e}", exc_info=True)
+        raise QueryError(f"Database error inserting contact point for lead_id={lead_id}: {e}") from e
     except Exception as e:
-        logger.error(f"Failed to insert contact point for lead_id={lead_id}: {e}", exc_info=True)
-        raise  # Re-raise to see the full error
+        logger.error(f"Unexpected error inserting contact point for lead_id={lead_id}: {e}", exc_info=True)
+        raise QueryError(f"Unexpected error inserting contact point for lead_id={lead_id}: {e}") from e

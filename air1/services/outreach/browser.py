@@ -1,11 +1,12 @@
 from typing import Optional
 from playwright._impl._api_structures import SetCookieParam
-from playwright.async_api import Browser, Page
+from playwright.async_api import Browser, Page, TimeoutError as PlaywrightTimeoutError
 from .linkedin_profile import LinkedinProfile, CompanyPeople
 from .profile_scraper import ProfileScraper
 from .company_scraper import CompanyScraper
 from .linkedin_outreach import LinkedinOutreach
 from .navigation import navigate_to_linkedin_url
+from .exceptions import ProfileScrapingError
 from loguru import logger
 
 
@@ -37,13 +38,22 @@ class BrowserSession:
 
     async def get_profile_info(self, profile_id: str) -> LinkedinProfile:
         """
-        Get LinkedIn profile info from a profile ID
+        Get LinkedIn profile info from a profile ID.
 
         Args:
-            profile_id (str): LinkedIn profile ID (e.g., '')
+            profile_id: LinkedIn profile ID (e.g., 'john-doe-123')
 
         Returns:
-            LinkedinProfile: Complete profile information
+            LinkedinProfile with extracted data, or empty LinkedinProfile on expected
+            scraping failures (timeouts, missing elements, parse errors).
+
+        Raises:
+            ProfileScrapingError: On unexpected errors that may indicate bugs or
+            significant issues requiring investigation.
+
+        Note:
+            AttributeError is caught as an expected error because Playwright locators
+            can raise it when elements are detached from the DOM during scraping.
         """
         profile_url = f"https://www.linkedin.com/in/{profile_id}"
         page = await self._setup_page()
@@ -51,9 +61,15 @@ class BrowserSession:
 
         try:
             return await ProfileScraper.extract_profile_data(page)
-        except Exception as e:
-            logger.error(f"Error scraping profile {profile_id}: {str(e)}")
+        except (PlaywrightTimeoutError, AttributeError, ValueError) as e:
+            # Expected errors: timeouts, detached elements, parse failures
+            logger.error(f"Failed to scrape profile {profile_id}: {str(e)}")
             return LinkedinProfile()
+        except Exception as e:
+            logger.error(f"Unexpected error scraping profile {profile_id}: {str(e)}")
+            raise ProfileScrapingError(
+                f"Unexpected error scraping profile {profile_id}: {str(e)}"
+            ) from e
 
     async def get_company_members(self, company_id: str, limit=10, keywords: Optional[list[str]] = None) -> CompanyPeople:
         """

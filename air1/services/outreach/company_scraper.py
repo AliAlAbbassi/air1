@@ -1,16 +1,34 @@
-from playwright.async_api import Page
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from .linkedin_profile import CompanyPeople
+from .exceptions import CompanyScrapingError
 from loguru import logger
+
+# Exception handling note:
+# AttributeError is caught as expected because Playwright locator operations can raise
+# it when elements are detached from the DOM or when accessing properties on stale elements.
 
 
 class CompanyScraper:
-    """Handles LinkedIn company members extraction"""
+    """Handles LinkedIn company members extraction."""
 
     @staticmethod
     async def extract_company_members(
         page: Page, company_id: str, limit: int = 10
     ) -> CompanyPeople:
-        """Extract profile IDs of people working at a company"""
+        """Extract profile IDs of people working at a company.
+
+        Args:
+            page: Playwright page with LinkedIn company people page loaded.
+            company_id: LinkedIn company identifier.
+            limit: Maximum number of "Show more" clicks to perform.
+
+        Returns:
+            CompanyPeople with extracted profile IDs, or empty set on expected
+            scraping failures (timeouts, missing elements, parse errors).
+
+        Raises:
+            CompanyScrapingError: On unexpected errors requiring investigation.
+        """
         try:
             await page.locator(
                 ".org-people-profile-card__profile-card-spacing"
@@ -46,6 +64,16 @@ class CompanyScraper:
             logger.info(f"Found {len(profile_ids)} profiles for company {company_id}")
             return CompanyPeople(profile_ids=profile_ids)
 
-        except Exception as e:
-            logger.error(f"Error scraping company profiles: {str(e)}")
+        except PlaywrightTimeoutError as e:
+            # Expected: page didn't load in time or elements not found
+            logger.error(f"Timeout while scraping company {company_id}: {str(e)}")
             return CompanyPeople(profile_ids=set())
+        except (AttributeError, ValueError) as e:
+            # Expected: DOM elements detached or href parsing failed
+            logger.error(f"Failed to parse company {company_id} page: {str(e)}")
+            return CompanyPeople(profile_ids=set())
+        except Exception as e:
+            logger.error(f"Unexpected error scraping company {company_id}: {str(e)}")
+            raise CompanyScrapingError(
+                f"Unexpected error scraping company {company_id}: {str(e)}"
+            ) from e
