@@ -179,7 +179,7 @@ class Service(IService):
 
                 try:
                     success, lead_id = await save_lead_complete(
-                        lead, profile, company_id, company_id
+                        lead, profile, company_username=company_id, job_title=profile.headline
                     )
                     if success:
                         logger.success(
