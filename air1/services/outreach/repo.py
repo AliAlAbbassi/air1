@@ -257,4 +257,4 @@ async def insert_contact_point(lead_id: int, contact_point_type_id: int) -> bool
             return False
     except Exception as e:
         logger.error(f"Failed to insert contact point for lead_id={lead_id}: {e}", exc_info=True)
-        raise  # Re-raise to see the full error
+        return False
