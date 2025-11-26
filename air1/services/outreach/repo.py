@@ -147,9 +147,21 @@ async def insert_linkedin_company_member(
 async def save_lead_complete(
     lead: LeadData,
     profile: LinkedinProfileData,
-    username: str | None = None,
-    title: str | None = None,
+    company_username: str | None = None,
+    job_title: str | None = None,
 ) -> tuple[bool, int | None]:
+    """
+    Save a complete lead with profile and optional company association.
+
+    Args:
+        lead: Lead information (name, email, phone)
+        profile: LinkedIn profile information
+        company_username: The company's LinkedIn username (e.g., 'google')
+        job_title: The person's job title at the company
+
+    Returns:
+        Tuple of (success: bool, lead_id: int | None)
+    """
     try:
         prisma = await get_prisma()
 
@@ -183,13 +195,13 @@ async def save_lead_complete(
 
             profile_id = profile_result["linkedinProfileId"]
 
-            # Insert company member if username provided
-            if username:
+            # Insert company member if company_username provided
+            if company_username:
                 await queries.insert_linkedin_company_member(
                     transaction,
                     linkedin_profile_id=profile_id,
-                    username=username,
-                    title=title,
+                    username=company_username,
+                    title=job_title,
                 )
 
             return True, lead_id
