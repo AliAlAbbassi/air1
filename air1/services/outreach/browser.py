@@ -60,7 +60,10 @@ class BrowserSession:
         await navigate_to_linkedin_url(page, profile_url)
 
         try:
-            return await ProfileScraper.extract_profile_data(page)
+            profile = await ProfileScraper.extract_profile_data(page)
+            # Set username from the profile_id we navigated to
+            profile.username = profile_id
+            return profile
         except (PlaywrightTimeoutError, AttributeError, ValueError) as e:
             # Expected errors: timeouts, detached elements, parse failures
             logger.error(f"Failed to scrape profile {profile_id}: {str(e)}")

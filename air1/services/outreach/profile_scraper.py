@@ -37,6 +37,10 @@ class ProfileScraper:
         await ProfileScraper._extract_location(page, profile_data)
         await ProfileScraper._extract_contact_info(page, profile_data)
 
+        # Extract experience data as part of profile
+        experiences = await ProfileScraper.extract_profile_experience(page)
+        profile_data["experiences"] = experiences
+
         return LinkedinProfile(**profile_data)
 
     @staticmethod

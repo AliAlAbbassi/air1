@@ -18,6 +18,7 @@ class LinkedinProfile(BaseModel):
     location: str = ""
     headline: str = ""
     about: str = ""
+    experiences: list["ProfileExperience"] = []
 
 
 class CompanyPeople(BaseModel):
@@ -41,9 +42,21 @@ def profile_to_lead(profile: LinkedinProfile) -> Lead:
     )
 
 
-def enrich_profile_with_username(
-    profile: LinkedinProfile, username: str
-) -> LinkedinProfile:
-    """Add username to profile"""
-    profile.username = username
-    return profile
+def get_current_company_info(
+    profile: LinkedinProfile,
+) -> tuple[Optional[str], Optional[str]]:
+    """Extract current company info from profile experiences.
+
+    The first experience entry is typically the current job.
+
+    Args:
+        profile: LinkedinProfile with experiences
+
+    Returns:
+        Tuple of (company_id, job_title) - both may be None if no experiences
+    """
+    if not profile.experiences:
+        return None, None
+
+    current_experience = profile.experiences[0]
+    return current_experience.company_id, current_experience.title
