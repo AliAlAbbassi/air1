@@ -49,6 +49,7 @@ model LinkedinCompanyMember {
   joined_at         DateTime?        @db.Date
   linkedinProfile   LinkedinProfile? @relation(fields: [linkedinProfileId], references: [linkedinProfileId], onDelete: NoAction, onUpdate: NoAction)
 
+  @@unique([linkedinProfileId, username], map: "unique_profile_company")
   @@map("linkedin_company_members")
 }
 
