@@ -177,12 +177,30 @@ class Service(IService):
                 profile = enrich_profile_with_username(profile, profile_id)
                 lead = profile_to_lead(profile)
 
+                # Extract experience to find the title at this specific company
+                experiences = await session.get_profile_experience(profile_id)
+                job_title = None
+                for exp in experiences:
+                    if exp.company_id == company_id:
+                        job_title = exp.title
+                        logger.debug(
+                            f"Found matching experience for {profile_id} at {company_id}: {job_title}"
+                        )
+                        break
+
+                # Fall back to headline if we couldn't find a matching experience
+                if not job_title:
+                    job_title = profile.headline
+                    logger.debug(
+                        f"No matching experience found for {profile_id} at {company_id}, using headline: {job_title}"
+                    )
+
                 try:
                     success, lead_id = await save_lead_complete(
                         lead,
                         profile,
                         company_username=company_id,
-                        job_title=profile.headline,
+                        job_title=job_title,
                     )
                     if success:
                         logger.success(
