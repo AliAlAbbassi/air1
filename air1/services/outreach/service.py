@@ -183,11 +183,17 @@ class Service(IService):
                 for exp in experiences:
                     if exp.company_id == company_id:
                         job_title = exp.title
+                        logger.debug(
+                            f"Found matching experience for {profile_id} at {company_id}: {job_title}"
+                        )
                         break
 
                 # Fall back to headline if we couldn't find a matching experience
                 if not job_title:
                     job_title = profile.headline
+                    logger.debug(
+                        f"No matching experience found for {profile_id} at {company_id}, using headline: {job_title}"
+                    )
 
                 try:
                     success, lead_id = await save_lead_complete(
