@@ -63,9 +63,6 @@ class BrowserSession:
             profile = await ProfileScraper.extract_profile_data(page)
             # Set username from the profile_id we navigated to
             profile.username = profile_id
-            # Also extract experience data
-            experiences = await ProfileScraper.extract_profile_experience(page)
-            profile.experiences = experiences
             return profile
         except (PlaywrightTimeoutError, AttributeError, ValueError) as e:
             # Expected errors: timeouts, detached elements, parse failures

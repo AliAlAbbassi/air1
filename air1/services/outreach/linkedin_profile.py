@@ -42,17 +42,6 @@ def profile_to_lead(profile: LinkedinProfile) -> Lead:
     )
 
 
-def enrich_profile_with_username(
-    profile: LinkedinProfile, username: str
-) -> LinkedinProfile:
-    """Add username to profile
-
-    Deprecated: get_profile_info now sets the username directly.
-    """
-    profile.username = username
-    return profile
-
-
 def get_current_company_info(
     profile: LinkedinProfile,
 ) -> tuple[Optional[str], Optional[str]]:
