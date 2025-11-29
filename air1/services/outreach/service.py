@@ -213,20 +213,22 @@ class Service(IService):
                         f"No matching experience found for {profile_id} at {company_id}, using headline: {job_title}"
                     )
 
-                try:
-                    success, lead_id = await save_lead_complete(
-                        lead,
-                        profile,
-                        company_username=company_id,
-                        job_title=job_title,
+                success, lead_id = await save_lead_complete(
+                    lead,
+                    profile,
+                    company_username=company_id,
+                    job_title=job_title,
+                )
+                if success:
+                    logger.success(
+                        f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}"
                     )
-                    if success:
-                        logger.success(
-                            f"Saved lead: {lead.full_name} (ID: {lead_id}) for company {company_id}"
-                        )
-                        leads_saved += 1
-                except Exception as e:
-                    logger.error(f"Failed to save lead {lead.full_name}: {e}")
+                    leads_saved += 1
+                else:
+                    logger.error(
+                        f"Failed to save lead {lead.full_name} - stopping workflow due to DB error"
+                    )
+                    break
 
         finally:
             await session.browser.close()
@@ -362,9 +364,7 @@ class Service(IService):
             profile = await session.get_profile_info(profile_username)
 
             if not profile.full_name:
-                logger.warning(
-                    f"Could not extract profile data for {profile_username}"
-                )
+                logger.warning(f"Could not extract profile data for {profile_username}")
                 return None
 
             company_username, job_title = get_current_company_info(profile)
