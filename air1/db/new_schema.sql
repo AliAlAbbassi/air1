@@ -99,6 +99,7 @@ CREATE TABLE prospect (
     headline TEXT,
     location VARCHAR(255),
     linkedin_bio TEXT,
+    bio_embedding VECTOR(1536),              -- embedding of: headline + bio + location (for lookalike search)
     created_on TIMESTAMP DEFAULT NOW(),
     updated_on TIMESTAMP DEFAULT NOW()
 );
@@ -373,41 +374,8 @@ CREATE TABLE message (
 );
 
 -- ============================================================================
--- INBOX / TIMELINE (unified activity feed)
+-- INBOX / TIMELINE
 -- ============================================================================
-
-CREATE TABLE timeline_event (
-    timeline_event_id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES "user"(user_id) ON DELETE RESTRICT,
-    prospect_id BIGINT NOT NULL REFERENCES prospect(prospect_id) ON DELETE RESTRICT,
-
-    event_type VARCHAR(50) NOT NULL CHECK (event_type IN (
-        -- Messages
-        'message_sent', 'message_received',
-        -- Actions
-        'connection_sent', 'connection_accepted', 'connection_declined',
-        'inmail_sent', 'follow_up_sent',
-        -- Approvals
-        'message_approved', 'message_rejected',
-        -- Website
-        'website_visit',
-        -- System
-        'added_to_campaign', 'removed_from_campaign',
-        'status_changed', 'ai_summary_generated'
-    )),
-
-    -- Content (flexible based on event type)
-    title VARCHAR(255),                         -- e.g., "Follow-up sent", "Visited pricing page 2 times"
-    body TEXT,                                  -- message content or description
-    metadata JSONB,                             -- flexible extra data
-
-    -- Links to related entities
-    outreach_action_id BIGINT REFERENCES outreach_action(outreach_action_id),
-    campaign_id BIGINT REFERENCES campaign(campaign_id),
-
-    occurred_at TIMESTAMP DEFAULT NOW(),
-    created_on TIMESTAMP DEFAULT NOW()
-);
 
 -- AI summaries for prospects (inbox overview)
 CREATE TABLE prospect_summary (
@@ -431,7 +399,8 @@ CREATE TABLE prospect_summary (
 -- ============================================================================
 
 -- Prospects
-CREATE INDEX idx_prospect_linkedin ON prospect(linkedin_ggusername);
+CREATE INDEX idx_prospect_linkedin ON prospect(linkedin_username);
+CREATE INDEX idx_prospect_bio_embedding ON prospect USING ivfflat (bio_embedding vector_cosine_ops);
 
 -- User prospects
 CREATE INDEX idx_user_prospect_user ON user_prospect(user_id);
@@ -478,8 +447,3 @@ CREATE INDEX idx_outreach_parent ON outreach_action(parent_action_id) WHERE pare
 -- Messages
 CREATE INDEX idx_message_outreach ON message(outreach_action_id);
 CREATE INDEX idx_message_parent ON message(parent_message_id) WHERE parent_message_id IS NOT NULL;
-
--- Timeline
-CREATE INDEX idx_timeline_prospect ON timeline_event(prospect_id, occurred_at DESC);
-CREATE INDEX idx_timeline_user ON timeline_event(user_id, occurred_at DESC);
-CREATE INDEX idx_timeline_type ON timeline_event(user_id, event_type, occurred_at DESC);
