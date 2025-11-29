@@ -1,4 +1,6 @@
+import asyncio
 import os
+import random
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -191,7 +193,13 @@ class Service(IService):
                 f"Found {len(company_people.profile_ids)} profiles for company {company_id}"
             )
 
-            for profile_id in company_people.profile_ids:
+            for i, profile_id in enumerate(company_people.profile_ids):
+                # Random delay between profiles to emulate human behavior (5-15 seconds)
+                if i > 0:
+                    delay = random.uniform(5, 15)
+                    logger.debug(f"Waiting {delay:.1f}s before next profile...")
+                    await asyncio.sleep(delay)
+
                 profile = await session.get_profile_info(profile_id)
                 lead = profile_to_lead(profile)
 

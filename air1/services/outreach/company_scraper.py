@@ -1,7 +1,11 @@
-from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
-from .linkedin_profile import CompanyPeople
-from .exceptions import CompanyScrapingError
+import random
+
 from loguru import logger
+from playwright.async_api import Page
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+from .exceptions import CompanyScrapingError
+from .linkedin_profile import CompanyPeople
 
 # Exception handling note:
 # AttributeError is caught as expected because Playwright locator operations can raise
@@ -57,7 +61,9 @@ class CompanyScraper:
                 ):
                     await show_more_button.click()
                     clicks += 1
-                    await page.wait_for_timeout(2000)
+                    # Random delay between 2-5 seconds to emulate human scrolling
+                    delay = random.uniform(2000, 5000)
+                    await page.wait_for_timeout(delay)
                 else:
                     break
 
