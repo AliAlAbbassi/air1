@@ -11,13 +11,13 @@ from loguru import logger
 
 
 class BrowserSession:
-    def __init__(self, browser: Browser, linkedin_sid: str):
+    def __init__(self, browser: Browser, linkedin_sid: Optional[str] = None):
         self.browser = browser
         self.linkedin_sid = linkedin_sid
         self.page = None
 
     async def _setup_page(self) -> Page:
-        """Set up or reuse existing page with authentication cookies"""
+        """Set up or reuse existing page with optional authentication cookies"""
         if self.page is None:
             self.page = await self.browser.new_page()
             self.page.set_default_timeout(60000)
@@ -33,6 +33,8 @@ class BrowserSession:
                     "sameSite": "Lax",
                 }
                 await self.page.context.add_cookies([cookies])
+            else:
+                logger.debug("No LinkedIn session cookie provided - using unauthenticated mode")
 
         return self.page
 

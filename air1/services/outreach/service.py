@@ -38,6 +38,7 @@ class IService(ABC):
         limit=10,
         headless=True,
         keywords: Optional[List[str]] = None,
+        use_proxy=False,
     ) -> dict[str, int]:
         pass
 
@@ -82,15 +83,21 @@ class IService(ABC):
 
 
 class Service(IService):
-    def __init__(self, playwright: Optional[Playwright] = None):
+    def __init__(self, playwright: Optional[Playwright] = None, use_auth: bool = True):
         self.playwright = playwright
         self._owns_playwright = False
         self._playwright_instance = None
+        self.use_auth = use_auth
 
-        linkedin_sid = os.getenv("LINKEDIN_SID")
-        if not linkedin_sid:
-            raise ValueError("linkedin_sid environment variable is required")
-        self.linkedin_sid = linkedin_sid
+        # LinkedIn session is optional if not using authentication
+        if use_auth:
+            linkedin_sid = os.getenv("LINKEDIN_SID")
+            if not linkedin_sid:
+                raise ValueError("LINKEDIN_SID environment variable is required when use_auth=True")
+            self.linkedin_sid = linkedin_sid
+        else:
+            self.linkedin_sid = None
+            logger.info("Service initialized in unauthenticated mode")
 
     async def __aenter__(self):
         if self.playwright is None:
@@ -103,12 +110,45 @@ class Service(IService):
         if self._owns_playwright and self._playwright_instance:
             await self._playwright_instance.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def launch_browser(self, headless=True) -> BrowserSession:
+    async def launch_browser(self, headless=True, use_proxy=False) -> BrowserSession:
+        """
+        Launch a browser session with optional proxy support
+
+        Args:
+            headless: Run browser in headless mode
+            use_proxy: Enable proxy rotation (requires PROXY_SERVER env var)
+
+        Returns:
+            BrowserSession configured with authentication and/or proxy
+        """
         if not self.playwright:
             raise RuntimeError(
                 "Playwright not initialized. Use 'async with Service()' context manager."
             )
-        browser = await self.playwright.chromium.launch(headless=headless)
+
+        launch_options = {"headless": headless}
+
+        # Configure proxy if enabled
+        if use_proxy:
+            proxy_server = os.getenv("PROXY_SERVER")
+            if not proxy_server:
+                logger.warning("PROXY_SERVER not set, launching without proxy")
+            else:
+                proxy_config = {"server": proxy_server}
+
+                # Optional proxy authentication
+                proxy_username = os.getenv("PROXY_USERNAME")
+                proxy_password = os.getenv("PROXY_PASSWORD")
+                if proxy_username and proxy_password:
+                    proxy_config["username"] = proxy_username
+                    proxy_config["password"] = proxy_password
+                    logger.debug(f"Using authenticated proxy: {proxy_server}")
+                else:
+                    logger.debug(f"Using proxy: {proxy_server}")
+
+                launch_options["proxy"] = proxy_config
+
+        browser = await self.playwright.chromium.launch(**launch_options)
         return BrowserSession(browser, self.linkedin_sid)
 
     async def get_profile_info(self, profile_id: str, headless=True) -> LinkedinProfile:
@@ -165,6 +205,7 @@ class Service(IService):
         limit=10,
         headless=True,
         keywords: Optional[List[str]] = None,
+        use_proxy=False,
     ):
         """
         Scrape LinkedIn company profiles and save leads to database
@@ -174,14 +215,25 @@ class Service(IService):
             limit (int): Maximum number of profiles to process
             headless (bool): Run browser in headless mode
             keywords (List[str], optional): Keywords to filter members by headline
+            use_proxy (bool): Enable proxy rotation for IP rotation (requires PROXY_SERVER env var)
 
         Returns:
             int: Number of leads saved
+
+        Note:
+            When use_proxy=True and use_auth=False (unauthenticated mode), only publicly
+            visible LinkedIn profile data will be accessible. This provides less data but
+            protects your personal LinkedIn account from being rate-limited or banned.
         """
         logger.debug(f"Launching browser for {company_id}...")
         if keywords:
             logger.debug(f"Using keywords filter: {keywords}")
-        session = await self.launch_browser(headless=headless)
+        if use_proxy:
+            logger.info("Using proxy for IP rotation")
+        if not self.linkedin_sid:
+            logger.info("Running in unauthenticated mode - only public data will be available")
+
+        session = await self.launch_browser(headless=headless, use_proxy=use_proxy)
         leads_saved = 0
 
         try:
@@ -250,6 +302,7 @@ class Service(IService):
         limit=10,
         headless=True,
         keywords: Optional[List[str]] = None,
+        use_proxy=False,
     ) -> dict[str, int]:
         """
         Args:
@@ -257,6 +310,7 @@ class Service(IService):
             limit: Maximum number of company member pages
             headless: Run browser in headless mode
             keywords: Optional list of keywords to filter members by headline
+            use_proxy: Enable proxy rotation for IP rotation
 
         Returns:
             dict: Results for each company with leads saved count
@@ -264,7 +318,7 @@ class Service(IService):
         results = {}
         for company_id in company_ids:
             leads_saved = await self.scrape_and_save_company_leads(
-                company_id, limit=limit, headless=headless, keywords=keywords
+                company_id, limit=limit, headless=headless, keywords=keywords, use_proxy=use_proxy
             )
             results[company_id] = leads_saved
         return results

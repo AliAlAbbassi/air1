@@ -59,4 +59,43 @@ Higher-level business logic composing services for multi-step operations.
 
 ## Environment Variables
 
-Required: `LINKEDIN_SID` (for browser automation), `DATABASE_URL` (PostgreSQL), `RESEND_API_KEY` (for email)
+**Required:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `RESEND_API_KEY` - For email functionality
+
+**Conditional:**
+- `LINKEDIN_SID` - Required for authenticated LinkedIn scraping (set `use_auth=True`)
+
+**Optional (Proxy Configuration):**
+- `PROXY_SERVER` - Proxy server URL (e.g., `http://proxy.example.com:8080`)
+- `PROXY_USERNAME` - Proxy authentication username
+- `PROXY_PASSWORD` - Proxy authentication password
+
+See `.env.example` for detailed configuration instructions.
+
+## LinkedIn Scraping Modes
+
+The scraping service supports two modes:
+
+**1. Authenticated Mode (default):**
+- Requires `LINKEDIN_SID` environment variable
+- Access to full profile data
+- Uses your LinkedIn account's IP/session
+- Risk: Your account may be rate-limited or flagged
+
+**2. Unauthenticated Mode:**
+- No `LINKEDIN_SID` required
+- Only public profile data accessible
+- Recommended with proxy rotation to avoid IP bans
+- Safer for your personal LinkedIn account
+
+**Usage:**
+```python
+# Authenticated with proxy
+async with Service(use_auth=True) as service:
+    await service.scrape_company_leads(companies, use_proxy=True)
+
+# Unauthenticated with proxy (public data only)
+async with Service(use_auth=False) as service:
+    await service.scrape_company_leads(companies, use_proxy=True)
+```
