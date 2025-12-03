@@ -219,11 +219,6 @@ class Service(IService):
 
         Returns:
             int: Number of leads saved
-
-        Note:
-            When use_proxy=True and use_auth=False (unauthenticated mode), only publicly
-            visible LinkedIn profile data will be accessible. This provides less data but
-            protects your personal LinkedIn account from being rate-limited or banned.
         """
         logger.debug(f"Launching browser for {company_id}...")
         if keywords:

@@ -1,0 +1,133 @@
+startup-title: HODHOD STUDIOS
+
+qualifier: FOR DEV TOOLS COMPANIES WITH A SALES TEAM
+
+hero:
+  headline: AI LinkedIn Agent That Books Meetings With Engineering Leaders.
+  subheadline: 10+ meetings in 90 days or you don't pay. Done for you.
+  value_prop: We generate pipeline — You close the deals.
+  cta: Book a Call
+
+proof_bar:
+  stats:
+    - number: "47%"
+      label: connection acceptance rate
+    - number: "12"
+      label: avg meetings booked per month
+    - number: "7"
+      label: days to first campaign live
+
+the_problem:
+  title: Here's the problem
+  content: |
+    Your SDRs send hundreds of LinkedIn messages every week.
+    Most get ignored. The ones that don't? Generic replies that go nowhere.
+    Meanwhile, your ideal customers — engineering leaders at companies that actually need your product — never hear from you.
+    Or worse, they get a message so generic they immediately tune out.
+
+the_solution:
+  title: What if it worked like this
+  content: |
+    What if every prospect got a message that felt like it was written just for them?
+    Based on their role. Their company's tech stack. What they're posting about. Their pain points.
+    What if an AI researched every single prospect — their background, their company, what they care about — and crafted outreach specifically for them?
+    And what if a dedicated expert managed everything — the targeting, the sequences, the replies — so you just showed up to meetings?
+    That's exactly what Hodhod does.
+
+how_it_works:
+  title: Here's exactly what we do
+  steps:
+    - step: 1
+      title: We learn your ICP
+      description: You fill out a questionnaire. We research your ideal customer — their pain points, motivations, what makes them reply.
+      timeline: Day 1-2
+    - step: 2
+      title: We set up your infrastructure
+      description: We configure your LinkedIn accounts, warm them up properly, and set up tracking. No risk to your accounts.
+      timeline: Day 3-5
+    - step: 3
+      title: We build lists and write sequences
+      description: We find prospects using buying signals — job changes, funding rounds, tech stack, hiring patterns. Then we write messages that don't sound like every other SDR.
+      timeline: Day 5-7
+    - step: 4
+      title: We run everything, you take meetings
+      description: Campaigns go live. We handle connections, follow-ups, conversations. Qualified prospects land on your calendar. You close.
+      timeline: Day 7+
+
+whats_included:
+  title: What's included
+  description: End-to-end LinkedIn outreach. You do nothing but show up.
+  items:
+    - LinkedIn account setup & warmup
+    - ICP research & targeting
+    - Prospect list building (using buying signals)
+    - Custom message sequences (engineers writing to engineers)
+    - Daily campaign management
+    - Inbox management & conversation handling
+    - Meeting booking directly to your calendar
+    - Weekly strategy calls & reporting
+
+results:
+  title: Results from dev tools companies
+  items:
+    - metric: "+14 meetings in 47 days"
+      company: Series A dev tools startup
+    - metric: "+9 meetings in 30 days"
+      company: DevOps platform
+    - metric: "$180K pipeline generated"
+      company: API infrastructure company
+  note: (Replace with real results)
+
+why_us:
+  title: Why this works
+  points:
+    - title: AI does the research
+      description: Every prospect gets researched — their role, company, tech stack, what they post about. No generic templates.
+    - title: Experts run the campaigns
+      description: A dedicated Hodhod expert manages your outreach daily. Not a bot. Not you. Us.
+    - title: We only do dev tools
+      description: We understand your buyers because we are your buyers. No generic B2B playbook.
+    - title: Engineers writing to engineers
+      description: Your messages won't sound like desperate SDR spam. They'll sound like a peer reaching out.
+
+pricing:
+  title: Simple pricing
+  price: $4,999/mo
+  commitment: 3 month minimum. No lock-in after.
+  includes:
+    - 5 LinkedIn accounts managed
+    - Unlimited prospect research
+    - Custom messaging sequences
+    - Daily campaign management
+    - Inbox management & replies
+    - Weekly strategy calls
+  guarantee: 10+ meetings in 90 days or we work for free until you get them.
+
+faq:
+  title: Questions
+  items:
+    - question: How fast can we start?
+      answer: First campaign live in 7 days. Most clients see first meetings within 2-3 weeks.
+    - question: Will this get our LinkedIn accounts banned?
+      answer: No. We warm up accounts properly, send 20-30 personalized messages per day, and never mass blast. Your accounts stay safe.
+    - question: What counts as a "meeting"?
+      answer: A booked call with someone matching your ICP who has decision-making power. Not random chats or tire-kickers.
+    - question: Do we see who you're contacting?
+      answer: Yes. Full visibility. We send you the prospect list before reaching out.
+    - question: What metrics do we get?
+      answer: Connection rates, reply rates, positive replies, meetings booked, pipeline value. Weekly reports.
+    - question: Why not just hire an SDR?
+      answer: An SDR costs $70K+ per year, takes 3 months to ramp, and might not work out. We cost less, start in 7 days, and guarantee results. If we don't deliver, you don't pay.
+    - question: What if we already have a sales team?
+      answer: We plug into your existing team. They focus on closing, we fill the top of the funnel.
+    - question: What if it doesn't work?
+      answer: You don't pay. 10+ meetings in 90 days or we work for free. There's no risk.
+
+cta:
+  headline: AI does the research. Experts run the campaigns. You take the meetings.
+  subheadline: 10+ meetings in 90 days or you don't pay.
+  button: Book a Call
+# newsletter:
+#   title: Join dev tools founders getting outbound insights
+#   description: Real campaigns. Real results. No fluff.
+#   cta: Subscribe

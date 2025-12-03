@@ -1,0 +1,53 @@
+Hey. This is Alex Becker. I'm the CEO of Hiros. If you give me three minutes, I'm gonna show you how just placing our error code on your site will increase the total revenue of your business by three to seven percent on average.
+
+We've seen businesses do ten, fifteen percent as well. I know that sounds hyped up. I know that sounds too good to be true, but those are the average results. Here's how we get them.
+
+It's by solving a problem that is so frequent and so common yet has not had a solution up until now. This problem happens on your website hundreds, thousands, maybe even hundreds of thousands of times per day. And when you plug this simple hole in your business, you will see an immediate new revenue stream appear overnight. And to back all that up, we'll let you test for free and start generating revenue without ever paying us.
+
+If you do not see Air generate you these revenue results I talked about, two, three, seven percent more revenue from your business, you simply don't pay. There's no risk of you ever paying us any amount of money for this if you're not seeing an extreme ROI. And, again, we're gonna let you try this one hundred percent for free. We'll let you start getting sales, start getting new customers, start getting new business without ever having to pay for it.
+
+Here's how it works. Here's the problem, and here's how Air fixes it. The problem is people come to your website, and then they leave without buying anything and are never contacted ever again. And I know what you're thinking.
+
+Well, we don't know who these people are, and there's no way we could contact every single person that comes to our website. And even if we did, would be mass produced automated emails that wouldn't even convert. Historically, that logic is not incorrect. I want you to look at this again from a different angle.
+
+What if every single time a person visited your website, you had a sales rep that watched every single thing they did, everything they read, everything they interacted with, everything they considered buying. Then that sales rep went and researched who they are, their age, their demographic, their lifestyle, even where they work. And in that sales rep, they got the information for as many visitors as they could coming to your website. And every single visitor that they watched, they sent them a one to one message trying to get them to come back to your website based on the things they were interested in, the things they read, based on their age group and demographic, even based on where they work.
+
+And then the sales rep used all these factors to create a sales message that is one to one suited to this visitor, showing how your product or the products that they were looking at and most interested in or the features of the product that they were most interested in relate to them specifically, their age group, their demographic, how it relates to their job and work, how it relates to them, and what they were interested in, what they were looking at. And it even used sales based tactics like coupons, discounts, scarcity, and answered any questions they might have that they need before coming back to your site and checking out or booking a call.
+
+And then on top of all this, the rep wouldn't just stop at giving information on the product. The goal is to get them to come back to the site and buy. To do this, the rep would then use sales tactics like scarcity, time based discounts to get the curse and to come back and act now. They would answer questions based on what the customer is thinking or hesitant about when it comes to the product and use all this to get the customer off the fence and buying on your site when there was absolutely zero chance of them buying before.
+
+What do you think that would affect your business? Obviously, you would make way, way more money. Suddenly, these ninety five percent of people that visit your site and don't buy, you get a second crack at them and not just a second crack, an extremely targeted specific laser cut sales optimized crack at them based on everything they're interested in and who they are and positioning your product perfectly for this specific customer one to one. You'd make tons of money, but I know what you're thinking.
+
+That's impossible. Not only can we not see these people coming to your site, there's no way we get all this information on them and everything they're doing. And then having a sales rep message every single one of them one to one, impossible. Yes.
+
+Until now. What I just described to you is exactly what Air does. Let me give you an example, and then I'll take you inside the product. So let me show you firsthand how Air would work on a live SaaS website.
+
+This is one of our live customers, and I wanna show you how just applying Air to this website will increase the amount of free trials and increase the amount of book demos resulting in far far more revenue coming into the business without them doing anything. Here's how it works. Imagine a customer comes to your SaaS website. They go and read your case studies.
+
+They go and click on support. They go through the community. Let's imagine they go and actually start reading the case studies in fintech, and then they do something terrible. They leave the site, and they don't book a call.
+
+They don't set up a free trial. What Air will instantly do is it will figure out what they were most interested in on the site. It will watch what they were reading about, what they were clicking on, what they were reading. It will then detect who they are based on tons of data that we have access to online and our own unique data that we have at Hiros.
+
+It will then use combinations of your own data and other data that we have access to that's a hundred percent compliant to figure out who this person is. It will then go and research their business. So let's imagine this is a fintech company named Fintechie Duckco. I don't know what fintech companies are named this day, but that sounds like a great great name to me.
+
+And we'll go and research and see that, hey. This is Steve from DuckCo, and they're a fintech company that specializes in crypto. So what it will then do is see that they were reading this fintech page. It will then go research their business and say, hey.
+
+They're related to crypto. Then it will then show them how your software, your product relates specifically to their fintech company. It will then send them an email and text message following up with them, showing them how your company applies to their specific fintech company and what they were interested in. They were reading this fintech page right here in their fintech tempies around crypto.
+
+It will message them, showing them how their crypto fintech company benefits specifically from what your software does. This is essentially like having a team of thousands of SDRs that research every visitor that comes to your website, researches them, figures out how your business can specifically help them. And if they don't book a free trial, they don't book a call, the SDRs then reach out to them with a one to one specific sales message just for them relating to their business to bring them back to your site to either book a call or set up a free trial. SaaS companies, including Hiros, our website right now uses this, that apply this, see three to seven percent more revenue, more free trials, more calls coming in just by using and placing this on their site.
+
+They do nothing else. See, we can set this up to fire just like any email autoresponder flow system that you've probably worked with. We can set the system to go down different paths. For example, if they do purchase, we'll send them something else based on their information.
+
+We can send them these emails based on how much they spent if they hit a certain cart value. If they visit specific pages, we can have the AI perform and react different ways. If they don't open their email, we can send them another email with a different angle from the AI. If they don't open that email, the AI can send them a deeper discount.
+
+If they make a purchase, we can have the AI wait, then send them another email thirty days later about other products that they visited and upsell them that. And all of these emails, all these messages being sent are populated by the brain and data that you connect into the AI and what we pull from your website so you don't have to write these emails. It will literally watch what the user is doing, see the page that they visited, see everything they've done, and then do all the marketing for you based on the rules and instructions you set in the flow builder right here and the triggers you set.
+
+You can set the fire only on specific pages. You can set certain discounts for certain products. You can have it fire and behave differently whether the person add the cart, whether they're an existing customer, whether they're a completely brand new customer that's never bought before. You can set the a up to follow rules and objectives, completely suited to your business.
+
+And every single message, every single text message, every interactor interaction with the customer is prefilled in based on the customer and who they are, what they've been looking at, and how they've interacted with your business. And in every email sent, if the customer wants to reply, the AI can even close the customer, talk to the customer, answer their questions based on the data you upload in the air around your business. Best of all, to set this up, all you have to do is paste our code on your website and integrate with Stripe or your Shopify integration to automate these processes.
+
+You're done. You're making three to seven percent more revenue from your business. It's game over. If you'd like to add this, we can have this plugged into you and firing for you today.
+
+Again, if you don't see the revenue increases that I talked about in this video, you don't pay for it. There is not a chance, not a single risk that you pay us money that does not get you an ROI. If you do not see an ROI on air, if it doesn't significantly make you more than you pay for it, you don't pay for it. And we'll even let you test it out for free so you can start seeing sales and money coming in before you even think of paying us any money.
+
+Go below. Try it out. It really works just like this. It's been Alex Becker. I can't wait to see you inside.

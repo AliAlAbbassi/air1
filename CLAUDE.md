@@ -79,15 +79,11 @@ The scraping service supports two modes:
 
 **1. Authenticated Mode (default):**
 - Requires `LINKEDIN_SID` environment variable
-- Access to full profile data
-- Uses your LinkedIn account's IP/session
-- Risk: Your account may be rate-limited or flagged
+- Uses your LinkedIn account session
 
 **2. Unauthenticated Mode:**
 - No `LINKEDIN_SID` required
-- Only public profile data accessible
-- Recommended with proxy rotation to avoid IP bans
-- Safer for your personal LinkedIn account
+- Recommended with proxy rotation
 
 **Usage:**
 ```python
@@ -95,7 +91,7 @@ The scraping service supports two modes:
 async with Service(use_auth=True) as service:
     await service.scrape_company_leads(companies, use_proxy=True)
 
-# Unauthenticated with proxy (public data only)
+# Unauthenticated with proxy
 async with Service(use_auth=False) as service:
     await service.scrape_company_leads(companies, use_proxy=True)
 ```
