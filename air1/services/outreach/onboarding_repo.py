@@ -1,47 +1,22 @@
 """Repository functions for onboarding data persistence."""
 import re
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from loguru import logger
 from prisma.errors import PrismaError
-from pydantic import BaseModel
 
 from air1.db.prisma_client import get_prisma
 from air1.db.sql_loader import onboarding_queries as queries
 from air1.services.outreach.exceptions import QueryError
+
+if TYPE_CHECKING:
+    from air1.services.outreach.onboarding import CreateUserInput
 
 
 class UserExistsError(Exception):
     """Raised when user with email already exists."""
 
     pass
-
-
-class CreateUserInput(BaseModel):
-    """Input model for creating a user with onboarding data."""
-
-    email: str
-    first_name: str
-    last_name: str
-    auth_method: str
-    password_hash: Optional[str]
-    timezone: str
-    meeting_link: str
-    linkedin_connected: bool
-    company_name: str
-    company_description: str
-    company_website: str
-    company_industry: str
-    company_linkedin_url: str
-    company_size: str
-    product_name: str
-    product_url: str
-    product_description: str
-    product_icp: str
-    product_competitors: Optional[str]
-    writing_style_template: Optional[str]
-    writing_style_dos: list[str]
-    writing_style_donts: list[str]
 
 
 async def get_user_by_email(email: str) -> Optional[dict]:
@@ -58,7 +33,7 @@ async def get_user_by_email(email: str) -> Optional[dict]:
         raise QueryError(f"Unexpected error getting user by email: {e}") from e
 
 
-async def create_user_with_onboarding(data: CreateUserInput) -> tuple[bool, Optional[int]]:
+async def create_user_with_onboarding(data: "CreateUserInput") -> tuple[bool, Optional[int]]:
     """
     Create a new user with all onboarding data in a transaction.
 

@@ -1,7 +1,6 @@
 -- name: get_user_by_email^
--- Get user by email
-SELECT user_id, email, full_name, password_hash, auth_method, first_name, last_name,
-       timezone, meeting_link, linkedin_connected, created_on, updated_on
+-- Get user by email (only essential columns for auth check)
+SELECT user_id, email, password_hash, auth_method
 FROM "user"
 WHERE email = :email;
 
