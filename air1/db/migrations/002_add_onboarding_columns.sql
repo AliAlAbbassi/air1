@@ -22,6 +22,9 @@ ALTER TABLE company ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES "user"(us
 
 CREATE INDEX IF NOT EXISTS idx_company_user ON company(user_id);
 
+-- Note: company.linkedin_username already has UNIQUE constraint in schema.sql
+-- This supports ON CONFLICT (linkedin_username) in onboarding queries
+
 -- ============================================================================
 -- PRODUCT TABLE EXTENSIONS
 -- ============================================================================

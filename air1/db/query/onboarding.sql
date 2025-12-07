@@ -22,13 +22,15 @@ RETURNING user_id AS "userId";
 -- name: insert_user_company<!
 -- Insert user's company and return company_id
 -- On conflict (duplicate linkedin_username), update and return existing
+-- Note: ON CONFLICT only triggers for non-NULL linkedin_username values
+-- NULL values are always inserted as new rows (PostgreSQL treats NULLs as distinct)
 INSERT INTO company (
     name, linkedin_username, website, industry, size, description, user_id
 )
 VALUES (
     :name, :linkedin_username, :website, :industry, :size, :description, :user_id
 )
-ON CONFLICT (linkedin_username) DO UPDATE SET
+ON CONFLICT (linkedin_username) WHERE linkedin_username IS NOT NULL DO UPDATE SET
     name = EXCLUDED.name,
     website = EXCLUDED.website,
     industry = EXCLUDED.industry,
