@@ -165,61 +165,29 @@ class OutreachQueries(Protocol):
 
 
 class OnboardingQueries(Protocol):
-    # onboarding.sql
+    """
+    Protocol for onboarding SQL queries.
+    Note: aiosql generates functions that accept **kwargs matching SQL :param names.
+    """
+
     async def get_user_by_email(
         self, conn: Any, *, email: str
     ) -> Optional[Dict[str, Any]]: ...
 
     async def insert_user(
-        self,
-        conn: Any,
-        *,
-        email: str,
-        full_name: str,
-        password_hash: Optional[str],
-        auth_method: str,
-        first_name: str,
-        last_name: str,
-        timezone: str,
-        meeting_link: str,
-        linkedin_connected: bool,
+        self, conn: Any, **kwargs: Any
     ) -> Optional[Dict[str, Any]]: ...
 
     async def insert_user_company(
-        self,
-        conn: Any,
-        *,
-        name: str,
-        linkedin_username: Optional[str],
-        website: str,
-        industry: str,
-        size: str,
-        description: str,
-        user_id: int,
+        self, conn: Any, **kwargs: Any
     ) -> Optional[Dict[str, Any]]: ...
 
     async def insert_user_product(
-        self,
-        conn: Any,
-        *,
-        user_id: int,
-        name: str,
-        website_url: str,
-        description: str,
-        target_icp: str,
-        competitors: Optional[str],
+        self, conn: Any, **kwargs: Any
     ) -> Optional[Dict[str, Any]]: ...
 
     async def insert_user_writing_style(
-        self,
-        conn: Any,
-        *,
-        user_id: int,
-        name: str,
-        tone: Optional[str],
-        dos: List[str],
-        donts: List[str],
-        selected_template: Optional[str],
+        self, conn: Any, **kwargs: Any
     ) -> Optional[Dict[str, Any]]: ...
 
 
