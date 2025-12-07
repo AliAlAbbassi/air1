@@ -209,14 +209,20 @@ class OnboardingService:
         )
 
     async def fetch_company_data(self, linkedin_url: str) -> CompanyFetchResponse:
-        """Fetch company data from LinkedIn URL using scraper."""
+        """
+        Fetch company data from LinkedIn URL using browser scraper.
+        
+        Note: We use Playwright browser automation instead of httpx because:
+        - LinkedIn requires authentication (li_at session cookie)
+        - LinkedIn has bot detection that blocks raw HTTP requests
+        - The existing Service class handles auth and rate limiting
+        """
         match = re.search(r"linkedin\.com/company/([^/?]+)", linkedin_url)
         if not match:
             raise InvalidLinkedInUrlError("Invalid LinkedIn company URL")
 
         company_username = match.group(1)
 
-        # Use existing scraper infrastructure
         from air1.services.outreach.service import Service
 
         async with Service() as service:
