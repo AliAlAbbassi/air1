@@ -19,6 +19,7 @@ from air1.api.models.onboarding import (
 )
 from air1.config import settings
 from air1.services.outreach.onboarding_repo import (
+    CreateUserInput,
     UserExistsError,
     create_user_with_onboarding,
     get_user_by_email,
@@ -163,7 +164,7 @@ class OnboardingService:
         competitors = self._validate_competitors_format(request.product.competitors)
 
         try:
-            success, user_id = await create_user_with_onboarding(
+            input_data = CreateUserInput(
                 email=auth.email,
                 first_name=auth.first_name,
                 last_name=auth.last_name,
@@ -188,6 +189,7 @@ class OnboardingService:
                 writing_style_dos=request.writing_style.dos,
                 writing_style_donts=request.writing_style.donts,
             )
+            success, user_id = await create_user_with_onboarding(input_data)
 
             if not success or not user_id:
                 raise Exception("Failed to create user")
