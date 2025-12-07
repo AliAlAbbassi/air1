@@ -168,7 +168,6 @@ class OnboardingService:
                 email=auth.email,
                 first_name=auth.first_name,
                 last_name=auth.last_name,
-                full_name=request.profile.full_name,
                 auth_method=auth.method.value,
                 password_hash=password_hash,
                 timezone=request.profile.timezone,

@@ -23,7 +23,6 @@ class CreateUserInput(BaseModel):
     email: str
     first_name: str
     last_name: str
-    full_name: str
     auth_method: str
     password_hash: Optional[str]
     timezone: str
@@ -74,7 +73,6 @@ async def create_user_with_onboarding(data: CreateUserInput) -> tuple[bool, Opti
             user_result = await queries.insert_user(
                 tx,
                 email=data.email,
-                full_name=data.full_name,
                 password_hash=data.password_hash,
                 auth_method=data.auth_method,
                 first_name=data.first_name,

@@ -8,12 +8,13 @@ WHERE email = :email;
 -- name: insert_user<!
 -- Insert a new user and return the user_id
 -- On conflict (duplicate email), do nothing and return null
+-- Note: full_name is computed from first_name + last_name, not stored separately
 INSERT INTO "user" (
-    email, full_name, password_hash, auth_method, first_name, last_name,
+    email, password_hash, auth_method, first_name, last_name,
     timezone, meeting_link, linkedin_connected
 )
 VALUES (
-    :email, :full_name, :password_hash, :auth_method, :first_name, :last_name,
+    :email, :password_hash, :auth_method, :first_name, :last_name,
     :timezone, :meeting_link, :linkedin_connected
 )
 ON CONFLICT (email) DO NOTHING

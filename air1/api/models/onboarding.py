@@ -91,7 +91,7 @@ class LinkedinData(BaseModel):
 
 
 class ProfileData(BaseModel):
-    full_name: str = Field(..., alias="fullName", min_length=1)
+    # Note: fullName removed - computed from auth.firstName + auth.lastName
     timezone: str = Field(..., min_length=1)
     meeting_link: str = Field(..., alias="meetingLink")
 
