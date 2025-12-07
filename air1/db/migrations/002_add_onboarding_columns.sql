@@ -1,24 +1,24 @@
 -- Migration: Add onboarding columns to existing tables
--- Description: Extends user, company, product, and writing_style tables for onboarding flow
+-- Description: Extends hodhod_user, company, product, and writing_style tables for onboarding flow
 
 -- ============================================================================
--- USER TABLE EXTENSIONS
+-- HODHOD_USER TABLE EXTENSIONS
 -- ============================================================================
 
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS password_hash TEXT;
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS auth_method VARCHAR(50);
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS first_name VARCHAR(255);
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS last_name VARCHAR(255);
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS timezone VARCHAR(50);
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS meeting_link TEXT;
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS linkedin_connected BOOLEAN DEFAULT FALSE;
+ALTER TABLE hodhod_user ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE hodhod_user ADD COLUMN IF NOT EXISTS auth_method VARCHAR(50);
+ALTER TABLE hodhod_user ADD COLUMN IF NOT EXISTS first_name VARCHAR(255);
+ALTER TABLE hodhod_user ADD COLUMN IF NOT EXISTS last_name VARCHAR(255);
+ALTER TABLE hodhod_user ADD COLUMN IF NOT EXISTS timezone VARCHAR(50);
+ALTER TABLE hodhod_user ADD COLUMN IF NOT EXISTS meeting_link TEXT;
+ALTER TABLE hodhod_user ADD COLUMN IF NOT EXISTS linkedin_connected BOOLEAN DEFAULT FALSE;
 
 -- ============================================================================
 -- COMPANY TABLE EXTENSIONS
 -- ============================================================================
 
 ALTER TABLE company ADD COLUMN IF NOT EXISTS description TEXT;
-ALTER TABLE company ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES "user"(user_id) ON DELETE SET NULL;
+ALTER TABLE company ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES hodhod_user(user_id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_company_user ON company(user_id);
 

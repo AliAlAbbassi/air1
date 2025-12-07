@@ -587,3 +587,197 @@ class TestOnboardingRepo:
 
             with pytest.raises(UserExistsError):
                 await create_user_with_onboarding(input_data)
+
+
+
+# ============================================================================
+# Integration Tests (hit real database)
+# Run with: pytest -m integration
+# Skip with: pytest -m "not integration"
+# ============================================================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_integration_create_user_with_onboarding():
+    """Integration test: Create a real user in the database."""
+    import uuid
+    from air1.db.prisma_client import connect_db, disconnect_db
+    from air1.services.outreach.onboarding_repo import (
+        create_user_with_onboarding,
+        get_user_by_email,
+    )
+
+    try:
+        await connect_db()
+
+        test_uuid = str(uuid.uuid4())[:8]
+        test_email = f"test.user.{test_uuid}@example.com"
+
+        input_data = CreateUserInput(
+            email=test_email,
+            first_name="Test",
+            last_name="User",
+            auth_method="email",
+            password_hash="salt:hash",
+            timezone="EST",
+            meeting_link=f"https://cal.com/test-{test_uuid}",
+            linkedin_connected=False,
+            company_name=f"Test Corp {test_uuid}",
+            company_description="Test company description",
+            company_website="https://test.com",
+            company_industry="Technology",
+            company_linkedin_url=f"https://linkedin.com/company/test-{test_uuid}",
+            company_size="10-100",
+            product_name="Test Product",
+            product_url="https://test.com/product",
+            product_description="Test product description",
+            product_icp="Test ICP",
+            product_competitors="Competitor1, Competitor2",
+            writing_style_template="default",
+            writing_style_dos=["be clear", "be concise"],
+            writing_style_donts=["be verbose"],
+        )
+
+        success, user_id = await create_user_with_onboarding(input_data)
+
+        assert success is True, "Failed to create user"
+        assert user_id is not None, "User ID should not be None"
+
+        # Verify user was created
+        user = await get_user_by_email(test_email)
+        assert user is not None, "User should exist in database"
+        assert user["email"] == test_email
+
+        print(f"✓ Created user with ID: {user_id}, email: {test_email}")
+
+    finally:
+        await disconnect_db()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_integration_duplicate_email_rejected():
+    """Integration test: Duplicate email should raise UserExistsError."""
+    import uuid
+    from air1.db.prisma_client import connect_db, disconnect_db
+    from air1.services.outreach.onboarding_repo import (
+        create_user_with_onboarding,
+        UserExistsError,
+    )
+
+    try:
+        await connect_db()
+
+        test_uuid = str(uuid.uuid4())[:8]
+        test_email = f"duplicate.test.{test_uuid}@example.com"
+
+        input_data = CreateUserInput(
+            email=test_email,
+            first_name="Duplicate",
+            last_name="Test",
+            auth_method="email",
+            password_hash="salt:hash",
+            timezone="EST",
+            meeting_link=f"https://cal.com/dup-{test_uuid}",
+            linkedin_connected=False,
+            company_name=f"Dup Corp {test_uuid}",
+            company_description="Duplicate test",
+            company_website="https://dup.com",
+            company_industry="Tech",
+            company_linkedin_url=f"https://linkedin.com/company/dup-{test_uuid}",
+            company_size="0-10",
+            product_name="Dup Product",
+            product_url="https://dup.com/product",
+            product_description="Dup product",
+            product_icp="Dup ICP",
+            product_competitors=None,
+            writing_style_template=None,
+            writing_style_dos=[],
+            writing_style_donts=[],
+        )
+
+        # First insert should succeed
+        success, user_id = await create_user_with_onboarding(input_data)
+        assert success is True
+
+        # Second insert with same email should fail
+        input_data.company_linkedin_url = f"https://linkedin.com/company/dup2-{test_uuid}"
+        with pytest.raises(UserExistsError):
+            await create_user_with_onboarding(input_data)
+
+        print(f"✓ Duplicate email correctly rejected for: {test_email}")
+
+    finally:
+        await disconnect_db()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_integration_full_onboarding_flow():
+    """Integration test: Full onboarding flow through service."""
+    import uuid
+    from air1.db.prisma_client import connect_db, disconnect_db
+    from air1.services.outreach.onboarding import create_onboarding_user
+    from air1.api.models.onboarding import (
+        OnboardingRequest,
+        AuthData,
+        CompanyData,
+        EmployeeCount,
+        ProductData,
+        WritingStyleData,
+        LinkedinData,
+        ProfileData,
+    )
+
+    try:
+        await connect_db()
+
+        test_uuid = str(uuid.uuid4())[:8]
+
+        request = OnboardingRequest(
+            auth=AuthData(
+                method="email",
+                email=f"onboarding.test.{test_uuid}@example.com",
+                firstName="Onboarding",
+                lastName="Test",
+                password="securepassword123",
+            ),
+            company=CompanyData(
+                name=f"Onboarding Corp {test_uuid}",
+                description="Full onboarding test",
+                website="https://onboarding.com",
+                industry="Technology",
+                linkedinUrl=f"https://linkedin.com/company/onboarding-{test_uuid}",
+                employeeCount=EmployeeCount.SMALL,
+            ),
+            product=ProductData(
+                name="Onboarding Product",
+                url="https://onboarding.com/product",
+                description="Test product",
+                idealCustomerProfile="Engineering teams",
+                competitors="Stripe, Twilio",
+            ),
+            writingStyle=WritingStyleData(
+                selectedTemplate="professional",
+                dos=["be professional"],
+                donts=["be casual"],
+            ),
+            linkedin=LinkedinData(connected=True),
+            profile=ProfileData(
+                timezone="PST",
+                meetingLink=f"https://cal.com/onboarding-{test_uuid}",
+            ),
+        )
+
+        response = await create_onboarding_user(request)
+
+        assert response is not None
+        assert response.user.email == request.auth.email
+        assert response.token is not None
+        assert len(response.token.split(".")) == 3  # Valid JWT format
+
+        print(f"✓ Full onboarding completed for user ID: {response.user.id}")
+
+    finally:
+        await disconnect_db()

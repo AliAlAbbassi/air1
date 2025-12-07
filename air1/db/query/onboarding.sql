@@ -1,14 +1,13 @@
 -- name: get_user_by_email^
 -- Get user by email (only essential columns for auth check)
 SELECT user_id, email, password_hash, auth_method
-FROM "user"
+FROM hodhod_user
 WHERE email = :email;
 
 -- name: insert_user<!
 -- Insert a new user and return the user_id
 -- On conflict (duplicate email), do nothing and return null
--- Note: full_name is computed from first_name + last_name, not stored separately
-INSERT INTO "user" (
+INSERT INTO hodhod_user (
     email, password_hash, auth_method, first_name, last_name,
     timezone, meeting_link, linkedin_connected
 )
@@ -22,8 +21,6 @@ RETURNING user_id AS "userId";
 -- name: insert_user_company<!
 -- Insert user's company and return company_id
 -- On conflict (duplicate linkedin_username), update and return existing
--- Note: ON CONFLICT only triggers for non-NULL linkedin_username values
--- NULL values are always inserted as new rows (PostgreSQL treats NULLs as distinct)
 INSERT INTO company (
     name, linkedin_username, website, industry, size, description, user_id
 )
