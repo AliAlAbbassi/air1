@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from air1.api.routes import onboarding_router
-from air1.api.deps import close_db
+from air1.db.prisma_client import disconnect_db
 from air1.config import settings
 
 
@@ -14,7 +14,7 @@ async def lifespan(app: FastAPI):
     # Startup
     yield
     # Shutdown
-    await close_db()
+    await disconnect_db()
 
 
 app = FastAPI(

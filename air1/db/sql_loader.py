@@ -164,6 +164,66 @@ class OutreachQueries(Protocol):
     ) -> Optional[Dict[str, Any]]: ...
 
 
+class OnboardingQueries(Protocol):
+    # onboarding.sql
+    async def get_user_by_email(
+        self, conn: Any, *, email: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_user(
+        self,
+        conn: Any,
+        *,
+        email: str,
+        full_name: str,
+        password_hash: Optional[str],
+        auth_method: str,
+        first_name: str,
+        last_name: str,
+        timezone: str,
+        meeting_link: str,
+        linkedin_connected: bool,
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_user_company(
+        self,
+        conn: Any,
+        *,
+        name: str,
+        linkedin_username: Optional[str],
+        website: str,
+        industry: str,
+        size: str,
+        description: str,
+        user_id: int,
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_user_product(
+        self,
+        conn: Any,
+        *,
+        user_id: int,
+        name: str,
+        website_url: str,
+        description: str,
+        target_icp: str,
+        competitors: Optional[str],
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_user_writing_style(
+        self,
+        conn: Any,
+        *,
+        user_id: int,
+        name: str,
+        tone: Optional[str],
+        dos: List[str],
+        donts: List[str],
+        selected_template: Optional[str],
+    ) -> Optional[Dict[str, Any]]: ...
+
+
 # Load queries for the Outreach service
 # This object contains methods from all SQL files in the directory
 outreach_queries: OutreachQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
+onboarding_queries: OnboardingQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore

@@ -1,5 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import ValidationError
+from fastapi import APIRouter, HTTPException
 from loguru import logger
 
 from air1.api.models.onboarding import (
@@ -8,15 +7,13 @@ from air1.api.models.onboarding import (
     CompanyFetchRequest,
     CompanyFetchResponse,
     ErrorResponse,
-    ValidationErrorDetail,
 )
-from air1.api.services.onboarding import (
+from air1.services.outreach.onboarding import (
     OnboardingService,
     EmailExistsError,
     InvalidGoogleTokenError,
     InvalidLinkedInUrlError,
 )
-from air1.api.deps import get_db
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
@@ -30,13 +27,13 @@ router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
         409: {"model": ErrorResponse, "description": "Email already exists"},
     },
 )
-async def create_account(request: OnboardingRequest, db=Depends(get_db)):
+async def create_account(request: OnboardingRequest):
     """
     Create a new user account with all onboarding data.
     
     This endpoint handles both email and Google authentication methods.
     """
-    service = OnboardingService(db)
+    service = OnboardingService()
     
     try:
         return await service.create_user(request)
@@ -75,11 +72,11 @@ async def create_account(request: OnboardingRequest, db=Depends(get_db)):
         404: {"model": ErrorResponse, "description": "Company not found"},
     },
 )
-async def fetch_company(request: CompanyFetchRequest, db=Depends(get_db)):
+async def fetch_company(request: CompanyFetchRequest):
     """
     Fetch company data from a LinkedIn company URL using AI scraping.
     """
-    service = OnboardingService(db)
+    service = OnboardingService()
     
     try:
         return await service.fetch_company_data(request.linkedin_url)

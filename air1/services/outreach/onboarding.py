@@ -1,13 +1,14 @@
+"""Onboarding service for user account creation."""
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 import json
 import base64
 import hmac
+from typing import Optional
 
 from loguru import logger
-from prisma import Prisma
+import httpx
 
 from air1.api.models.onboarding import (
     OnboardingRequest,
@@ -15,17 +16,36 @@ from air1.api.models.onboarding import (
     UserResponse,
     CompanyFetchResponse,
 )
+from air1.services.outreach.onboarding_repo import (
+    get_user_by_email,
+    create_user_with_onboarding,
+    UserExistsError,
+)
 from air1.config import settings
 
 
+class EmailExistsError(Exception):
+    """Raised when email already exists."""
+    pass
+
+
+class InvalidGoogleTokenError(Exception):
+    """Raised when Google token is invalid."""
+    pass
+
+
+class InvalidLinkedInUrlError(Exception):
+    """Raised when LinkedIn URL is invalid."""
+    pass
+
+
 class OnboardingService:
-    def __init__(self, db: Prisma):
-        self.db = db
-        self._jwt_secret = getattr(settings, "jwt_secret", "dev-secret-change-in-production")
-        self._jwt_expiry_hours = getattr(settings, "jwt_expiry_hours", 24 * 7)
+    def __init__(self):
+        self._jwt_secret = settings.jwt_secret
+        self._jwt_expiry_hours = settings.jwt_expiry_hours
 
     def _hash_password(self, password: str) -> str:
-        """Hash password using SHA-256 with salt."""
+        """Hash password using PBKDF2 with salt."""
         salt = secrets.token_hex(16)
         hashed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000)
         return f"{salt}:{hashed.hex()}"
@@ -37,7 +57,7 @@ class OnboardingService:
         return hashed.hex() == hash_hex
 
     def _create_jwt(self, user_id: int, email: str) -> str:
-        """Create a simple JWT token."""
+        """Create a JWT token."""
         header = {"alg": "HS256", "typ": "JWT"}
         payload = {
             "sub": str(user_id),
@@ -58,18 +78,8 @@ class OnboardingService:
         
         return f"{header_b64}.{payload_b64}.{signature_b64}"
 
-
-    async def check_email_exists(self, email: str) -> bool:
-        """Check if email already exists in database."""
-        user = await self.db.hodhoduser.find_unique(where={"email": email})
-        return user is not None
-
     async def verify_google_token(self, token: str) -> Optional[dict]:
-        """Verify Google OAuth token. Returns user info if valid."""
-        # In production, call Google's tokeninfo endpoint
-        # For now, we'll trust the token and extract info from it
-        # TODO: Implement actual Google token verification
-        import httpx
+        """Verify Google OAuth token."""
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(
@@ -82,12 +92,14 @@ class OnboardingService:
             logger.error(f"Failed to verify Google token: {e}")
             return None
 
+
     async def create_user(self, request: OnboardingRequest) -> OnboardingResponse:
         """Create a new user with all onboarding data."""
         auth = request.auth
         
         # Check if email exists
-        if await self.check_email_exists(auth.email):
+        existing_user = await get_user_by_email(auth.email)
+        if existing_user:
             raise EmailExistsError("An account with this email already exists")
 
         # Verify Google token if using Google auth
@@ -101,75 +113,54 @@ class OnboardingService:
         if auth.method.value == "email" and auth.password:
             password_hash = self._hash_password(auth.password)
 
-        # Create user in transaction
-        async with self.db.tx() as tx:
-            # Create user
-            user = await tx.hodhoduser.create(
-                data={
-                    "email": auth.email,
-                    "firstName": auth.first_name,
-                    "lastName": auth.last_name,
-                    "passwordHash": password_hash,
-                    "authMethod": auth.method.value,
-                    "fullName": request.profile.full_name,
-                    "timezone": request.profile.timezone,
-                    "meetingLink": request.profile.meeting_link,
-                    "linkedinConnected": request.linkedin.connected,
-                }
+        try:
+            success, user_id = await create_user_with_onboarding(
+                email=auth.email,
+                first_name=auth.first_name,
+                last_name=auth.last_name,
+                full_name=request.profile.full_name,
+                auth_method=auth.method.value,
+                password_hash=password_hash,
+                timezone=request.profile.timezone,
+                meeting_link=request.profile.meeting_link,
+                linkedin_connected=request.linkedin.connected,
+                company_name=request.company.name,
+                company_description=request.company.description,
+                company_website=request.company.website,
+                company_industry=request.company.industry,
+                company_linkedin_url=request.company.linkedin_url,
+                company_size=request.company.employee_count.value,
+                product_name=request.product.name,
+                product_url=request.product.url,
+                product_description=request.product.description,
+                product_icp=request.product.ideal_customer_profile,
+                product_competitors=request.product.competitors,
+                writing_style_template=request.writing_style.selected_template,
+                writing_style_dos=request.writing_style.dos,
+                writing_style_donts=request.writing_style.donts,
             )
-
-            # Create company
-            company = await tx.hodhodcompany.create(
-                data={
-                    "userId": user.id,
-                    "name": request.company.name,
-                    "description": request.company.description,
-                    "website": request.company.website,
-                    "industry": request.company.industry,
-                    "linkedinUrl": request.company.linkedin_url,
-                    "employeeCount": request.company.employee_count.value,
-                }
-            )
-
-            # Create product
-            await tx.hodhodproduct.create(
-                data={
-                    "userId": user.id,
-                    "companyId": company.id,
-                    "name": request.product.name,
-                    "url": request.product.url,
-                    "description": request.product.description,
-                    "idealCustomerProfile": request.product.ideal_customer_profile,
-                    "competitors": request.product.competitors,
-                }
-            )
-
-            # Create writing style
-            await tx.hodhodwritingstyle.create(
-                data={
-                    "userId": user.id,
-                    "selectedTemplate": request.writing_style.selected_template,
-                    "dos": request.writing_style.dos,
-                    "donts": request.writing_style.donts,
-                }
-            )
+            
+            if not success or not user_id:
+                raise Exception("Failed to create user")
+                
+        except UserExistsError:
+            raise EmailExistsError("An account with this email already exists")
 
         # Generate JWT token
-        token = self._create_jwt(user.id, user.email)
+        token = self._create_jwt(user_id, auth.email)
 
         return OnboardingResponse(
             user=UserResponse(
-                id=str(user.id),
-                email=user.email,
-                firstName=user.firstName,
-                lastName=user.lastName,
+                id=str(user_id),
+                email=auth.email,
+                firstName=auth.first_name,
+                lastName=auth.last_name,
             ),
             token=token,
         )
 
     async def fetch_company_data(self, linkedin_url: str) -> CompanyFetchResponse:
         """Fetch company data from LinkedIn URL using scraper."""
-        # Extract company username from URL
         import re
         match = re.search(r"linkedin\.com/company/([^/?]+)", linkedin_url)
         if not match:
@@ -193,18 +184,3 @@ class OnboardingService:
                 )
             finally:
                 await session.browser.close()
-
-
-class EmailExistsError(Exception):
-    """Raised when email already exists."""
-    pass
-
-
-class InvalidGoogleTokenError(Exception):
-    """Raised when Google token is invalid."""
-    pass
-
-
-class InvalidLinkedInUrlError(Exception):
-    """Raised when LinkedIn URL is invalid."""
-    pass
