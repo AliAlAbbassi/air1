@@ -1,6 +1,15 @@
-"""Unit tests for onboarding functionality."""
+"""Tests for onboarding functionality.
+
+Run with mocks (default):
+    pytest air1/services/outreach/onboarding_test.py -v
+
+Run against real database:
+    pytest air1/services/outreach/onboarding_test.py --use-real-db -v
+"""
 import pytest
+import uuid
 from unittest.mock import AsyncMock, patch, MagicMock
+from contextlib import asynccontextmanager
 
 from air1.services.outreach.onboarding import (
     CreateUserInput,
@@ -25,6 +34,47 @@ from air1.api.models.onboarding import (
     LinkedinData,
     ProfileData,
 )
+
+
+# ============================================================================
+# Test Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+def test_email():
+    """Generate unique test email for each test."""
+    test_uuid = str(uuid.uuid4())[:8]
+    return f"test.{test_uuid}@example.com"
+
+
+@pytest.fixture
+def test_uuid():
+    """Generate unique UUID for test data."""
+    return str(uuid.uuid4())[:8]
+
+
+# ============================================================================
+# Mock Helpers
+# ============================================================================
+
+
+@asynccontextmanager
+async def mock_db_context():
+    """Context manager for mocking database operations."""
+    with patch("air1.services.outreach.onboarding_repo.get_prisma") as mock_get_prisma, \
+         patch("air1.services.outreach.onboarding_repo.queries") as mock_queries:
+        
+        mock_tx = MagicMock()
+        mock_tx_cm = MagicMock()
+        mock_tx_cm.__aenter__ = AsyncMock(return_value=mock_tx)
+        mock_tx_cm.__aexit__ = AsyncMock(return_value=None)
+        
+        mock_prisma = MagicMock()
+        mock_prisma.tx.return_value = mock_tx_cm
+        mock_get_prisma.return_value = mock_prisma
+        
+        yield mock_queries, mock_prisma
 
 
 # ============================================================================
@@ -111,7 +161,7 @@ class TestPasswordHashing:
         """Test that same password produces different hashes (different salts)."""
         hash1 = _hash_password("mypassword123")
         hash2 = _hash_password("mypassword123")
-        assert hash1 != hash2  # Different salts should produce different results
+        assert hash1 != hash2
 
 
 # ============================================================================
@@ -130,7 +180,7 @@ class TestJWTCreation:
 
         assert token is not None
         parts = token.split(".")
-        assert len(parts) == 3  # header.payload.signature
+        assert len(parts) == 3
 
     @patch("air1.services.outreach.onboarding.settings")
     def test_create_jwt_different_users_different_tokens(self, mock_settings):
@@ -144,7 +194,6 @@ class TestJWTCreation:
         assert token1 != token2
 
 
-
 # ============================================================================
 # Test Competitors Validation
 # ============================================================================
@@ -152,44 +201,32 @@ class TestJWTCreation:
 
 class TestCompetitorsValidation:
     def test_validate_competitors_valid_format(self):
-        """Test valid comma-separated competitors."""
         result = _validate_competitors_format("Stripe, Twilio, Plaid")
         assert result == "Stripe, Twilio, Plaid"
 
     def test_validate_competitors_with_extra_spaces(self):
-        """Test competitors with extra spaces are normalized."""
         result = _validate_competitors_format("  Stripe  ,  Twilio  ,  Plaid  ")
         assert result == "Stripe, Twilio, Plaid"
 
     def test_validate_competitors_with_special_chars(self):
-        """Test competitors with allowed special characters."""
         result = _validate_competitors_format("AT&T, Johnson & Johnson, 3M")
         assert result == "AT&T, Johnson & Johnson, 3M"
 
     def test_validate_competitors_empty_string(self):
-        """Test empty string returns None."""
-        result = _validate_competitors_format("")
-        assert result is None
+        assert _validate_competitors_format("") is None
 
     def test_validate_competitors_none(self):
-        """Test None input returns None."""
-        result = _validate_competitors_format(None)
-        assert result is None
+        assert _validate_competitors_format(None) is None
 
     def test_validate_competitors_whitespace_only(self):
-        """Test whitespace-only string returns None."""
-        result = _validate_competitors_format("   ")
-        assert result is None
+        assert _validate_competitors_format("   ") is None
 
     def test_validate_competitors_invalid_chars_filtered(self):
-        """Test that invalid characters are filtered out."""
         result = _validate_competitors_format("Valid, <script>alert('xss')</script>")
         assert result == "Valid"
 
     def test_validate_competitors_all_invalid_returns_none(self):
-        """Test that all invalid entries returns None."""
-        result = _validate_competitors_format("<script>, @#$%")
-        assert result is None
+        assert _validate_competitors_format("<script>, @#$%") is None
 
 
 # ============================================================================
@@ -200,7 +237,6 @@ class TestCompetitorsValidation:
 class TestGoogleTokenVerification:
     @pytest.mark.asyncio
     async def test_verify_google_token_success(self):
-        """Test successful Google token verification."""
         with patch("air1.services.outreach.onboarding.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -217,7 +253,6 @@ class TestGoogleTokenVerification:
 
     @pytest.mark.asyncio
     async def test_verify_google_token_invalid(self):
-        """Test invalid Google token returns None."""
         with patch("air1.services.outreach.onboarding.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 401
@@ -227,48 +262,45 @@ class TestGoogleTokenVerification:
             mock_client.return_value.__aenter__.return_value = mock_client_instance
 
             result = await _verify_google_token("invalid_token")
-
             assert result is None
 
     @pytest.mark.asyncio
     async def test_verify_google_token_network_error(self):
-        """Test network error returns None."""
         with patch("air1.services.outreach.onboarding.httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get.side_effect = Exception("Network error")
             mock_client.return_value.__aenter__.return_value = mock_client_instance
 
             result = await _verify_google_token("some_token")
-
             assert result is None
 
 
 # ============================================================================
-# Test Create Onboarding User
+# Test Helpers
 # ============================================================================
 
 
-def _create_mock_request(auth_method="email", password="password123"):
-    """Helper to create a mock OnboardingRequest."""
+def _create_onboarding_request(test_uuid: str, auth_method: str = "email") -> OnboardingRequest:
+    """Helper to create OnboardingRequest with unique data."""
     auth_data = {
         "method": auth_method,
-        "email": "test@example.com",
+        "email": f"test.{test_uuid}@example.com",
         "firstName": "John",
         "lastName": "Doe",
     }
     if auth_method == "email":
-        auth_data["password"] = password
+        auth_data["password"] = "password123"
     else:
         auth_data["googleAccessToken"] = "valid_google_token"
 
     return OnboardingRequest(
         auth=AuthData(**auth_data),
         company=CompanyData(
-            name="Acme Inc",
+            name=f"Acme Inc {test_uuid}",
             description="We build things",
             website="https://acme.com",
             industry="Technology",
-            linkedinUrl="https://linkedin.com/company/acme",
+            linkedinUrl=f"https://linkedin.com/company/acme-{test_uuid}",
             employeeCount=EmployeeCount.SMALL,
         ),
         product=ProductData(
@@ -286,79 +318,236 @@ def _create_mock_request(auth_method="email", password="password123"):
         linkedin=LinkedinData(connected=True),
         profile=ProfileData(
             timezone="EST",
-            meetingLink="https://cal.com/john",
+            meetingLink=f"https://cal.com/john-{test_uuid}",
         ),
     )
 
 
-class TestCreateOnboardingUser:
+def _create_user_input(test_uuid: str) -> CreateUserInput:
+    """Helper to create CreateUserInput with unique data."""
+    return CreateUserInput(
+        email=f"test.{test_uuid}@example.com",
+        first_name="Test",
+        last_name="User",
+        auth_method="email",
+        password_hash="salt:hash",
+        timezone="EST",
+        meeting_link=f"https://cal.com/test-{test_uuid}",
+        linkedin_connected=False,
+        company_name=f"Test Corp {test_uuid}",
+        company_description="Test company description",
+        company_website="https://test.com",
+        company_industry="Technology",
+        company_linkedin_url=f"https://linkedin.com/company/test-{test_uuid}",
+        company_size="10-100",
+        product_name="Test Product",
+        product_url="https://test.com/product",
+        product_description="Test product description",
+        product_icp="Test ICP",
+        product_competitors="Competitor1, Competitor2",
+        writing_style_template="default",
+        writing_style_dos=["be clear", "be concise"],
+        writing_style_donts=["be verbose"],
+    )
+
+
+# ============================================================================
+# Test Get User By Email (mock/real DB)
+# ============================================================================
+
+
+class TestGetUserByEmail:
     @pytest.mark.asyncio
-    async def test_create_user_email_auth_success(self):
+    async def test_get_user_by_email_not_found(self, db_connection, test_email):
+        """Test getting user by email when user doesn't exist."""
+        from air1.services.outreach.onboarding_repo import get_user_by_email
+
+        if db_connection:
+            # Real DB
+            result = await get_user_by_email(test_email)
+            assert result is None
+        else:
+            # Mocked
+            with patch("air1.services.outreach.onboarding_repo.get_prisma") as mock_get_prisma, \
+                 patch("air1.services.outreach.onboarding_repo.queries") as mock_queries:
+                mock_prisma = AsyncMock()
+                mock_get_prisma.return_value = mock_prisma
+                mock_queries.get_user_by_email = AsyncMock(return_value=None)
+
+                result = await get_user_by_email(test_email)
+                assert result is None
+
+
+# ============================================================================
+# Test Create User With Onboarding (mock/real DB)
+# ============================================================================
+
+
+class TestCreateUserWithOnboarding:
+    @pytest.mark.asyncio
+    async def test_create_user_success(self, db_connection, test_uuid):
+        """Test successful user creation with all onboarding data."""
+        from air1.services.outreach.onboarding_repo import (
+            create_user_with_onboarding,
+            get_user_by_email,
+        )
+
+        input_data = _create_user_input(test_uuid)
+
+        if db_connection:
+            # Real DB
+            success, user_id = await create_user_with_onboarding(input_data)
+            assert success is True
+            assert user_id is not None
+
+            # Verify user exists
+            user = await get_user_by_email(input_data.email)
+            assert user is not None
+            assert user["email"] == input_data.email
+        else:
+            # Mocked
+            async with mock_db_context() as (mock_queries, mock_prisma):
+                mock_queries.insert_user = AsyncMock(return_value={"userId": 999})
+                mock_queries.insert_user_company = AsyncMock(return_value={"companyId": 1})
+                mock_queries.insert_user_product = AsyncMock(return_value={"productId": 1})
+                mock_queries.insert_user_writing_style = AsyncMock(return_value={"writingStyleId": 1})
+
+                success, user_id = await create_user_with_onboarding(input_data)
+                assert success is True
+                assert user_id == 999
+
+    @pytest.mark.asyncio
+    async def test_create_user_duplicate_email_rejected(self, db_connection, test_uuid):
+        """Test that duplicate email raises UserExistsError."""
+        from air1.services.outreach.onboarding_repo import (
+            create_user_with_onboarding,
+            UserExistsError,
+        )
+
+        input_data = _create_user_input(test_uuid)
+
+        if db_connection:
+            # Real DB - create first, then try duplicate
+            success, _ = await create_user_with_onboarding(input_data)
+            assert success is True
+
+            # Change linkedin URL to avoid that conflict, keep same email
+            input_data.company_linkedin_url = f"https://linkedin.com/company/dup-{test_uuid}"
+            with pytest.raises(UserExistsError):
+                await create_user_with_onboarding(input_data)
+        else:
+            # Mocked
+            async with mock_db_context() as (mock_queries, mock_prisma):
+                mock_queries.insert_user = AsyncMock(return_value=None)  # ON CONFLICT returns None
+
+                with pytest.raises(UserExistsError):
+                    await create_user_with_onboarding(input_data)
+
+
+# ============================================================================
+# Test Create Onboarding User Service (mock/real DB)
+# ============================================================================
+
+
+class TestCreateOnboardingUserService:
+    @pytest.mark.asyncio
+    async def test_create_user_email_auth_success(self, db_connection, test_uuid):
         """Test successful user creation with email auth."""
-        request = _create_mock_request(auth_method="email")
+        request = _create_onboarding_request(test_uuid, auth_method="email")
 
-        with patch("air1.services.outreach.onboarding.get_user_by_email") as mock_get_user, \
-             patch("air1.services.outreach.onboarding.create_user_with_onboarding") as mock_create, \
-             patch("air1.services.outreach.onboarding.settings") as mock_settings:
-
-            mock_get_user.return_value = None  # User doesn't exist
-            mock_create.return_value = (True, 123)
-            mock_settings.jwt_secret = "test-secret"
-            mock_settings.jwt_expiry_hours = 24
-
+        if db_connection:
+            # Real DB
             result = await create_onboarding_user(request)
-
             assert result is not None
-            assert result.user.id == "123"
-            assert result.user.email == "test@example.com"
+            assert result.user.email == request.auth.email
             assert result.token is not None
+            assert len(result.token.split(".")) == 3  # Valid JWT
+        else:
+            # Mocked
+            with patch("air1.services.outreach.onboarding.get_user_by_email") as mock_get_user, \
+                 patch("air1.services.outreach.onboarding.create_user_with_onboarding") as mock_create, \
+                 patch("air1.services.outreach.onboarding.settings") as mock_settings:
+
+                mock_get_user.return_value = None
+                mock_create.return_value = (True, 123)
+                mock_settings.jwt_secret = "test-secret"
+                mock_settings.jwt_expiry_hours = 24
+
+                result = await create_onboarding_user(request)
+                assert result is not None
+                assert result.user.id == "123"
+                assert result.user.email == request.auth.email
+                assert result.token is not None
 
     @pytest.mark.asyncio
-    async def test_create_user_email_exists_error(self):
+    async def test_create_user_email_exists_error(self, db_connection, test_uuid):
         """Test that existing email raises EmailExistsError."""
-        request = _create_mock_request(auth_method="email")
+        request = _create_onboarding_request(test_uuid, auth_method="email")
 
-        with patch("air1.services.outreach.onboarding.get_user_by_email") as mock_get_user:
-            mock_get_user.return_value = {"user_id": 1, "email": "test@example.com"}
+        if db_connection:
+            # Real DB - create first, then try duplicate
+            await create_onboarding_user(request)
 
+            # Try again with same email
             with pytest.raises(EmailExistsError):
                 await create_onboarding_user(request)
+        else:
+            # Mocked
+            with patch("air1.services.outreach.onboarding.get_user_by_email") as mock_get_user:
+                mock_get_user.return_value = {"user_id": 1, "email": request.auth.email}
+
+                with pytest.raises(EmailExistsError):
+                    await create_onboarding_user(request)
 
     @pytest.mark.asyncio
-    async def test_create_user_google_auth_success(self):
+    async def test_create_user_google_auth_success(self, db_connection, test_uuid):
         """Test successful user creation with Google auth."""
-        request = _create_mock_request(auth_method="google")
+        request = _create_onboarding_request(test_uuid, auth_method="google")
 
-        with patch("air1.services.outreach.onboarding.get_user_by_email") as mock_get_user, \
-             patch("air1.services.outreach.onboarding.create_user_with_onboarding") as mock_create, \
-             patch("air1.services.outreach.onboarding._verify_google_token") as mock_verify, \
-             patch("air1.services.outreach.onboarding.settings") as mock_settings:
+        # Google auth always needs token verification mocked (we can't get real Google tokens)
+        with patch("air1.services.outreach.onboarding._verify_google_token") as mock_verify:
+            mock_verify.return_value = {"email": request.auth.email}
 
-            mock_get_user.return_value = None
-            mock_verify.return_value = {"email": "test@gmail.com"}
-            mock_create.return_value = (True, 456)
-            mock_settings.jwt_secret = "test-secret"
-            mock_settings.jwt_expiry_hours = 24
+            if db_connection:
+                # Real DB
+                result = await create_onboarding_user(request)
+                assert result is not None
+                assert result.user.email == request.auth.email
+                assert result.token is not None
+            else:
+                # Mocked
+                with patch("air1.services.outreach.onboarding.get_user_by_email") as mock_get_user, \
+                     patch("air1.services.outreach.onboarding.create_user_with_onboarding") as mock_create, \
+                     patch("air1.services.outreach.onboarding.settings") as mock_settings:
 
-            result = await create_onboarding_user(request)
+                    mock_get_user.return_value = None
+                    mock_create.return_value = (True, 456)
+                    mock_settings.jwt_secret = "test-secret"
+                    mock_settings.jwt_expiry_hours = 24
 
-            assert result is not None
-            assert result.user.id == "456"
+                    result = await create_onboarding_user(request)
+                    assert result is not None
+                    assert result.user.id == "456"
 
     @pytest.mark.asyncio
-    async def test_create_user_invalid_google_token(self):
+    async def test_create_user_invalid_google_token(self, db_connection, test_uuid):
         """Test that invalid Google token raises InvalidGoogleTokenError."""
-        request = _create_mock_request(auth_method="google")
+        request = _create_onboarding_request(test_uuid, auth_method="google")
 
-        with patch("air1.services.outreach.onboarding.get_user_by_email") as mock_get_user, \
-             patch("air1.services.outreach.onboarding._verify_google_token") as mock_verify:
-
-            mock_get_user.return_value = None
+        with patch("air1.services.outreach.onboarding._verify_google_token") as mock_verify:
             mock_verify.return_value = None  # Invalid token
 
-            with pytest.raises(InvalidGoogleTokenError):
-                await create_onboarding_user(request)
+            if db_connection:
+                # Real DB - still raises because token verification fails
+                with pytest.raises(InvalidGoogleTokenError):
+                    await create_onboarding_user(request)
+            else:
+                # Mocked
+                with patch("air1.services.outreach.onboarding.get_user_by_email") as mock_get_user:
+                    mock_get_user.return_value = None
 
+                    with pytest.raises(InvalidGoogleTokenError):
+                        await create_onboarding_user(request)
 
 
 # ============================================================================
@@ -439,345 +628,3 @@ class TestFetchCompanyFromLinkedIn:
         assert result.name == "Minimal Corp"
         assert result.description == ""
         assert result.logo is None
-
-
-# ============================================================================
-# Test Onboarding Repo Functions
-# ============================================================================
-
-
-class TestOnboardingRepo:
-    @pytest.mark.asyncio
-    async def test_get_user_by_email_found(self):
-        """Test getting user by email when user exists."""
-        from air1.services.outreach.onboarding_repo import get_user_by_email
-
-        with patch("air1.services.outreach.onboarding_repo.get_prisma") as mock_get_prisma, \
-             patch("air1.services.outreach.onboarding_repo.queries") as mock_queries:
-
-            mock_prisma = AsyncMock()
-            mock_get_prisma.return_value = mock_prisma
-            mock_queries.get_user_by_email = AsyncMock(
-                return_value={"user_id": 1, "email": "test@example.com"}
-            )
-
-            result = await get_user_by_email("test@example.com")
-
-            assert result is not None
-            assert result["user_id"] == 1
-
-    @pytest.mark.asyncio
-    async def test_get_user_by_email_not_found(self):
-        """Test getting user by email when user doesn't exist."""
-        from air1.services.outreach.onboarding_repo import get_user_by_email
-
-        with patch("air1.services.outreach.onboarding_repo.get_prisma") as mock_get_prisma, \
-             patch("air1.services.outreach.onboarding_repo.queries") as mock_queries:
-
-            mock_prisma = AsyncMock()
-            mock_get_prisma.return_value = mock_prisma
-            mock_queries.get_user_by_email = AsyncMock(return_value=None)
-
-            result = await get_user_by_email("nonexistent@example.com")
-
-            assert result is None
-
-    @pytest.mark.asyncio
-    async def test_create_user_with_onboarding_success(self):
-        """Test successful user creation with all onboarding data."""
-        from air1.services.outreach.onboarding_repo import create_user_with_onboarding
-
-        input_data = CreateUserInput(
-            email="new@example.com",
-            first_name="New",
-            last_name="User",
-            auth_method="email",
-            password_hash="salt:hash",
-            timezone="EST",
-            meeting_link="https://cal.com/new",
-            linkedin_connected=False,
-            company_name="New Corp",
-            company_description="New company",
-            company_website="https://new.com",
-            company_industry="Tech",
-            company_linkedin_url="https://linkedin.com/company/new",
-            company_size="0-10",
-            product_name="New Product",
-            product_url="https://new.com/product",
-            product_description="New product desc",
-            product_icp="Startups",
-            product_competitors=None,
-            writing_style_template=None,
-            writing_style_dos=[],
-            writing_style_donts=[],
-        )
-
-        with patch("air1.services.outreach.onboarding_repo.get_prisma") as mock_get_prisma, \
-             patch("air1.services.outreach.onboarding_repo.queries") as mock_queries:
-
-            # Create proper async context manager mock for transaction
-            mock_tx = MagicMock()
-            mock_tx_cm = MagicMock()
-            mock_tx_cm.__aenter__ = AsyncMock(return_value=mock_tx)
-            mock_tx_cm.__aexit__ = AsyncMock(return_value=None)
-
-            mock_prisma = MagicMock()
-            mock_prisma.tx.return_value = mock_tx_cm
-            # get_prisma is async, so return_value needs to be awaitable
-            mock_get_prisma.return_value = mock_prisma
-
-            mock_queries.insert_user = AsyncMock(return_value={"userId": 999})
-            mock_queries.insert_user_company = AsyncMock(return_value={"companyId": 1})
-            mock_queries.insert_user_product = AsyncMock(return_value={"productId": 1})
-            mock_queries.insert_user_writing_style = AsyncMock(return_value={"writingStyleId": 1})
-
-            success, user_id = await create_user_with_onboarding(input_data)
-
-            assert success is True
-            assert user_id == 999
-
-    @pytest.mark.asyncio
-    async def test_create_user_with_onboarding_duplicate_email(self):
-        """Test that duplicate email raises UserExistsError."""
-        from air1.services.outreach.onboarding_repo import (
-            create_user_with_onboarding,
-            UserExistsError,
-        )
-
-        input_data = CreateUserInput(
-            email="existing@example.com",
-            first_name="Existing",
-            last_name="User",
-            auth_method="email",
-            password_hash="salt:hash",
-            timezone="EST",
-            meeting_link="https://cal.com/existing",
-            linkedin_connected=False,
-            company_name="Existing Corp",
-            company_description="Existing company",
-            company_website="https://existing.com",
-            company_industry="Tech",
-            company_linkedin_url="https://linkedin.com/company/existing",
-            company_size="0-10",
-            product_name="Existing Product",
-            product_url="https://existing.com/product",
-            product_description="Existing product desc",
-            product_icp="Enterprises",
-            product_competitors=None,
-            writing_style_template=None,
-            writing_style_dos=[],
-            writing_style_donts=[],
-        )
-
-        with patch("air1.services.outreach.onboarding_repo.get_prisma") as mock_get_prisma, \
-             patch("air1.services.outreach.onboarding_repo.queries") as mock_queries:
-
-            # Create proper async context manager mock for transaction
-            mock_tx = MagicMock()
-            mock_tx_cm = MagicMock()
-            mock_tx_cm.__aenter__ = AsyncMock(return_value=mock_tx)
-            mock_tx_cm.__aexit__ = AsyncMock(return_value=None)
-
-            mock_prisma = MagicMock()
-            mock_prisma.tx.return_value = mock_tx_cm
-            mock_get_prisma.return_value = mock_prisma
-
-            # ON CONFLICT DO NOTHING returns None
-            mock_queries.insert_user = AsyncMock(return_value=None)
-
-            with pytest.raises(UserExistsError):
-                await create_user_with_onboarding(input_data)
-
-
-
-# ============================================================================
-# Integration Tests (hit real database)
-# Run with: pytest -m integration
-# Skip with: pytest -m "not integration"
-# ============================================================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_integration_create_user_with_onboarding():
-    """Integration test: Create a real user in the database."""
-    import uuid
-    from air1.db.prisma_client import connect_db, disconnect_db
-    from air1.services.outreach.onboarding_repo import (
-        create_user_with_onboarding,
-        get_user_by_email,
-    )
-
-    try:
-        await connect_db()
-
-        test_uuid = str(uuid.uuid4())[:8]
-        test_email = f"test.user.{test_uuid}@example.com"
-
-        input_data = CreateUserInput(
-            email=test_email,
-            first_name="Test",
-            last_name="User",
-            auth_method="email",
-            password_hash="salt:hash",
-            timezone="EST",
-            meeting_link=f"https://cal.com/test-{test_uuid}",
-            linkedin_connected=False,
-            company_name=f"Test Corp {test_uuid}",
-            company_description="Test company description",
-            company_website="https://test.com",
-            company_industry="Technology",
-            company_linkedin_url=f"https://linkedin.com/company/test-{test_uuid}",
-            company_size="10-100",
-            product_name="Test Product",
-            product_url="https://test.com/product",
-            product_description="Test product description",
-            product_icp="Test ICP",
-            product_competitors="Competitor1, Competitor2",
-            writing_style_template="default",
-            writing_style_dos=["be clear", "be concise"],
-            writing_style_donts=["be verbose"],
-        )
-
-        success, user_id = await create_user_with_onboarding(input_data)
-
-        assert success is True, "Failed to create user"
-        assert user_id is not None, "User ID should not be None"
-
-        # Verify user was created
-        user = await get_user_by_email(test_email)
-        assert user is not None, "User should exist in database"
-        assert user["email"] == test_email
-
-        print(f"✓ Created user with ID: {user_id}, email: {test_email}")
-
-    finally:
-        await disconnect_db()
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_integration_duplicate_email_rejected():
-    """Integration test: Duplicate email should raise UserExistsError."""
-    import uuid
-    from air1.db.prisma_client import connect_db, disconnect_db
-    from air1.services.outreach.onboarding_repo import (
-        create_user_with_onboarding,
-        UserExistsError,
-    )
-
-    try:
-        await connect_db()
-
-        test_uuid = str(uuid.uuid4())[:8]
-        test_email = f"duplicate.test.{test_uuid}@example.com"
-
-        input_data = CreateUserInput(
-            email=test_email,
-            first_name="Duplicate",
-            last_name="Test",
-            auth_method="email",
-            password_hash="salt:hash",
-            timezone="EST",
-            meeting_link=f"https://cal.com/dup-{test_uuid}",
-            linkedin_connected=False,
-            company_name=f"Dup Corp {test_uuid}",
-            company_description="Duplicate test",
-            company_website="https://dup.com",
-            company_industry="Tech",
-            company_linkedin_url=f"https://linkedin.com/company/dup-{test_uuid}",
-            company_size="0-10",
-            product_name="Dup Product",
-            product_url="https://dup.com/product",
-            product_description="Dup product",
-            product_icp="Dup ICP",
-            product_competitors=None,
-            writing_style_template=None,
-            writing_style_dos=[],
-            writing_style_donts=[],
-        )
-
-        # First insert should succeed
-        success, user_id = await create_user_with_onboarding(input_data)
-        assert success is True
-
-        # Second insert with same email should fail
-        input_data.company_linkedin_url = f"https://linkedin.com/company/dup2-{test_uuid}"
-        with pytest.raises(UserExistsError):
-            await create_user_with_onboarding(input_data)
-
-        print(f"✓ Duplicate email correctly rejected for: {test_email}")
-
-    finally:
-        await disconnect_db()
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_integration_full_onboarding_flow():
-    """Integration test: Full onboarding flow through service."""
-    import uuid
-    from air1.db.prisma_client import connect_db, disconnect_db
-    from air1.services.outreach.onboarding import create_onboarding_user
-    from air1.api.models.onboarding import (
-        OnboardingRequest,
-        AuthData,
-        CompanyData,
-        EmployeeCount,
-        ProductData,
-        WritingStyleData,
-        LinkedinData,
-        ProfileData,
-    )
-
-    try:
-        await connect_db()
-
-        test_uuid = str(uuid.uuid4())[:8]
-
-        request = OnboardingRequest(
-            auth=AuthData(
-                method="email",
-                email=f"onboarding.test.{test_uuid}@example.com",
-                firstName="Onboarding",
-                lastName="Test",
-                password="securepassword123",
-            ),
-            company=CompanyData(
-                name=f"Onboarding Corp {test_uuid}",
-                description="Full onboarding test",
-                website="https://onboarding.com",
-                industry="Technology",
-                linkedinUrl=f"https://linkedin.com/company/onboarding-{test_uuid}",
-                employeeCount=EmployeeCount.SMALL,
-            ),
-            product=ProductData(
-                name="Onboarding Product",
-                url="https://onboarding.com/product",
-                description="Test product",
-                idealCustomerProfile="Engineering teams",
-                competitors="Stripe, Twilio",
-            ),
-            writingStyle=WritingStyleData(
-                selectedTemplate="professional",
-                dos=["be professional"],
-                donts=["be casual"],
-            ),
-            linkedin=LinkedinData(connected=True),
-            profile=ProfileData(
-                timezone="PST",
-                meetingLink=f"https://cal.com/onboarding-{test_uuid}",
-            ),
-        )
-
-        response = await create_onboarding_user(request)
-
-        assert response is not None
-        assert response.user.email == request.auth.email
-        assert response.token is not None
-        assert len(response.token.split(".")) == 3  # Valid JWT format
-
-        print(f"✓ Full onboarding completed for user ID: {response.user.id}")
-
-    finally:
-        await disconnect_db()
