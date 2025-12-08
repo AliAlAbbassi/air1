@@ -101,7 +101,13 @@ class BrowserSession:
             logger.error(f"Unexpected error scraping experience for {profile_id}: {str(e)}")
             return []
 
-    async def get_company_members(self, company_id: str, limit=10, keywords: Optional[list[str]] = None) -> CompanyPeople:
+    async def get_company_members(
+        self,
+        company_id: str,
+        limit=10,
+        keywords: Optional[list[str]] = None,
+        location_ids: Optional[list[str]] = None,
+    ) -> CompanyPeople:
         """
         Get all profile IDs of people working at a company
 
@@ -109,16 +115,23 @@ class BrowserSession:
             company_id (str): LinkedIn company ID (e.g., 'oreyeon')
             limit (int): Maximum number of pages to load
             keywords (list[str], optional): Keywords to filter members by headline
+            location_ids (list[str], optional): LinkedIn geo region IDs to filter by location
+                (e.g., ['105606446', '101834488'] for specific regions)
 
         Returns:
             CompanyPeople: Set of profile IDs
         """
-        # Build URL with optional keywords parameter
+        # Build URL with optional filter parameters
         company_url = f"https://www.linkedin.com/company/{company_id}/people/"
+        params = []
+        if location_ids:
+            # Join location IDs with comma for LinkedIn's facetGeoRegion parameter
+            params.append(f"facetGeoRegion={','.join(location_ids)}")
         if keywords:
             # Join keywords with comma for LinkedIn's URL format
-            keywords_param = ",".join(keywords)
-            company_url = f"{company_url}?keywords={keywords_param}"
+            params.append(f"keywords={','.join(keywords)}")
+        if params:
+            company_url = f"{company_url}?{'&'.join(params)}"
 
         page = await self._setup_page()
         await navigate_to_linkedin_url(page, company_url)
