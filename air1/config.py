@@ -91,6 +91,17 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, description="Debug mode")
     cors_origins: list[str] = Field(default=["*"], description="CORS allowed origins")
 
+    # JWT configuration
+    jwt_secret: str = Field(
+        default="dev-secret-change-in-production",
+        description="Secret key for JWT token signing"
+    )
+    jwt_expiry_hours: int = Field(
+        default=168,  # 7 days
+        ge=1,
+        description="JWT token expiry in hours"
+    )
+
     @field_validator("database_port")
     @classmethod
     def validate_port(cls, v: int) -> int:

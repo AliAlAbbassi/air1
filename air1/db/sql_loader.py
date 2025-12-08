@@ -164,6 +164,34 @@ class OutreachQueries(Protocol):
     ) -> Optional[Dict[str, Any]]: ...
 
 
+class OnboardingQueries(Protocol):
+    """
+    Protocol for onboarding SQL queries.
+    Note: aiosql generates functions that accept **kwargs matching SQL :param names.
+    """
+
+    async def get_user_by_email(
+        self, conn: Any, *, email: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_user(
+        self, conn: Any, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_user_company(
+        self, conn: Any, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_user_product(
+        self, conn: Any, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_user_writing_style(
+        self, conn: Any, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]: ...
+
+
 # Load queries for the Outreach service
 # This object contains methods from all SQL files in the directory
 outreach_queries: OutreachQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
+onboarding_queries: OnboardingQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore

@@ -80,6 +80,16 @@ class IService(ABC):
         """
         pass
 
+    @abstractmethod
+    async def create_onboarding_user(self, request) -> any:
+        """Create a new user with all onboarding data."""
+        pass
+
+    @abstractmethod
+    async def fetch_company_from_linkedin(self, linkedin_url: str) -> any:
+        """Fetch company data from LinkedIn URL."""
+        pass
+
 
 class Service(IService):
     def __init__(self, playwright: Optional[Playwright] = None):
@@ -402,5 +412,21 @@ class Service(IService):
         except Exception as e:
             logger.error(f"Error saving lead from profile {profile_username}: {e}")
             return None
+        finally:
+            await session.browser.close()
+
+    async def create_onboarding_user(self, request):
+        """Create a new user with all onboarding data."""
+        from air1.services.outreach.onboarding import create_onboarding_user
+
+        return await create_onboarding_user(request)
+
+    async def fetch_company_from_linkedin(self, linkedin_url: str):
+        """Fetch company data from LinkedIn URL."""
+        from air1.services.outreach.onboarding import fetch_company_from_linkedin
+
+        session = await self.launch_browser(headless=True)
+        try:
+            return await fetch_company_from_linkedin(linkedin_url, session)
         finally:
             await session.browser.close()
