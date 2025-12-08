@@ -38,6 +38,7 @@ class IService(ABC):
         limit=10,
         headless=True,
         keywords: Optional[List[str]] = None,
+        location_ids: Optional[List[str]] = None,
     ) -> dict[str, int]:
         pass
 
@@ -145,6 +146,7 @@ class Service(IService):
         limit=10,
         headless=True,
         keywords: Optional[List[str]] = None,
+        location_ids: Optional[List[str]] = None,
     ) -> CompanyPeople:
         """
         Get all profile IDs of people working at a company (launches and closes browser automatically)
@@ -154,6 +156,7 @@ class Service(IService):
             limit (int): Maximum number of pages to load
             headless (bool): Run browser in headless mode
             keywords (List[str], optional): Keywords to filter members by headline
+            location_ids (List[str], optional): LinkedIn geo region IDs to filter by location
 
         Returns:
             CompanyPeople: Set of profile IDs
@@ -161,10 +164,12 @@ class Service(IService):
         logger.info(f"Fetching Company Profiles for {company_id}...")
         if keywords:
             logger.info(f"Filtering by keywords: {keywords}")
+        if location_ids:
+            logger.info(f"Filtering by location IDs: {location_ids}")
         session = await self.launch_browser(headless=headless)
         try:
             return await session.get_company_members(
-                company_id, limit=limit, keywords=keywords
+                company_id, limit=limit, keywords=keywords, location_ids=location_ids
             )
         finally:
             await session.browser.close()
@@ -175,6 +180,7 @@ class Service(IService):
         limit=10,
         headless=True,
         keywords: Optional[List[str]] = None,
+        location_ids: Optional[List[str]] = None,
     ):
         """
         Scrape LinkedIn company profiles and save leads to database
@@ -184,6 +190,7 @@ class Service(IService):
             limit (int): Maximum number of profiles to process
             headless (bool): Run browser in headless mode
             keywords (List[str], optional): Keywords to filter members by headline
+            location_ids (List[str], optional): LinkedIn geo region IDs to filter by location
 
         Returns:
             int: Number of leads saved
@@ -191,13 +198,15 @@ class Service(IService):
         logger.debug(f"Launching browser for {company_id}...")
         if keywords:
             logger.debug(f"Using keywords filter: {keywords}")
+        if location_ids:
+            logger.debug(f"Using location filter: {location_ids}")
         session = await self.launch_browser(headless=headless)
         leads_saved = 0
 
         try:
             logger.debug(f"Getting company members for {company_id}...")
             company_people = await session.get_company_members(
-                company_id, limit=limit, keywords=keywords
+                company_id, limit=limit, keywords=keywords, location_ids=location_ids
             )
             logger.info(
                 f"Found {len(company_people.profile_ids)} profiles for company {company_id}"
@@ -260,6 +269,7 @@ class Service(IService):
         limit=10,
         headless=True,
         keywords: Optional[List[str]] = None,
+        location_ids: Optional[List[str]] = None,
     ) -> dict[str, int]:
         """
         Args:
@@ -267,6 +277,7 @@ class Service(IService):
             limit: Maximum number of company member pages
             headless: Run browser in headless mode
             keywords: Optional list of keywords to filter members by headline
+            location_ids: Optional list of LinkedIn geo region IDs to filter by location
 
         Returns:
             dict: Results for each company with leads saved count
@@ -274,7 +285,7 @@ class Service(IService):
         results = {}
         for company_id in company_ids:
             leads_saved = await self.scrape_and_save_company_leads(
-                company_id, limit=limit, headless=headless, keywords=keywords
+                company_id, limit=limit, headless=headless, keywords=keywords, location_ids=location_ids
             )
             results[company_id] = leads_saved
         return results
