@@ -7,7 +7,7 @@ from air1.services.outreach.service import Service
 
 
 @pytest.mark.asyncio
-# @pytest.mark.online
+@pytest.mark.online
 async def test_fetch_company_real_browser():
     """
     Test scraping a real company from LinkedIn using a live browser session.
