@@ -1,4 +1,5 @@
 """Onboarding functions for user account creation."""
+
 import base64
 import hashlib
 import hmac
@@ -147,7 +148,6 @@ async def _verify_google_token(token: str) -> Optional[dict]:
         return None
 
 
-
 async def create_onboarding_user(request: OnboardingRequest) -> OnboardingResponse:
     """Create a new user with all onboarding data."""
     auth = request.auth
@@ -159,7 +159,11 @@ async def create_onboarding_user(request: OnboardingRequest) -> OnboardingRespon
 
     # Verify Google token if using Google auth
     if auth.method.value == "google":
-        google_info = await _verify_google_token(auth.google_access_token)
+        token = auth.google_access_token
+        if not token:
+            raise InvalidGoogleTokenError("Google access token is required")
+
+        google_info = await _verify_google_token(token)
         if not google_info:
             raise InvalidGoogleTokenError("Invalid Google access token")
 
@@ -235,6 +239,7 @@ async def fetch_company_from_linkedin(
     company_username = match.group(1)
 
     company_data = await browser_session.get_company_info(company_username)
+    logger.info(f"Fetched company data for {company_username}: {company_data}")
     return CompanyFetchResponse(
         name=company_data.get("name", ""),
         description=company_data.get("description", ""),

@@ -83,3 +83,137 @@ class CompanyScraper:
             raise CompanyScrapingError(
                 f"Unexpected error scraping company {company_id}: {str(e)}"
             ) from e
+
+    @staticmethod
+    async def extract_company_info(page: Page, company_id: str) -> dict:
+        """Extract company information from the about page.
+
+        Args:
+            page: Playwright page with LinkedIn company about page loaded.
+            company_id: LinkedIn company identifier.
+
+        Returns:
+            Dictionary with company details (name, description, website, industry, logo)
+        """
+        data = {
+            "name": "",
+            "description": "",
+            "website": "",
+            "industry": "",
+            "logo": None,
+        }
+
+        try:
+            # Wait for main content
+            try:
+                await page.wait_for_selector("main", timeout=10000)
+            except Exception:
+                logger.warning(f"Timeout waiting for main content for {company_id}")
+
+            # Extract Name
+            name_selectors = ["h1", ".org-top-card-summary__title"]
+            for selector in name_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        name = await elem.text_content()
+                        if name:
+                            data["name"] = name.strip()
+                            break
+                except Exception:
+                    continue
+
+            # Extract Description
+            desc_selectors = [
+                # Specific class for description
+                ".org-page-details-module__description",
+                # "Overview" section text
+                "section:has(h2:has-text('Overview')) p",
+                # Fallback to broad paragraph but try to exclude short text or admin prompts
+                "section.artdeco-card p",
+            ]
+            for selector in desc_selectors:
+                try:
+                    elems = await page.locator(selector).all()
+                    for elem in elems:
+                        desc = await elem.text_content()
+                        if desc:
+                            desc = desc.strip()
+                            # Filter out known admin prompt noise if it matches specific patterns
+                            if "grow 4x faster" in desc.lower():
+                                continue
+                            if len(desc) > 20:  # basic filter for empty/short strings
+                                data["description"] = desc
+                                break
+                    if data["description"]:
+                        break
+                except Exception:
+                    continue
+
+            # Extract Website
+            website_selectors = [
+                # Primary button/link
+                "a.org-page-details-module__website-link",
+                # Definition list style
+                "dt:has-text('Website') + dd a",
+                "dt:has-text('Website') + dd",
+                # Generic link with text
+                "a[href^='http']:has-text('Visit website')",
+            ]
+            for selector in website_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        # Prefer href if it's an anchor
+                        href = await elem.get_attribute("href")
+                        if href and "http" in href:
+                            data["website"] = href.strip()
+                            break
+                        # Fallback to text if no href or not an anchor
+                        text = await elem.text_content()
+                        if text and "http" in text:
+                            data["website"] = text.strip()
+                            break
+                except Exception:
+                    continue
+
+            # Extract Industry
+            industry_selectors = [
+                "dt:has-text('Industry') + dd",
+                ".org-top-card-summary-info-list__info-item:first-child",
+            ]
+            for selector in industry_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        industry = await elem.text_content()
+                        if industry:
+                            data["industry"] = industry.strip()
+                            break
+                except Exception:
+                    continue
+
+            # Extract Logo
+            logo_selectors = [
+                "img.org-top-card-primary-content__logo",
+                ".org-top-card-primary-content__logo-container img",
+                "img[alt*='logo']",
+                # Profile image style
+                "img.evi-image",
+            ]
+            for selector in logo_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        src = await elem.get_attribute("src")
+                        if src:
+                            data["logo"] = src.strip()
+                            break
+                except Exception:
+                    continue
+
+            return data
+
+        except Exception as e:
+            logger.error(f"Error scraping company info for {company_id}: {e}")
+            return data
