@@ -39,6 +39,7 @@ class IService(ABC):
         headless=True,
         keywords: Optional[List[str]] = None,
         location_ids: Optional[List[str]] = None,
+        profile_limit: Optional[int] = None,
     ) -> dict[str, int]:
         pass
 
@@ -181,16 +182,18 @@ class Service(IService):
         headless=True,
         keywords: Optional[List[str]] = None,
         location_ids: Optional[List[str]] = None,
+        profile_limit: Optional[int] = None,
     ):
         """
         Scrape LinkedIn company profiles and save leads to database
 
         Args:
             company_id (str): LinkedIn company ID
-            limit (int): Maximum number of profiles to process
+            limit (int): Maximum number of "Show more" clicks for pagination
             headless (bool): Run browser in headless mode
             keywords (List[str], optional): Keywords to filter members by headline
             location_ids (List[str], optional): LinkedIn geo region IDs to filter by location
+            profile_limit (int, optional): Maximum number of profiles to process/save
 
         Returns:
             int: Number of leads saved
@@ -212,7 +215,12 @@ class Service(IService):
                 f"Found {len(company_people.profile_ids)} profiles for company {company_id}"
             )
 
-            for i, profile_id in enumerate(company_people.profile_ids):
+            profile_ids = list(company_people.profile_ids)
+            if profile_limit is not None:
+                profile_ids = profile_ids[:profile_limit]
+                logger.info(f"Limiting to {len(profile_ids)} profiles (profile_limit={profile_limit})")
+
+            for i, profile_id in enumerate(profile_ids):
                 # Random delay between profiles to emulate human behavior (5-15 seconds)
                 if i > 0:
                     delay = random.uniform(5, 15)
@@ -270,14 +278,16 @@ class Service(IService):
         headless=True,
         keywords: Optional[List[str]] = None,
         location_ids: Optional[List[str]] = None,
+        profile_limit: Optional[int] = None,
     ) -> dict[str, int]:
         """
         Args:
             company_ids: List of LinkedIn company IDs to scrape
-            limit: Maximum number of company member pages
+            limit: Maximum number of "Show more" clicks for pagination
             headless: Run browser in headless mode
             keywords: Optional list of keywords to filter members by headline
             location_ids: Optional list of LinkedIn geo region IDs to filter by location
+            profile_limit: Maximum number of profiles to process/save per company
 
         Returns:
             dict: Results for each company with leads saved count
@@ -285,7 +295,7 @@ class Service(IService):
         results = {}
         for company_id in company_ids:
             leads_saved = await self.scrape_and_save_company_leads(
-                company_id, limit=limit, headless=headless, keywords=keywords, location_ids=location_ids
+                company_id, limit=limit, headless=headless, keywords=keywords, location_ids=location_ids, profile_limit=profile_limit
             )
             results[company_id] = leads_saved
         return results
