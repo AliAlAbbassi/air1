@@ -125,42 +125,62 @@ class CompanyScraper:
 
             # Extract Description
             desc_selectors = [
-                "p.break-words",
+                # Specific class for description
                 ".org-page-details-module__description",
+                # "Overview" section text
+                "section:has(h2:has-text('Overview')) p",
+                # Fallback to broad paragraph but try to exclude short text or admin prompts
                 "section.artdeco-card p",
             ]
             for selector in desc_selectors:
                 try:
-                    elem = page.locator(selector).first
-                    if await elem.count() > 0:
+                    elems = await page.locator(selector).all()
+                    for elem in elems:
                         desc = await elem.text_content()
                         if desc:
-                            data["description"] = desc.strip()
-                            break
+                            desc = desc.strip()
+                            # Filter out known admin prompt noise if it matches specific patterns
+                            if "grow 4x faster" in desc.lower():
+                                continue
+                            if len(desc) > 20:  # basic filter for empty/short strings
+                                data["description"] = desc
+                                break
+                    if data["description"]:
+                        break
                 except Exception:
                     continue
 
             # Extract Website
             website_selectors = [
-                ".org-page-details-module__website-link",
-                "a[href^='http']:has-text('Visit website')",
+                # Primary button/link
+                "a.org-page-details-module__website-link",
+                # Definition list style
                 "dt:has-text('Website') + dd a",
+                "dt:has-text('Website') + dd",
+                # Generic link with text
+                "a[href^='http']:has-text('Visit website')",
             ]
             for selector in website_selectors:
                 try:
                     elem = page.locator(selector).first
                     if await elem.count() > 0:
+                        # Prefer href if it's an anchor
                         href = await elem.get_attribute("href")
-                        if href:
+                        if href and "http" in href:
                             data["website"] = href.strip()
+                            break
+                        # Fallback to text if no href or not an anchor
+                        text = await elem.text_content()
+                        if text and "http" in text:
+                            data["website"] = text.strip()
                             break
                 except Exception:
                     continue
 
             # Extract Industry
             industry_selectors = [
-                ".org-top-card-summary-info-list__info-item:first-child",
                 "dt:has-text('Industry') + dd",
+                ".org-top-card-summary-info-list__info-item:first-child",
             ]
             for selector in industry_selectors:
                 try:
@@ -175,8 +195,11 @@ class CompanyScraper:
 
             # Extract Logo
             logo_selectors = [
-                ".org-top-card-primary-content__logo-container img",
                 "img.org-top-card-primary-content__logo",
+                ".org-top-card-primary-content__logo-container img",
+                "img[alt*='logo']",
+                # Profile image style
+                "img.evi-image",
             ]
             for selector in logo_selectors:
                 try:
