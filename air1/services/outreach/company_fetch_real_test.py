@@ -1,10 +1,13 @@
-import pytest
 import os
+
+import pytest
+from loguru import logger
+
 from air1.services.outreach.service import Service
 
 
 @pytest.mark.asyncio
-@pytest.mark.online
+# @pytest.mark.online
 async def test_fetch_company_real_browser():
     """
     Test scraping a real company from LinkedIn using a live browser session.
@@ -14,21 +17,21 @@ async def test_fetch_company_real_browser():
     """
     # Ensure LINKEDIN_SID is present
     if not os.getenv("LINKEDIN_SID"):
-        pytest.fail("LINKEDIN_SID environment variable is required for online tests")
+        pytest.skip("LINKEDIN_SID environment variable not set - skipping online test")
 
     # Target company to test
     target_url = "https://www.linkedin.com/company/google"
 
-    print(f"\nTesting with URL: {target_url}")
+    logger.info(f"Testing with URL: {target_url}")
 
     async with Service() as service:
         try:
             result = await service.fetch_company_from_linkedin(target_url)
 
-            print(f"\nSuccessfully fetched company: {result.name}")
-            print(f"Description: {result.description[:100]}...")
-            print(f"Website: {result.website}")
-            print(f"Industry: {result.industry}")
+            logger.info(f"Successfully fetched company: {result.name}")
+            logger.info(f"Description: {result.description[:100]}...")
+            logger.info(f"Website: {result.website}")
+            logger.info(f"Industry: {result.industry}")
 
             assert result.name is not None
             assert len(result.name) > 0
