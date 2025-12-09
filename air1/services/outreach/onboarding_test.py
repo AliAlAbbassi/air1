@@ -26,7 +26,6 @@ from air1.services.outreach.onboarding import (
 from air1.api.models.onboarding import (
     OnboardingRequest,
     AuthData,
-    AuthMethod,
     CompanyData,
     EmployeeCount,
     ProductData,

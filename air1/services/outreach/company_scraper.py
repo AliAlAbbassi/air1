@@ -83,3 +83,114 @@ class CompanyScraper:
             raise CompanyScrapingError(
                 f"Unexpected error scraping company {company_id}: {str(e)}"
             ) from e
+
+    @staticmethod
+    async def extract_company_info(page: Page, company_id: str) -> dict:
+        """Extract company information from the about page.
+
+        Args:
+            page: Playwright page with LinkedIn company about page loaded.
+            company_id: LinkedIn company identifier.
+
+        Returns:
+            Dictionary with company details (name, description, website, industry, logo)
+        """
+        data = {
+            "name": "",
+            "description": "",
+            "website": "",
+            "industry": "",
+            "logo": None,
+        }
+
+        try:
+            # Wait for main content
+            try:
+                await page.wait_for_selector("main", timeout=10000)
+            except Exception:
+                logger.warning(f"Timeout waiting for main content for {company_id}")
+
+            # Extract Name
+            name_selectors = ["h1", ".org-top-card-summary__title"]
+            for selector in name_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        name = await elem.text_content()
+                        if name:
+                            data["name"] = name.strip()
+                            break
+                except Exception:
+                    continue
+
+            # Extract Description
+            desc_selectors = [
+                "p.break-words",
+                ".org-page-details-module__description",
+                "section.artdeco-card p",
+            ]
+            for selector in desc_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        desc = await elem.text_content()
+                        if desc:
+                            data["description"] = desc.strip()
+                            break
+                except Exception:
+                    continue
+
+            # Extract Website
+            website_selectors = [
+                ".org-page-details-module__website-link",
+                "a[href^='http']:has-text('Visit website')",
+                "dt:has-text('Website') + dd a",
+            ]
+            for selector in website_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        href = await elem.get_attribute("href")
+                        if href:
+                            data["website"] = href.strip()
+                            break
+                except Exception:
+                    continue
+
+            # Extract Industry
+            industry_selectors = [
+                ".org-top-card-summary-info-list__info-item:first-child",
+                "dt:has-text('Industry') + dd",
+            ]
+            for selector in industry_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        industry = await elem.text_content()
+                        if industry:
+                            data["industry"] = industry.strip()
+                            break
+                except Exception:
+                    continue
+
+            # Extract Logo
+            logo_selectors = [
+                ".org-top-card-primary-content__logo-container img",
+                "img.org-top-card-primary-content__logo",
+            ]
+            for selector in logo_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if await elem.count() > 0:
+                        src = await elem.get_attribute("src")
+                        if src:
+                            data["logo"] = src.strip()
+                            break
+                except Exception:
+                    continue
+
+            return data
+
+        except Exception as e:
+            logger.error(f"Error scraping company info for {company_id}: {e}")
+            return data

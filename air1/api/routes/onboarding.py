@@ -2,11 +2,11 @@ from fastapi import APIRouter, HTTPException
 from loguru import logger
 
 from air1.api.models.onboarding import (
-    OnboardingRequest,
-    OnboardingResponse,
     CompanyFetchRequest,
     CompanyFetchResponse,
     ErrorResponse,
+    OnboardingRequest,
+    OnboardingResponse,
 )
 from air1.services.outreach.onboarding import (
     EmailExistsError,

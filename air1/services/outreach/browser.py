@@ -98,8 +98,27 @@ class BrowserSession:
             logger.error(f"Failed to scrape experience for {profile_id}: {str(e)}")
             return []
         except Exception as e:
-            logger.error(f"Unexpected error scraping experience for {profile_id}: {str(e)}")
+            logger.error(
+                f"Unexpected error scraping experience for {profile_id}: {str(e)}"
+            )
             return []
+
+    async def get_company_info(self, company_id: str) -> dict:
+        """
+        Get company information (name, description, etc.)
+
+        Args:
+            company_id: LinkedIn company ID or username
+
+        Returns:
+            Dictionary with company details
+        """
+        # Try navigating to the about page which usually has the most details
+        company_url = f"https://www.linkedin.com/company/{company_id}/about/"
+        page = await self._setup_page()
+        await navigate_to_linkedin_url(page, company_url)
+
+        return await CompanyScraper.extract_company_info(page, company_id)
 
     async def get_company_members(
         self,
