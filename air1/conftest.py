@@ -43,6 +43,25 @@ def use_real_db(request):
     return request.config.getoption("--use-real-db", default=False)
 
 
+@pytest.fixture(autouse=True)
+def loguru_sink(caplog):
+    """Redirect Loguru logs to Pytest's standard logging handler."""
+    import logging
+    from loguru import logger
+
+    class PropagateHandler(logging.Handler):
+        def emit(self, record):
+            logging.getLogger(record.name).handle(record)
+
+    handler_id = logger.add(
+        PropagateHandler(),
+        format="{message}",
+        level="INFO",
+    )
+    yield
+    logger.remove(handler_id)
+
+
 @pytest.fixture
 async def db_connection(use_real_db):
     """Fixture that connects to real DB or provides mock based on flag."""
