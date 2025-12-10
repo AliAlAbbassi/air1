@@ -191,7 +191,27 @@ class OnboardingQueries(Protocol):
     ) -> Optional[Dict[str, Any]]: ...
 
 
+class AccountQueries(Protocol):
+    """Protocol for account SQL queries."""
+
+    async def get_account_by_user_id(
+        self, conn: Any, *, user_id: int
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def update_user_profile(
+        self,
+        conn: Any,
+        *,
+        user_id: int,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        timezone: Optional[str] = None,
+        meeting_link: Optional[str] = None,
+    ) -> None: ...
+
+
 # Load queries for the Outreach service
 # This object contains methods from all SQL files in the directory
 outreach_queries: OutreachQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 onboarding_queries: OnboardingQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
+account_queries: AccountQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
