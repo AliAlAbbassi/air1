@@ -102,9 +102,15 @@ class Settings(BaseSettings):
         description="JWT token expiry in hours"
     )
 
-    # AI/LLM configuration
-    openai_api_key: Optional[str] = Field(
-        default=None, description="OpenAI API key for CrewAI agents"
+    # AI/LLM configuration (Vertex AI)
+    google_cloud_project: Optional[str] = Field(
+        default=None, description="Google Cloud project ID for Vertex AI"
+    )
+    google_cloud_region: str = Field(
+        default="us-central1", description="Google Cloud region for Vertex AI"
+    )
+    vertex_ai_model: str = Field(
+        default="gemini-1.5-flash", description="Vertex AI model to use"
     )
 
     @field_validator("database_port")

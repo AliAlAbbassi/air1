@@ -8,11 +8,24 @@ from air1.agents.research.tools import (
     news_search_tool,
     job_posting_tool,
 )
+from air1.config import settings
 
 
 def get_llm() -> LLM:
-    """Get the LLM instance for agents."""
-    return LLM(model="openai/gpt-4o-mini", temperature=0.7)
+    """
+    Get the LLM instance for agents using Vertex AI.
+    
+    Requires:
+    - GOOGLE_CLOUD_PROJECT env var or settings.google_cloud_project
+    - GOOGLE_CLOUD_REGION env var or settings.google_cloud_region
+    - Google Cloud credentials (GOOGLE_APPLICATION_CREDENTIALS or gcloud auth)
+    """
+    return LLM(
+        model=f"vertex_ai/{settings.vertex_ai_model}",
+        temperature=0.7,
+        vertex_project=settings.google_cloud_project,
+        vertex_location=settings.google_cloud_region,
+    )
 
 
 def create_linkedin_researcher() -> Agent:
