@@ -12,7 +12,7 @@ from air1.api.models.account import (
     LinkedinData,
     UserData,
 )
-from air1.services.outreach.account_repo import get_account_by_user_id, update_user_profile
+from air1.services.user.account_repo import get_account_by_user_id, update_user_profile
 
 router = APIRouter(prefix="/api/account", tags=["account"])
 
