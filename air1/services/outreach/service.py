@@ -92,6 +92,11 @@ class IService(ABC):
         """Fetch company data from LinkedIn URL."""
         pass
 
+    @abstractmethod
+    def research_prospect(self, linkedin_username: str) -> any:
+        """Research a prospect and generate AI summary."""
+        pass
+
 
 class Service(IService):
     def __init__(self, playwright: Optional[Playwright] = None):
@@ -451,3 +456,20 @@ class Service(IService):
             return await fetch_company_from_linkedin(linkedin_url, session)
         finally:
             await session.browser.close()
+
+    def research_prospect(self, linkedin_username: str):
+        """
+        Research a prospect and generate AI summary.
+        
+        Args:
+            linkedin_username: LinkedIn username to research
+            
+        Returns:
+            ResearchOutput with AI summary, pain points, talking points
+        """
+        from air1.agents.research.crew import ResearchProspectCrew
+        from air1.agents.research.models import ProspectInput
+        
+        prospect = ProspectInput(linkedin_username=linkedin_username)
+        crew = ResearchProspectCrew()
+        return crew.research_prospect(prospect)
