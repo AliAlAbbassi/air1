@@ -31,6 +31,49 @@ def test_uuid():
     return str(uuid.uuid4())[:8]
 
 
+async def cleanup_test_data():
+    """Delete all test users created by these tests (emails matching test.%@example.com)."""
+    from air1.db.prisma_client import get_prisma, connect_db
+    
+    try:
+        await connect_db()
+        prisma = await get_prisma()
+        
+        # Get all test user IDs
+        users = await prisma.query_raw(
+            "SELECT user_id FROM hodhod_user WHERE email LIKE 'test.%@example.com'"
+        )
+        
+        if not users:
+            logger.info("No test users to cleanup")
+            return
+            
+        user_ids = [u["user_id"] for u in users]
+        logger.info(f"Cleaning up {len(user_ids)} test users...")
+        
+        # Delete in order due to FK constraints
+        for user_id in user_ids:
+            await prisma.execute_raw("DELETE FROM writing_style WHERE user_id = $1", user_id)
+            await prisma.execute_raw("DELETE FROM product WHERE user_id = $1", user_id)
+            await prisma.execute_raw("DELETE FROM company WHERE user_id = $1", user_id)
+            await prisma.execute_raw("DELETE FROM hodhod_user WHERE user_id = $1", user_id)
+        
+        logger.success(f"✓ Cleaned up {len(user_ids)} test users")
+    except Exception as e:
+        logger.warning(f"Failed to cleanup test data: {e}")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_after_tests(request):
+    """Cleanup test data after all tests in this module complete."""
+    yield
+    
+    # Only cleanup if using real DB
+    if request.config.getoption("--use-real-db", default=False):
+        import asyncio
+        asyncio.get_event_loop().run_until_complete(cleanup_test_data())
+
+
 def create_valid_onboarding_payload(test_uuid: str, auth_method: str = "email") -> dict:
     """Create a valid onboarding request payload."""
     payload = {
