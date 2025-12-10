@@ -93,8 +93,24 @@ class IService(ABC):
         pass
 
     @abstractmethod
-    def research_prospect(self, linkedin_username: str) -> any:
-        """Research a prospect and generate AI summary."""
+    def research_prospect(
+        self,
+        linkedin_username: str,
+        full_name: str | None = None,
+        headline: str | None = None,
+        company_name: str | None = None,
+        icp_profile: any = None,
+    ) -> any:
+        """
+        Research a prospect and generate AI summary with ICP scoring.
+        
+        Args:
+            linkedin_username: LinkedIn username to research
+            full_name: Prospect's full name
+            headline: LinkedIn headline
+            company_name: Current company
+            icp_profile: ICPProfile to score against
+        """
         pass
 
 
@@ -457,19 +473,35 @@ class Service(IService):
         finally:
             await session.browser.close()
 
-    def research_prospect(self, linkedin_username: str):
+    def research_prospect(
+        self,
+        linkedin_username: str,
+        full_name: str | None = None,
+        headline: str | None = None,
+        company_name: str | None = None,
+        icp_profile: any = None,
+    ):
         """
-        Research a prospect and generate AI summary.
+        Research a prospect and generate AI summary with ICP scoring.
         
         Args:
             linkedin_username: LinkedIn username to research
+            full_name: Prospect's full name
+            headline: LinkedIn headline  
+            company_name: Current company
+            icp_profile: ICPProfile to score against
             
         Returns:
-            ResearchOutput with AI summary, pain points, talking points
+            ResearchOutput with AI summary, pain points, talking points, ICP score
         """
         from air1.agents.research.crew import ResearchProspectCrew
         from air1.agents.research.models import ProspectInput
         
-        prospect = ProspectInput(linkedin_username=linkedin_username)
-        crew = ResearchProspectCrew()
+        prospect = ProspectInput(
+            linkedin_username=linkedin_username,
+            full_name=full_name,
+            headline=headline,
+            company_name=company_name,
+        )
+        crew = ResearchProspectCrew(icp_profile=icp_profile)
         return crew.research_prospect(prospect)
