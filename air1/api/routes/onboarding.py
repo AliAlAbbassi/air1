@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from loguru import logger
 
 from air1.api.models.onboarding import (
@@ -16,6 +16,14 @@ from air1.services.outreach.onboarding import (
 from air1.services.outreach.service import Service
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
+
+
+@router.post("/debug")
+async def debug_onboarding(request: Request):
+    """Debug endpoint to see raw request body before validation."""
+    body = await request.json()
+    logger.info(f"Raw onboarding request: {body}")
+    return {"received": body}
 
 
 @router.post(

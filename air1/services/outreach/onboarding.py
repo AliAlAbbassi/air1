@@ -39,9 +39,9 @@ class CreateUserInput(BaseModel):
     meeting_link: str
     linkedin_connected: bool
     company_name: str
-    company_description: str
-    company_website: str
-    company_industry: str
+    company_description: Optional[str] = ""
+    company_website: Optional[str] = ""
+    company_industry: Optional[str] = ""
     company_linkedin_url: str
     company_size: str
     product_name: str
@@ -186,9 +186,9 @@ async def create_onboarding_user(request: OnboardingRequest) -> OnboardingRespon
             meeting_link=request.profile.meeting_link,
             linkedin_connected=request.linkedin.connected,
             company_name=request.company.name,
-            company_description=request.company.description,
-            company_website=request.company.website,
-            company_industry=request.company.industry,
+            company_description=request.company.description or "",
+            company_website=request.company.website or "",
+            company_industry=request.company.industry or "",
             company_linkedin_url=request.company.linkedin_url,
             company_size=request.company.employee_count.value,
             product_name=request.product.name,

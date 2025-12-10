@@ -38,9 +38,9 @@ class AuthData(BaseModel):
 
 class CompanyData(BaseModel):
     name: str = Field(..., min_length=1)
-    description: str = Field(..., min_length=1)
-    website: str = Field(..., min_length=1)
-    industry: str = Field(..., min_length=1)
+    description: Optional[str] = Field(default="")
+    website: Optional[str] = Field(default="")
+    industry: Optional[str] = Field(default="")
     linkedin_url: str = Field(..., alias="linkedinUrl")
     employee_count: EmployeeCount = Field(..., alias="employeeCount")
 
@@ -48,7 +48,9 @@ class CompanyData(BaseModel):
 
     @field_validator("website")
     @classmethod
-    def validate_website(cls, v: str) -> str:
+    def validate_website(cls, v: Optional[str]) -> str:
+        if not v:
+            return ""
         if not re.match(r"^https?://", v):
             raise ValueError("Website must be a valid URL starting with http:// or https://")
         return v
