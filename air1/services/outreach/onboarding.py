@@ -1,5 +1,6 @@
 """Onboarding functions for user account creation."""
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -222,6 +223,19 @@ async def create_onboarding_user(request: OnboardingRequest) -> OnboardingRespon
     )
 
 
+# --- Performance Optimization: In-Memory Cache for LinkedIn Company Data ---
+# ⚡ Bolt: To avoid costly and slow browser scraping for the same LinkedIn company
+# URL multiple times, we use a simple in-memory cache.
+#
+# - A dictionary `_company_cache` stores the fetched data.
+# - A `_cache_lock` prevents race conditions when multiple requests try to
+#   access the cache simultaneously.
+# - A Time-to-Live (TTL) of 1 hour ensures the data is periodically refreshed.
+_company_cache = {}
+_cache_lock = asyncio.Lock()
+CACHE_TTL = timedelta(hours=1)
+
+
 async def fetch_company_from_linkedin(
     linkedin_url: str, browser_session
 ) -> CompanyFetchResponse:
@@ -232,18 +246,47 @@ async def fetch_company_from_linkedin(
     - LinkedIn requires authentication (li_at session cookie)
     - LinkedIn has bot detection that blocks raw HTTP requests
     """
-    match = re.search(r"linkedin\.com/company/([^/?]+)", linkedin_url)
-    if not match:
-        raise InvalidLinkedInUrlError("Invalid LinkedIn company URL")
+    now = datetime.now()
 
-    company_username = match.group(1)
+    # --- Cache Check ---
+    # ⚡ Bolt: Check for a valid, non-expired cache entry first.
+    # This avoids the expensive browser scraping if we have recent data.
+    if linkedin_url in _company_cache:
+        cached_data, timestamp = _company_cache[linkedin_url]
+        if now - timestamp < CACHE_TTL:
+            logger.info(f"Cache hit for {linkedin_url}")
+            return cached_data
 
-    company_data = await browser_session.get_company_info(company_username)
-    logger.info(f"Fetched company data for {company_username}: {company_data}")
-    return CompanyFetchResponse(
-        name=company_data.get("name", ""),
-        description=company_data.get("description", ""),
-        website=company_data.get("website", ""),
-        industry=company_data.get("industry", ""),
-        logo=company_data.get("logo"),
-    )
+    # --- Cache Miss or Expired ---
+    # ⚡ Bolt: Use a lock to prevent multiple concurrent scrapes for the same URL (dog-piling).
+    # If one request is scraping, others will wait for the result.
+    async with _cache_lock:
+        # Double-check cache inside the lock in case another request populated it while waiting
+        if linkedin_url in _company_cache:
+            cached_data, timestamp = _company_cache[linkedin_url]
+            if now - timestamp < CACHE_TTL:
+                logger.info(f"Cache hit (after lock) for {linkedin_url}")
+                return cached_data
+
+        logger.info(f"Cache miss for {linkedin_url}, scraping...")
+        match = re.search(r"linkedin\.com/company/([^/?]+)", linkedin_url)
+        if not match:
+            raise InvalidLinkedInUrlError("Invalid LinkedIn company URL")
+
+        company_username = match.group(1)
+
+        company_data = await browser_session.get_company_info(company_username)
+        logger.info(f"Fetched company data for {company_username}: {company_data}")
+
+        response = CompanyFetchResponse(
+            name=company_data.get("name", ""),
+            description=company_data.get("description", ""),
+            website=company_data.get("website", ""),
+            industry=company_data.get("industry", ""),
+            logo=company_data.get("logo"),
+        )
+
+        # ⚡ Bolt: Store the new data and timestamp in the cache.
+        _company_cache[linkedin_url] = (response, now)
+
+        return response
