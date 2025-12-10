@@ -25,6 +25,7 @@ dependencies = [
     "crewai>=0.121.0",
     "crewai-tools>=0.44.0",
     "google-cloud-aiplatform>=1.130.0",
+    "litellm>=1.80.9",
 ]
 
 [project.scripts]
