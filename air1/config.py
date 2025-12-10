@@ -102,6 +102,11 @@ class Settings(BaseSettings):
         description="JWT token expiry in hours"
     )
 
+    # AI/LLM configuration
+    openai_api_key: Optional[str] = Field(
+        default=None, description="OpenAI API key for CrewAI agents"
+    )
+
     @field_validator("database_port")
     @classmethod
     def validate_port(cls, v: int) -> int:
