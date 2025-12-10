@@ -255,6 +255,46 @@ POTENTIAL PAIN POINTS
         assert len(result.potential_pain_points) == 2
         assert "extra" in result.potential_pain_points[1]
 
+    @patch("air1.agents.research.crew.create_linkedin_researcher")
+    @patch("air1.agents.research.crew.create_company_researcher")
+    @patch("air1.agents.research.crew.create_pain_point_analyst")
+    @patch("air1.agents.research.crew.create_talking_points_generator")
+    @patch("air1.agents.research.crew.create_icp_scorer")
+    @patch("air1.agents.research.crew.create_ai_summary_generator")
+    def test_parse_preserves_numbers_in_content(self, *mocks):
+        """Test that numbers in content are not stripped (e.g., '- 100 users')."""
+        crew = ResearchProspectCrew()
+        
+        raw_output = """
+PROSPECT SUMMARY
+Test prospect.
+
+COMPANY SUMMARY
+Test company.
+
+RELEVANCY TO YOU
+Relevant.
+
+KEY TALKING POINTS
+- 100 users onboarded last month
+- 50% increase in revenue
+- 2024 roadmap includes AI features
+
+POTENTIAL PAIN POINTS
+- 10x growth causing scaling issues
+- 3 competitors launched similar products
+"""
+        
+        result = crew._parse_ai_summary(raw_output)
+        
+        assert result is not None
+        # Verify numbers are preserved, not stripped
+        assert "100 users" in result.key_talking_points[0]
+        assert "50%" in result.key_talking_points[1]
+        assert "2024" in result.key_talking_points[2]
+        assert "10x" in result.potential_pain_points[0]
+        assert "3 competitors" in result.potential_pain_points[1]
+
 
 class TestResearchProspectsBatch:
     """Tests for research_prospects_batch method."""

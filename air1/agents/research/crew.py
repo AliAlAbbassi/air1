@@ -171,6 +171,31 @@ class ResearchProspectCrew:
                 ))
         return results
     
+    def _extract_list_item(self, line: str) -> str | None:
+        """
+        Extract content from a bullet point line.
+        
+        Returns the content after the bullet marker, or None if not a bullet point.
+        Handles: - item, • item, * item, 1. item, 1) item
+        
+        Uses careful extraction to avoid corrupting content like "- 100 users".
+        """
+        import re
+        
+        # Match bullet patterns: -, •, *, or number followed by . or )
+        # The pattern captures the content after the marker and whitespace
+        patterns = [
+            r'^[-•*]\s+(.+)$',           # - item, • item, * item
+            r'^\d+[.)]\s+(.+)$',         # 1. item, 1) item
+        ]
+        
+        for pattern in patterns:
+            match = re.match(pattern, line)
+            if match:
+                return match.group(1)
+        
+        return None
+    
     def _parse_ai_summary(self, raw_output: str) -> AISummary | None:
         """
         Parse the AI summary from crew output.
@@ -218,11 +243,9 @@ class ResearchProspectCrew:
                     if isinstance(sections[current_section], list):
                         # For list sections, look for bullet points or continuation
                         stripped = line.strip()
-                        if stripped.startswith(("-", "•", "*")) or (
-                            len(stripped) > 1 and stripped[0].isdigit() and stripped[1] in ".)"
-                        ):
+                        item = self._extract_list_item(stripped)
+                        if item is not None:
                             # New bullet point
-                            item = stripped.lstrip("-•*0123456789.) ")
                             if item:
                                 sections[current_section].append(item)
                         elif sections[current_section]:
