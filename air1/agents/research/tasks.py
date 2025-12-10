@@ -2,7 +2,7 @@
 
 from crewai import Task, Agent
 
-from air1.agents.research.models import ProspectInput
+from air1.agents.research.models import ProspectInput, ICPProfile
 
 
 def create_linkedin_research_task(agent: Agent, prospect: ProspectInput) -> Task:
@@ -135,35 +135,59 @@ def create_talking_points_task(
 def create_icp_scoring_task(
     agent: Agent,
     prospect: ProspectInput,
-    product_context: str,
+    icp_profile: ICPProfile,
     linkedin_research: Task,
     company_research: Task,
     pain_point_analysis: Task,
 ) -> Task:
     """Task to score prospect against ICP criteria."""
+    icp_details = f"""
+    TARGET TITLES: {', '.join(icp_profile.target_titles) or 'Not specified'}
+    TARGET INDUSTRIES: {', '.join(icp_profile.target_industries) or 'Not specified'}
+    TARGET COMPANY SIZES: {', '.join(icp_profile.target_company_sizes) or 'Not specified'}
+    TARGET SENIORITY: {', '.join(icp_profile.target_seniority) or 'Not specified'}
+    PAIN POINTS WE SOLVE: {', '.join(icp_profile.pain_points_we_solve) or 'Not specified'}
+    VALUE PROPOSITION: {icp_profile.value_proposition or 'Not specified'}
+    PRODUCT: {icp_profile.product_description or 'Not specified'}
+    DISQUALIFIERS: {', '.join(icp_profile.disqualifiers) or 'None'}
+    """
+    
     return Task(
         description=f"""
-        Score this prospect against the Ideal Customer Profile:
+        Score this prospect against the Ideal Customer Profile (ICP):
         
-        Prospect: {prospect.full_name or prospect.linkedin_username}
+        PROSPECT:
+        - Name: {prospect.full_name or prospect.linkedin_username}
+        - Headline: {prospect.headline or 'Unknown'}
+        - Company: {prospect.company_name or 'Unknown'}
         
-        Product/ICP Context:
-        {product_context}
+        ICP CRITERIA:
+        {icp_details}
         
-        Score on these dimensions (0-100):
-        1. Overall ICP Fit - How well do they match the ideal customer?
-        2. Problem Intensity - How much do they need this solution?
-        3. Relevance - How relevant is the product to their role/company?
-        4. Likelihood to Respond - Based on their activity and engagement patterns
+        Score on these dimensions:
+        1. Title Match (Yes/No): Does their title match target titles?
+        2. Industry Match (Yes/No): Is their company in a target industry?
+        3. Company Size Match (Yes/No): Does company size match?
+        4. Seniority Match (Yes/No): Does seniority level match?
+        5. Overall ICP Fit (0-100): How well do they match overall?
+        6. Problem Intensity (0-100): How much do they need our solution?
+        7. Relevance (0-100): How relevant is our product to their role?
+        8. Likelihood to Respond (0-100): Based on their activity patterns
         
-        Provide reasoning for each score.
+        Check for DISQUALIFIERS - if any apply, recommend "skip".
+        
+        Recommendation: "pursue" (>=70), "nurture" (40-69), or "skip" (<40)
         """,
         expected_output="""ICP scoring report with:
-        - Overall score (0-100) with reasoning
-        - Problem intensity score (0-100) with reasoning
-        - Relevance score (0-100) with reasoning
-        - Likelihood to respond score (0-100) with reasoning
-        - Final recommendation (pursue/nurture/skip)""",
+        - Title Match: Yes/No
+        - Industry Match: Yes/No
+        - Company Size Match: Yes/No
+        - Seniority Match: Yes/No
+        - Overall: X/100 with reasoning
+        - Problem Intensity: X/100 with reasoning
+        - Relevance: X/100 with reasoning
+        - Likelihood to Respond: X/100 with reasoning
+        - Recommendation: pursue/nurture/skip""",
         agent=agent,
         context=[linkedin_research, company_research, pain_point_analysis],
     )
@@ -172,7 +196,7 @@ def create_icp_scoring_task(
 def create_ai_summary_task(
     agent: Agent,
     prospect: ProspectInput,
-    product_context: str,
+    icp_profile: ICPProfile,
     linkedin_research: Task,
     company_research: Task,
     pain_point_analysis: Task,
@@ -192,8 +216,9 @@ def create_ai_summary_task(
         Current Role: {prospect.headline or 'Unknown'}
         Company: {prospect.company_name or 'Unknown'}
         
-        Product/Company Context (what we're selling):
-        {product_context or 'General B2B solution'}
+        Our Product: {icp_profile.product_description or 'B2B solution'}
+        Value Proposition: {icp_profile.value_proposition or 'Not specified'}
+        Pain Points We Solve: {', '.join(icp_profile.pain_points_we_solve) or 'Not specified'}
         
         Create a summary with these sections:
         

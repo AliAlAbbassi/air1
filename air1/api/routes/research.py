@@ -6,7 +6,7 @@ from typing import Optional
 from loguru import logger
 
 from air1.agents.research.crew import ResearchProspectCrew
-from air1.agents.research.models import ProspectInput, ResearchOutput
+from air1.agents.research.models import ProspectInput, ResearchOutput, ICPProfile
 
 
 router = APIRouter(prefix="/research", tags=["research"])
@@ -19,8 +19,8 @@ class ResearchRequest(BaseModel):
     full_name: Optional[str] = Field(None, description="Full name of the prospect")
     headline: Optional[str] = Field(None, description="LinkedIn headline")
     company_name: Optional[str] = Field(None, description="Current company name")
-    product_context: Optional[str] = Field(
-        None, description="Product/ICP context for scoring"
+    icp_profile: Optional[ICPProfile] = Field(
+        None, description="ICP profile to score prospect against"
     )
     quick_mode: bool = Field(
         False, description="Run quick research (LinkedIn + pain points only)"
@@ -65,7 +65,7 @@ async def research_prospect(request: ResearchRequest) -> ResearchResponse:
     )
     
     try:
-        crew = ResearchProspectCrew(product_context=request.product_context or "")
+        crew = ResearchProspectCrew(icp_profile=request.icp_profile)
         
         if request.quick_mode:
             result = crew.quick_research(prospect)

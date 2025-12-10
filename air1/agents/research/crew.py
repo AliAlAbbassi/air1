@@ -19,7 +19,7 @@ from air1.agents.research.tasks import (
     create_icp_scoring_task,
     create_ai_summary_task,
 )
-from air1.agents.research.models import ProspectInput, ResearchOutput, AISummary
+from air1.agents.research.models import ProspectInput, ResearchOutput, AISummary, ICPProfile
 
 
 class ResearchProspectCrew:
@@ -34,14 +34,14 @@ class ResearchProspectCrew:
     5. Score prospects against ICP criteria
     """
     
-    def __init__(self, product_context: str = ""):
+    def __init__(self, icp_profile: ICPProfile | None = None):
         """
         Initialize the research crew.
         
         Args:
-            product_context: Description of the product/ICP for scoring
+            icp_profile: Ideal Customer Profile to score prospects against
         """
-        self.product_context = product_context
+        self.icp_profile = icp_profile or ICPProfile()
         self._setup_agents()
     
     def _setup_agents(self):
@@ -93,7 +93,7 @@ class ResearchProspectCrew:
         icp_task = create_icp_scoring_task(
             self.icp_scorer,
             prospect,
-            self.product_context,
+            self.icp_profile,
             linkedin_task,
             company_task,
             pain_point_task,
@@ -103,7 +103,7 @@ class ResearchProspectCrew:
         ai_summary_task = create_ai_summary_task(
             self.ai_summary_generator,
             prospect,
-            self.product_context,
+            self.icp_profile,
             linkedin_task,
             company_task,
             pain_point_task,

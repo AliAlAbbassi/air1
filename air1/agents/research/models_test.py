@@ -7,6 +7,7 @@ from air1.agents.research.models import (
     ProspectInput,
     PainPoint,
     TalkingPoint,
+    ICPProfile,
     ICPScore,
     LinkedInActivity,
     CompanyIntelligence,
@@ -109,6 +110,33 @@ class TestTalkingPoint:
             tone="casual",
         )
         assert tp.tone == "casual"
+
+
+class TestICPProfile:
+    """Tests for ICPProfile model."""
+
+    def test_default_icp_profile(self):
+        """Test creating ICP profile with defaults."""
+        icp = ICPProfile()
+        assert icp.target_titles == []
+        assert icp.target_industries == []
+        assert icp.product_description == ""
+
+    def test_full_icp_profile(self):
+        """Test creating ICP profile with all fields."""
+        icp = ICPProfile(
+            target_titles=["VP Sales", "Head of Sales"],
+            target_industries=["SaaS", "FinTech"],
+            target_company_sizes=["51-200", "201-500"],
+            target_seniority=["VP", "Director"],
+            pain_points_we_solve=["Manual lead qualification", "Low response rates"],
+            value_proposition="Automate your outbound sales",
+            product_description="AI-powered sales automation",
+            disqualifiers=["Company size < 10", "Non-B2B"],
+        )
+        assert len(icp.target_titles) == 2
+        assert "SaaS" in icp.target_industries
+        assert len(icp.disqualifiers) == 2
 
 
 class TestICPScore:

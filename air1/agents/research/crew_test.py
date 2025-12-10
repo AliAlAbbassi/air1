@@ -26,9 +26,12 @@ class TestResearchProspectCrew:
         mock_linkedin,
     ):
         """Test that initialization creates all agents."""
-        crew = ResearchProspectCrew(product_context="B2B SaaS")
+        from air1.agents.research.models import ICPProfile
         
-        assert crew.product_context == "B2B SaaS"
+        icp = ICPProfile(target_titles=["VP Sales"], product_description="B2B SaaS")
+        crew = ResearchProspectCrew(icp_profile=icp)
+        
+        assert crew.icp_profile.product_description == "B2B SaaS"
         mock_linkedin.assert_called_once()
         mock_company.assert_called_once()
         mock_pain.assert_called_once()
@@ -42,7 +45,7 @@ class TestResearchProspectCrew:
     @patch("air1.agents.research.crew.create_talking_points_generator")
     @patch("air1.agents.research.crew.create_icp_scorer")
     @patch("air1.agents.research.crew.create_ai_summary_generator")
-    def test_init_default_product_context(
+    def test_init_default_icp_profile(
         self,
         mock_ai_summary,
         mock_icp,
@@ -51,9 +54,10 @@ class TestResearchProspectCrew:
         mock_company,
         mock_linkedin,
     ):
-        """Test default product context is empty string."""
+        """Test default ICP profile is empty."""
         crew = ResearchProspectCrew()
-        assert crew.product_context == ""
+        assert crew.icp_profile is not None
+        assert crew.icp_profile.target_titles == []
 
 
 class TestParseAISummary:

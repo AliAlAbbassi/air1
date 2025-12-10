@@ -32,6 +32,31 @@ class TalkingPoint(BaseModel):
     tone: str = Field(default="professional", description="Recommended tone")
 
 
+class ICPProfile(BaseModel):
+    """Ideal Customer Profile to score prospects against."""
+    
+    target_titles: list[str] = Field(
+        default_factory=list, description="Target job titles (e.g., 'VP Sales', 'Head of Growth')"
+    )
+    target_industries: list[str] = Field(
+        default_factory=list, description="Target industries (e.g., 'SaaS', 'FinTech')"
+    )
+    target_company_sizes: list[str] = Field(
+        default_factory=list, description="Target company sizes (e.g., '51-200', '201-500')"
+    )
+    target_seniority: list[str] = Field(
+        default_factory=list, description="Target seniority levels (e.g., 'VP', 'Director', 'C-Level')"
+    )
+    pain_points_we_solve: list[str] = Field(
+        default_factory=list, description="Pain points our product solves"
+    )
+    value_proposition: str = Field(default="", description="Our value proposition")
+    product_description: str = Field(default="", description="Description of our product")
+    disqualifiers: list[str] = Field(
+        default_factory=list, description="Criteria that disqualify a prospect"
+    )
+
+
 class ICPScore(BaseModel):
     """ICP scoring for a prospect."""
     
@@ -41,6 +66,10 @@ class ICPScore(BaseModel):
     likelihood_to_respond: int = Field(..., ge=0, le=100, description="Response likelihood score")
     reasoning: str = Field(..., description="Reasoning for the scores")
     recommendation: str = Field(..., description="pursue/nurture/skip")
+    title_match: bool = Field(default=False, description="Does title match ICP?")
+    industry_match: bool = Field(default=False, description="Does industry match ICP?")
+    company_size_match: bool = Field(default=False, description="Does company size match ICP?")
+    seniority_match: bool = Field(default=False, description="Does seniority match ICP?")
 
 
 class LinkedInActivity(BaseModel):
