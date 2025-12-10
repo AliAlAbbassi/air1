@@ -41,8 +41,8 @@ class TestGetAccount:
 
         token = create_test_token(user_id=1, email="ali@hodhod.ai")
 
-        with patch("air1.api.routes.account.get_account_by_user_id") as mock_get:
-            mock_get.return_value = mock_account_data
+        with patch("air1.api.routes.account.user_service") as mock_service:
+            mock_service.get_account = AsyncMock(return_value=mock_account_data)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -110,8 +110,8 @@ class TestGetAccount:
         """Test that non-existent account returns 404."""
         token = create_test_token(user_id=99999, email="notfound@example.com")
 
-        with patch("air1.api.routes.account.get_account_by_user_id") as mock_get:
-            mock_get.return_value = None
+        with patch("air1.api.routes.account.user_service") as mock_service:
+            mock_service.get_account = AsyncMock(return_value=None)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -146,10 +146,9 @@ class TestUpdateAccount:
 
         token = create_test_token(user_id=1, email="ali@hodhod.ai")
 
-        with patch("air1.api.routes.account.update_user_profile") as mock_update, \
-             patch("air1.api.routes.account.get_account_by_user_id") as mock_get:
-            mock_update.return_value = True
-            mock_get.return_value = mock_account_data
+        with patch("air1.api.routes.account.user_service") as mock_service:
+            mock_service.update_profile = AsyncMock(return_value=True)
+            mock_service.get_account = AsyncMock(return_value=mock_account_data)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -172,7 +171,7 @@ class TestUpdateAccount:
             assert data["user"]["lastName"] == "Hassan"
             assert data["user"]["timezone"] == "PST"
 
-            mock_update.assert_called_once()
+            mock_service.update_profile.assert_called_once()
             logger.success("✓ PATCH /api/account updates correctly")
 
     @pytest.mark.asyncio
@@ -193,10 +192,9 @@ class TestUpdateAccount:
 
         token = create_test_token(user_id=1, email="ali@hodhod.ai")
 
-        with patch("air1.api.routes.account.update_user_profile") as mock_update, \
-             patch("air1.api.routes.account.get_account_by_user_id") as mock_get:
-            mock_update.return_value = True
-            mock_get.return_value = mock_account_data
+        with patch("air1.api.routes.account.user_service") as mock_service:
+            mock_service.update_profile = AsyncMock(return_value=True)
+            mock_service.get_account = AsyncMock(return_value=mock_account_data)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"

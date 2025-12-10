@@ -12,9 +12,12 @@ from air1.api.models.account import (
     LinkedinData,
     UserData,
 )
-from air1.services.user.account_repo import get_account_by_user_id, update_user_profile
+from air1.services.user.service import UserService
 
 router = APIRouter(prefix="/api/account", tags=["account"])
+
+# Service instance
+user_service = UserService()
 
 # Default daily limits
 DEFAULT_CONNECTION_LIMIT = 25
@@ -63,7 +66,7 @@ def _build_account_response(account_data: dict) -> AccountResponse:
 )
 async def get_account(current_user: AuthUser = Depends(get_current_user)):
     """Get the authenticated user's account data."""
-    account_data = await get_account_by_user_id(current_user.user_id)
+    account_data = await user_service.get_account(current_user.user_id)
 
     if not account_data:
         logger.error(f"Account not found for user_id: {current_user.user_id}")
@@ -100,7 +103,7 @@ async def update_account(
             },
         )
 
-    success = await update_user_profile(
+    success = await user_service.update_profile(
         user_id=current_user.user_id,
         first_name=request.first_name,
         last_name=request.last_name,
@@ -115,7 +118,7 @@ async def update_account(
         )
 
     # Fetch and return updated account
-    account_data = await get_account_by_user_id(current_user.user_id)
+    account_data = await user_service.get_account(current_user.user_id)
     if not account_data:
         raise HTTPException(
             status_code=404,
