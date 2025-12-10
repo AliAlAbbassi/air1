@@ -54,8 +54,9 @@ async def linkedin_outreach_workflow(
 def run():
     asyncio.run(
         linkedin_outreach_workflow(
-            company_username="murex",
+            company_username="nvidia",
             headline_search_term="talent",
+            headless=True,
         )
     )
 
