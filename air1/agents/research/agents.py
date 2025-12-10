@@ -108,3 +108,33 @@ def create_icp_scorer() -> Agent:
         llm=get_llm(),
         verbose=True,
     )
+
+
+def create_ai_summary_generator() -> Agent:
+    """
+    Agent that generates the comprehensive AI Summary.
+    
+    Creates Valley-style prospect summaries including:
+    - Prospect summary
+    - Company summary
+    - Notable achievements in current role
+    - Other notable achievements
+    - Relevancy to your product/company
+    """
+    return Agent(
+        role="AI Summary Generator",
+        goal="Generate comprehensive, actionable AI summaries for sales prospects",
+        backstory="""You are an expert at synthesizing research into clear, actionable 
+        prospect summaries. You create comprehensive overviews that help sales teams 
+        prepare for meetings, craft personalized emails, and have meaningful conversations.
+        
+        Your summaries are structured to highlight:
+        1. Who the prospect is professionally
+        2. What their company does and its current state
+        3. Their notable achievements and career highlights
+        4. Why they're relevant to the product being sold
+        
+        You write in a clear, professional tone that's easy to scan before a sales call.""",
+        llm=get_llm(),
+        verbose=True,
+    )

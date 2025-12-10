@@ -64,10 +64,57 @@ class CompanyIntelligence(BaseModel):
     growth_indicators: list[str] = Field(default_factory=list)
 
 
+class AISummary(BaseModel):
+    """
+    AI Summary for a prospect - Valley-style comprehensive overview.
+    
+    This is the main output that provides deep prospect insights for
+    sales meetings, email sequences, and phone calls.
+    """
+    
+    prospect_summary: str = Field(
+        ..., 
+        description="Comprehensive summary of the prospect's professional background"
+    )
+    company_summary: str = Field(
+        ..., 
+        description="Summary of the prospect's current company"
+    )
+    notable_achievements_current_role: list[str] = Field(
+        default_factory=list,
+        description="Notable achievements in their current role"
+    )
+    other_notable_achievements: list[str] = Field(
+        default_factory=list,
+        description="Other notable achievements from their career"
+    )
+    relevancy_to_you: str = Field(
+        ...,
+        description="Why this prospect is relevant to your product/company"
+    )
+    
+    # Additional insights
+    key_talking_points: list[str] = Field(
+        default_factory=list,
+        description="Key talking points for outreach"
+    )
+    potential_pain_points: list[str] = Field(
+        default_factory=list,
+        description="Potential pain points your solution could address"
+    )
+    recommended_approach: str = Field(
+        default="",
+        description="Recommended approach for reaching out"
+    )
+
+
 class ResearchOutput(BaseModel):
     """Complete research output for a prospect."""
     
     prospect: ProspectInput
+    ai_summary: Optional[AISummary] = Field(
+        None, description="Valley-style AI summary for the prospect"
+    )
     linkedin_activity: Optional[LinkedInActivity] = None
     company_intelligence: Optional[CompanyIntelligence] = None
     pain_points: list[PainPoint] = Field(default_factory=list)

@@ -9,6 +9,7 @@ from air1.agents.research.agents import (
     create_pain_point_analyst,
     create_talking_points_generator,
     create_icp_scorer,
+    create_ai_summary_generator,
 )
 from air1.agents.research.tasks import (
     create_linkedin_research_task,
@@ -16,8 +17,9 @@ from air1.agents.research.tasks import (
     create_pain_point_analysis_task,
     create_talking_points_task,
     create_icp_scoring_task,
+    create_ai_summary_task,
 )
-from air1.agents.research.models import ProspectInput, ResearchOutput
+from air1.agents.research.models import ProspectInput, ResearchOutput, AISummary
 
 
 class ResearchProspectCrew:
@@ -49,6 +51,7 @@ class ResearchProspectCrew:
         self.pain_point_analyst = create_pain_point_analyst()
         self.talking_points_generator = create_talking_points_generator()
         self.icp_scorer = create_icp_scorer()
+        self.ai_summary_generator = create_ai_summary_generator()
     
     def research_prospect(self, prospect: ProspectInput) -> ResearchOutput:
         """
@@ -96,6 +99,16 @@ class ResearchProspectCrew:
             pain_point_task,
         )
         
+        # AI Summary task - the main output
+        ai_summary_task = create_ai_summary_task(
+            self.ai_summary_generator,
+            prospect,
+            self.product_context,
+            linkedin_task,
+            company_task,
+            pain_point_task,
+        )
+        
         # Create and run crew
         crew = Crew(
             agents=[
@@ -104,6 +117,7 @@ class ResearchProspectCrew:
                 self.pain_point_analyst,
                 self.talking_points_generator,
                 self.icp_scorer,
+                self.ai_summary_generator,
             ],
             tasks=[
                 linkedin_task,
@@ -111,6 +125,7 @@ class ResearchProspectCrew:
                 pain_point_task,
                 talking_points_task,
                 icp_task,
+                ai_summary_task,
             ],
             process=Process.sequential,
             verbose=True,
@@ -120,9 +135,13 @@ class ResearchProspectCrew:
         
         logger.info(f"Research completed for: {prospect.linkedin_username}")
         
+        # Parse AI summary from result
+        ai_summary = self._parse_ai_summary(str(result))
+        
         # Build output
         return ResearchOutput(
             prospect=prospect,
+            ai_summary=ai_summary,
             raw_research={"crew_output": str(result)},
         )
     
@@ -151,6 +170,74 @@ class ResearchProspectCrew:
                     raw_research={"error": str(e)},
                 ))
         return results
+    
+    def _parse_ai_summary(self, raw_output: str) -> AISummary | None:
+        """
+        Parse the AI summary from crew output.
+        
+        This is a simple parser - in production you'd want structured output.
+        """
+        try:
+            # Extract sections from the raw output
+            sections = {
+                "prospect_summary": "",
+                "company_summary": "",
+                "notable_achievements_current_role": [],
+                "other_notable_achievements": [],
+                "relevancy_to_you": "",
+                "key_talking_points": [],
+                "potential_pain_points": [],
+                "recommended_approach": "",
+            }
+            
+            # Simple extraction - look for section headers
+            current_section = None
+            lines = raw_output.split("\n")
+            
+            for line in lines:
+                line_lower = line.lower().strip()
+                
+                if "prospect summary" in line_lower:
+                    current_section = "prospect_summary"
+                elif "company summary" in line_lower:
+                    current_section = "company_summary"
+                elif "notable achievements in current role" in line_lower:
+                    current_section = "notable_achievements_current_role"
+                elif "other notable achievements" in line_lower:
+                    current_section = "other_notable_achievements"
+                elif "relevancy to you" in line_lower or "relevancy" in line_lower:
+                    current_section = "relevancy_to_you"
+                elif "key talking points" in line_lower or "talking points" in line_lower:
+                    current_section = "key_talking_points"
+                elif "potential pain points" in line_lower or "pain points" in line_lower:
+                    current_section = "potential_pain_points"
+                elif "recommended approach" in line_lower:
+                    current_section = "recommended_approach"
+                elif current_section and line.strip():
+                    # Add content to current section
+                    if isinstance(sections[current_section], list):
+                        # For list sections, look for bullet points
+                        if line.strip().startswith(("-", "•", "*", "1", "2", "3", "4", "5")):
+                            item = line.strip().lstrip("-•*0123456789. ")
+                            if item:
+                                sections[current_section].append(item)
+                    else:
+                        # For text sections, append
+                        sections[current_section] += line.strip() + " "
+            
+            # Clean up text sections
+            for key in ["prospect_summary", "company_summary", "relevancy_to_you", "recommended_approach"]:
+                sections[key] = sections[key].strip()
+            
+            # Only return if we got meaningful content
+            if sections["prospect_summary"] or sections["company_summary"]:
+                return AISummary(**sections)
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Failed to parse AI summary: {e}")
+            return None
     
     def quick_research(self, prospect: ProspectInput) -> ResearchOutput:
         """
