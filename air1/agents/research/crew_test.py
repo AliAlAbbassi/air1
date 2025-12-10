@@ -214,6 +214,47 @@ POTENTIAL PAIN POINTS
         assert len(result.key_talking_points) >= 4
         assert len(result.potential_pain_points) >= 2
 
+    @patch("air1.agents.research.crew.create_linkedin_researcher")
+    @patch("air1.agents.research.crew.create_company_researcher")
+    @patch("air1.agents.research.crew.create_pain_point_analyst")
+    @patch("air1.agents.research.crew.create_talking_points_generator")
+    @patch("air1.agents.research.crew.create_icp_scorer")
+    @patch("air1.agents.research.crew.create_ai_summary_generator")
+    def test_parse_multiline_list_items(self, *mocks):
+        """Test parsing list items that span multiple lines."""
+        crew = ResearchProspectCrew()
+        
+        raw_output = """
+PROSPECT SUMMARY
+Test prospect.
+
+COMPANY SUMMARY
+Test company.
+
+RELEVANCY TO YOU
+Relevant.
+
+KEY TALKING POINTS
+- First talking point that spans
+  multiple lines of text
+- Second talking point
+- Third point with continuation
+  text here
+
+POTENTIAL PAIN POINTS
+- Pain point one
+- Pain point two with extra
+  detail on next line
+"""
+        
+        result = crew._parse_ai_summary(raw_output)
+        
+        assert result is not None
+        assert len(result.key_talking_points) == 3
+        assert "multiple lines" in result.key_talking_points[0]
+        assert len(result.potential_pain_points) == 2
+        assert "extra" in result.potential_pain_points[1]
+
 
 class TestResearchProspectsBatch:
     """Tests for research_prospects_batch method."""

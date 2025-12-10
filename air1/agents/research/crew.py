@@ -216,11 +216,21 @@ class ResearchProspectCrew:
                 elif current_section and line.strip():
                     # Add content to current section
                     if isinstance(sections[current_section], list):
-                        # For list sections, look for bullet points
-                        if line.strip().startswith(("-", "•", "*", "1", "2", "3", "4", "5")):
-                            item = line.strip().lstrip("-•*0123456789. ")
+                        # For list sections, look for bullet points or continuation
+                        stripped = line.strip()
+                        if stripped.startswith(("-", "•", "*")) or (
+                            len(stripped) > 1 and stripped[0].isdigit() and stripped[1] in ".)"
+                        ):
+                            # New bullet point
+                            item = stripped.lstrip("-•*0123456789.) ")
                             if item:
                                 sections[current_section].append(item)
+                        elif sections[current_section]:
+                            # Continuation of previous item (multi-line content)
+                            sections[current_section][-1] += " " + stripped
+                        else:
+                            # First item without bullet marker
+                            sections[current_section].append(stripped)
                     else:
                         # For text sections, append
                         sections[current_section] += line.strip() + " "
