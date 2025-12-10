@@ -25,8 +25,8 @@ from air1.agents.research.models import ProspectInput, ICPProfile
 
 # Sample test data
 SAMPLE_PROSPECT = ProspectInput(
-    linkedin_username="satyanadella",
-    full_name="Satya Nadella",
+    linkedin_username="alialabbassi",
+    full_name="Ali Al Abbassi",
     headline="Chairman and CEO at Microsoft",
     company_name="Microsoft",
     location="Redmond, Washington",

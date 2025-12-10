@@ -150,10 +150,9 @@ class TestICPScore:
             relevance=80,
             likelihood_to_respond=75,
             reasoning="Strong fit based on role and company stage",
-            recommendation="pursue",
         )
         assert score.overall == 85
-        assert score.recommendation == "pursue"
+        assert score.recommendation == "pursue"  # computed from tier
 
     def test_score_bounds(self):
         """Test scores must be between 0-100."""
@@ -164,7 +163,6 @@ class TestICPScore:
                 relevance=50,
                 likelihood_to_respond=50,
                 reasoning="Test",
-                recommendation="skip",
             )
         
         with pytest.raises(ValidationError):
@@ -174,7 +172,6 @@ class TestICPScore:
                 relevance=50,
                 likelihood_to_respond=50,
                 reasoning="Test",
-                recommendation="skip",
             )
 
     def test_valid_score_bounds(self):
@@ -185,10 +182,96 @@ class TestICPScore:
             relevance=0,
             likelihood_to_respond=100,
             reasoning="Test",
-            recommendation="nurture",
         )
         assert score.overall == 0
         assert score.problem_intensity == 100
+
+    def test_tier_1_hot(self):
+        """Test tier 1 (hot) for high scores >= 70."""
+        score = ICPScore(
+            overall=85,
+            problem_intensity=90,
+            relevance=80,
+            likelihood_to_respond=75,
+            reasoning="Strong fit",
+        )
+        assert score.tier == 1
+        assert score.tier_label == "hot"
+        assert score.recommendation == "pursue"
+
+    def test_tier_2_warm(self):
+        """Test tier 2 (warm) for scores 40-69."""
+        score = ICPScore(
+            overall=55,
+            problem_intensity=60,
+            relevance=50,
+            likelihood_to_respond=50,
+            reasoning="Moderate fit",
+        )
+        assert score.tier == 2
+        assert score.tier_label == "warm"
+        assert score.recommendation == "nurture"
+
+    def test_tier_3_cold(self):
+        """Test tier 3 (cold) for low scores < 40."""
+        score = ICPScore(
+            overall=25,
+            problem_intensity=30,
+            relevance=20,
+            likelihood_to_respond=20,
+            reasoning="Poor fit",
+        )
+        assert score.tier == 3
+        assert score.tier_label == "cold"
+        assert score.recommendation == "skip"
+
+    def test_tier_boundaries(self):
+        """Test tier boundaries at exact thresholds."""
+        # Exactly 70 should be tier 1
+        score_70 = ICPScore(
+            overall=70, problem_intensity=70, relevance=70,
+            likelihood_to_respond=70, reasoning="Test"
+        )
+        assert score_70.tier == 1
+        
+        # Exactly 69 should be tier 2
+        score_69 = ICPScore(
+            overall=69, problem_intensity=70, relevance=70,
+            likelihood_to_respond=70, reasoning="Test"
+        )
+        assert score_69.tier == 2
+        
+        # Exactly 40 should be tier 2
+        score_40 = ICPScore(
+            overall=40, problem_intensity=40, relevance=40,
+            likelihood_to_respond=40, reasoning="Test"
+        )
+        assert score_40.tier == 2
+        
+        # Exactly 39 should be tier 3
+        score_39 = ICPScore(
+            overall=39, problem_intensity=40, relevance=40,
+            likelihood_to_respond=40, reasoning="Test"
+        )
+        assert score_39.tier == 3
+
+    def test_match_criteria(self):
+        """Test ICP match criteria fields."""
+        score = ICPScore(
+            overall=85,
+            problem_intensity=90,
+            relevance=80,
+            likelihood_to_respond=75,
+            reasoning="Strong fit",
+            title_match=True,
+            industry_match=True,
+            company_size_match=False,
+            seniority_match=True,
+        )
+        assert score.title_match is True
+        assert score.industry_match is True
+        assert score.company_size_match is False
+        assert score.seniority_match is True
 
 
 class TestLinkedInActivity:
@@ -331,7 +414,6 @@ class TestResearchOutput:
                 relevance=80,
                 likelihood_to_respond=75,
                 reasoning="Strong fit",
-                recommendation="pursue",
             ),
             raw_research={"crew_output": "test output"},
         )

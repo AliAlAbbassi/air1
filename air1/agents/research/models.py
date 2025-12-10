@@ -58,18 +58,46 @@ class ICPProfile(BaseModel):
 
 
 class ICPScore(BaseModel):
-    """ICP scoring for a prospect."""
+    """ICP scoring for a prospect with three-tiered system."""
     
     overall: int = Field(..., ge=0, le=100, description="Overall ICP fit score")
     problem_intensity: int = Field(..., ge=0, le=100, description="Problem intensity score")
     relevance: int = Field(..., ge=0, le=100, description="Product relevance score")
     likelihood_to_respond: int = Field(..., ge=0, le=100, description="Response likelihood score")
     reasoning: str = Field(..., description="Reasoning for the scores")
-    recommendation: str = Field(..., description="pursue/nurture/skip")
+    
+    # Match criteria
     title_match: bool = Field(default=False, description="Does title match ICP?")
     industry_match: bool = Field(default=False, description="Does industry match ICP?")
     company_size_match: bool = Field(default=False, description="Does company size match ICP?")
     seniority_match: bool = Field(default=False, description="Does seniority match ICP?")
+    
+    @property
+    def tier(self) -> int:
+        """
+        Three-tiered scoring system:
+        - Tier 1 (Hot): overall >= 70 - High priority, pursue immediately
+        - Tier 2 (Warm): overall 40-69 - Good fit, nurture
+        - Tier 3 (Cold): overall < 40 - Low priority, skip or deprioritize
+        """
+        if self.overall >= 70:
+            return 1
+        elif self.overall >= 40:
+            return 2
+        else:
+            return 3
+    
+    @property
+    def tier_label(self) -> str:
+        """Human-readable tier label."""
+        labels = {1: "hot", 2: "warm", 3: "cold"}
+        return labels[self.tier]
+    
+    @property
+    def recommendation(self) -> str:
+        """Action recommendation based on tier."""
+        recommendations = {1: "pursue", 2: "nurture", 3: "skip"}
+        return recommendations[self.tier]
 
 
 class LinkedInActivity(BaseModel):
