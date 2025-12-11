@@ -209,4 +209,13 @@ def _build_rules_instructions(rules: OutreachRules) -> str:
     if rules.max_length:
         instructions.append(f"\n**MAX LENGTH:** {rules.max_length} characters")
     
+    if rules.instructions:
+        instructions.append(f"\n**ADDITIONAL INSTRUCTIONS:**\n{rules.instructions}")
+    
+    if rules.advanced_questions:
+        instructions.append("\n**USER CONTEXT (from Q&A):**")
+        for qa in rules.advanced_questions[:5]:
+            instructions.append(f"Q: {qa.question}")
+            instructions.append(f"A: {qa.answer}")
+    
     return "\n".join(instructions) if instructions else ""

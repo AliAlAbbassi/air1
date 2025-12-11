@@ -71,6 +71,19 @@ class VoiceProfile(BaseModel):
         default="",
         description="Their signature opening line style"
     )
+    
+    # Additional context
+    instructions: str = Field(
+        default="",
+        description="Additional instructions for AI message generation"
+    )
+
+
+class AdvancedQuestion(BaseModel):
+    """An advanced question with user's answer for deeper personalization."""
+    
+    question: str = Field(..., description="The question asked")
+    answer: str = Field(..., description="User's answer")
 
 
 class OutreachRules(BaseModel):
@@ -117,6 +130,18 @@ class OutreachRules(BaseModel):
     max_length: int | None = Field(
         default=None,
         description="Maximum message length in characters"
+    )
+    
+    # Additional instructions
+    instructions: str = Field(
+        default="",
+        description="Additional instructions for message generation"
+    )
+    
+    # Advanced questions from user
+    advanced_questions: list[AdvancedQuestion] = Field(
+        default_factory=list,
+        description="Advanced Q&A from user for deeper personalization"
     )
 
 
@@ -219,3 +244,62 @@ class GeneratedMessage(BaseModel):
         default_factory=list,
         description="Alternative opening lines"
     )
+
+
+class WritingStyleRecord(BaseModel):
+    """Database record for writing_style table."""
+    
+    writing_style_id: int = Field(alias="writingStyleId")
+    user_id: int = Field(alias="userId")
+    name: str
+    tone: str | None = None
+    example_messages: list[str] | None = Field(default=None, alias="exampleMessages")
+    instructions: str | None = None
+    dos: list[str] | None = None
+    donts: list[str] | None = None
+    selected_template: str | None = Field(default=None, alias="selectedTemplate")
+    advanced_questions: list[dict] | None = Field(default=None, alias="advancedQuestions")
+    formality_level: int | None = Field(default=None, alias="formalityLevel")
+    common_phrases: list[str] | None = Field(default=None, alias="commonPhrases")
+    greeting_style: str | None = Field(default=None, alias="greetingStyle")
+    sign_off_style: str | None = Field(default=None, alias="signOffStyle")
+    uses_emojis: bool | None = Field(default=None, alias="usesEmojis")
+    uses_humor: bool | None = Field(default=None, alias="usesHumor")
+    sentence_length: str | None = Field(default=None, alias="sentenceLength")
+
+    class Config:
+        populate_by_name = True
+
+    def to_voice_profile(self) -> VoiceProfile:
+        """Convert database record to VoiceProfile."""
+        return VoiceProfile(
+            writing_samples=self.example_messages or [],
+            tone=self.tone or "professional",
+            formality_level=self.formality_level or 5,
+            greeting_style=self.greeting_style or "",
+            sign_off_style=self.sign_off_style or "",
+            common_phrases=self.common_phrases or [],
+            uses_emojis=self.uses_emojis or False,
+            uses_humor=self.uses_humor or False,
+            sentence_length=self.sentence_length or "medium",
+            instructions=self.instructions or "",
+        )
+
+    def to_outreach_rules(self) -> OutreachRules:
+        """Convert database record to OutreachRules."""
+        # Parse advanced questions
+        questions = []
+        if self.advanced_questions:
+            for q in self.advanced_questions:
+                if isinstance(q, dict) and "question" in q and "answer" in q:
+                    questions.append(AdvancedQuestion(
+                        question=q["question"],
+                        answer=q["answer"]
+                    ))
+        
+        return OutreachRules(
+            dos=self.dos or [],
+            donts=self.donts or [],
+            instructions=self.instructions or "",
+            advanced_questions=questions,
+        )
