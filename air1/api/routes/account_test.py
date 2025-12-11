@@ -27,16 +27,16 @@ class TestGetAccount:
     async def test_get_account_success(self, db_connection):
         """Test successful account retrieval."""
         mock_account_data = {
-            "userId": 1,
+            "user_id": 1,
             "email": "ali@hodhod.ai",
-            "firstName": "Ali",
-            "lastName": "Abbassi",
+            "first_name": "Ali",
+            "last_name": "Abbassi",
             "timezone": "EST",
-            "meetingLink": "https://cal.com/ali/30min",
-            "linkedinConnected": True,
-            "companyId": 1,
-            "companyName": "HODHOD",
-            "companyLinkedinUsername": "hodhod-ai",
+            "meeting_link": "https://cal.com/ali/30min",
+            "linkedin_connected": True,
+            "company_id": 1,
+            "company_name": "HODHOD",
+            "company_linkedin_username": "hodhod-ai",
         }
 
         token = create_test_token(user_id=1, email="ali@hodhod.ai")
@@ -132,16 +132,16 @@ class TestUpdateAccount:
     async def test_update_account_success(self):
         """Test successful account update."""
         mock_account_data = {
-            "userId": 1,
+            "user_id": 1,
             "email": "ali@hodhod.ai",
-            "firstName": "Ali",
-            "lastName": "Hassan",
+            "first_name": "Ali",
+            "last_name": "Hassan",
             "timezone": "PST",
-            "meetingLink": "https://cal.com/ali/30min",
-            "linkedinConnected": True,
-            "companyId": 1,
-            "companyName": "HODHOD",
-            "companyLinkedinUsername": "hodhod-ai",
+            "meeting_link": "https://cal.com/ali/30min",
+            "linkedin_connected": True,
+            "company_id": 1,
+            "company_name": "HODHOD",
+            "company_linkedin_username": "hodhod-ai",
         }
 
         token = create_test_token(user_id=1, email="ali@hodhod.ai")
@@ -178,16 +178,16 @@ class TestUpdateAccount:
     async def test_update_account_partial(self):
         """Test partial account update (only timezone)."""
         mock_account_data = {
-            "userId": 1,
+            "user_id": 1,
             "email": "ali@hodhod.ai",
-            "firstName": "Ali",
-            "lastName": "Abbassi",
+            "first_name": "Ali",
+            "last_name": "Abbassi",
             "timezone": "GMT",
-            "meetingLink": "https://cal.com/ali/30min",
-            "linkedinConnected": True,
-            "companyId": 1,
-            "companyName": "HODHOD",
-            "companyLinkedinUsername": None,
+            "meeting_link": "https://cal.com/ali/30min",
+            "linkedin_connected": True,
+            "company_id": 1,
+            "company_name": "HODHOD",
+            "company_linkedin_username": None,
         }
 
         token = create_test_token(user_id=1, email="ali@hodhod.ai")

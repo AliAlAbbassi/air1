@@ -3,7 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
-from air1.api.auth import AuthUser, get_current_user
+from air1.api.auth import get_current_user
+from air1.services.user.service import AuthUser
 from air1.api.models.account import (
     AccountResponse,
     AccountUpdateRequest,
@@ -26,22 +27,22 @@ DEFAULT_INMAIL_LIMIT = 40
 
 def _build_account_response(account_data: dict) -> AccountResponse:
     """Build AccountResponse from database row."""
-    user_id = str(account_data["userId"])
-    company_id = account_data.get("companyId")
-    linkedin_username = account_data.get("companyLinkedinUsername")
+    user_id = str(account_data["user_id"])
+    company_id = account_data.get("company_id")
+    linkedin_username = account_data.get("company_linkedin_username")
 
     return AccountResponse(
         user=UserData(
             id=user_id,
             email=account_data["email"],
-            firstName=account_data["firstName"] or "",
-            lastName=account_data["lastName"] or "",
+            firstName=account_data["first_name"] or "",
+            lastName=account_data["last_name"] or "",
             avatarUrl=None,
             timezone=account_data["timezone"] or "UTC",
-            meetingLink=account_data["meetingLink"] or "",
+            meetingLink=account_data["meeting_link"] or "",
         ),
         linkedin=LinkedinData(
-            connected=account_data.get("linkedinConnected", False),
+            connected=account_data.get("linkedin_connected", False),
             profileUrl=f"https://linkedin.com/in/{linkedin_username}" if linkedin_username else None,
             dailyLimits={
                 "connections": DEFAULT_CONNECTION_LIMIT,
@@ -50,7 +51,7 @@ def _build_account_response(account_data: dict) -> AccountResponse:
         ),
         company=CompanyData(
             id=str(company_id) if company_id else "",
-            name=account_data.get("companyName") or "",
+            name=account_data.get("company_name") or "",
             logo=None,
             plan="free",  # Default plan
         ),

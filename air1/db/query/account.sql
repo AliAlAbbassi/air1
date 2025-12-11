@@ -1,16 +1,16 @@
 -- name: get_account_by_user_id^
 -- Get full account data for a user
 SELECT
-    u.user_id AS "userId",
+    u.user_id,
     u.email,
-    u.first_name AS "firstName",
-    u.last_name AS "lastName",
+    u.first_name,
+    u.last_name,
     u.timezone,
-    u.meeting_link AS "meetingLink",
-    u.linkedin_connected AS "linkedinConnected",
-    c.company_id AS "companyId",
-    c.name AS "companyName",
-    c.linkedin_username AS "companyLinkedinUsername"
+    u.meeting_link,
+    u.linkedin_connected,
+    c.company_id,
+    c.name AS company_name,
+    c.linkedin_username AS company_linkedin_username
 FROM hodhod_user u
 LEFT JOIN company c ON c.user_id = u.user_id
 WHERE u.user_id = :user_id;
