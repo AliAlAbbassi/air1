@@ -3,6 +3,8 @@ import typer
 from air1.services.outreach.service import Service
 from air1.services.outreach.email import send_email, EmailTemplate
 from air1.db.prisma_client import disconnect_db
+from air1.agents.research.crew import ResearchProspectCrew
+from air1.agents.research.models import ProspectInput, ICPProfile
 
 app = typer.Typer()
 
@@ -96,3 +98,71 @@ Air1 Team
             print(f"❌ Error: {e}")
 
     asyncio.run(run())
+
+
+@app.command()
+def research_prospect(
+    linkedin_username: str = typer.Argument(..., help="LinkedIn username to research"),
+    company: str = typer.Option(None, "--company", "-c", help="Company name"),
+    name: str = typer.Option(None, "--name", "-n", help="Full name of the prospect"),
+    headline: str = typer.Option(None, "--headline", "-h", help="LinkedIn headline"),
+    target_titles: str = typer.Option("", "--titles", "-t", help="Comma-separated target job titles"),
+    target_industries: str = typer.Option("", "--industries", "-i", help="Comma-separated target industries"),
+    product: str = typer.Option("", "--product", "-p", help="Product description"),
+    value_prop: str = typer.Option("", "--value-prop", "-v", help="Value proposition"),
+    quick: bool = typer.Option(False, "--quick", "-q", help="Run quick research only"),
+):
+    """
+    Research a prospect using AI agents.
+    
+    Examples:
+        air1 research-prospect johndoe --company "Acme" --titles "VP Sales,Director Sales"
+        air1 research-prospect johndoe --quick
+    """
+    prospect = ProspectInput(
+        linkedin_username=linkedin_username,
+        company_name=company,
+        full_name=name,
+        headline=headline,
+    )
+    
+    icp_profile = ICPProfile(
+        target_titles=[t.strip() for t in target_titles.split(",") if t.strip()],
+        target_industries=[i.strip() for i in target_industries.split(",") if i.strip()],
+        product_description=product,
+        value_proposition=value_prop,
+    )
+    
+    crew = ResearchProspectCrew(icp_profile=icp_profile)
+    
+    print(f"🔍 Researching prospect: {linkedin_username}")
+    
+    if quick:
+        result = crew.quick_research(prospect)
+    else:
+        result = crew.research_prospect(prospect)
+    
+    print("\n" + "=" * 50)
+    print("📊 Research Results")
+    print("=" * 50)
+    print(f"Prospect: {result.prospect.linkedin_username}")
+    
+    if result.icp_score:
+        print("\n📈 ICP Score:")
+        print(f"  Overall: {result.icp_score.overall}/100")
+        print(f"  Problem Intensity: {result.icp_score.problem_intensity}/100")
+        print(f"  Relevance: {result.icp_score.relevance}/100")
+        print(f"  Likelihood to Respond: {result.icp_score.likelihood_to_respond}/100")
+        print(f"  Recommendation: {result.icp_score.recommendation}")
+    
+    if result.pain_points:
+        print("\n🎯 Pain Points:")
+        for i, pp in enumerate(result.pain_points, 1):
+            print(f"  {i}. {pp.description} (Intensity: {pp.intensity}/10)")
+    
+    if result.talking_points:
+        print("\n💬 Talking Points:")
+        for i, tp in enumerate(result.talking_points, 1):
+            print(f"  {i}. {tp.point}")
+    
+    print("\n✅ Research complete!")
