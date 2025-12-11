@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from loguru import logger
 
-from air1.api.routes import onboarding_router, research_router
+from air1.api.routes import onboarding_router, research_router, account_router
 from air1.db.prisma_client import disconnect_db
 from air1.config import settings
 
@@ -38,6 +38,7 @@ app.add_middleware(
 # Include routers
 app.include_router(onboarding_router)
 app.include_router(research_router)
+app.include_router(account_router)
 
 
 @app.exception_handler(RequestValidationError)
@@ -51,7 +52,7 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
     logger.error(f"Validation error on {request.method} {request.url.path}: {details}")
     
     return JSONResponse(
-        status_code=422,
+        status_code= 422,
         content={
             "error": "VALIDATION_ERROR",
             "message": "Invalid request body",

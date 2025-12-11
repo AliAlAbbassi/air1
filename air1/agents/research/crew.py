@@ -129,6 +129,7 @@ class ResearchProspectCrew:
             ],
             process=Process.sequential,
             verbose=True,
+            tracing=True,
         )
         
         result = crew.kickoff()
@@ -300,6 +301,7 @@ class ResearchProspectCrew:
             tasks=[linkedin_task, pain_point_task],
             process=Process.sequential,
             verbose=True,
+            tracing=True,
         )
         
         result = crew.kickoff()
