@@ -5,15 +5,45 @@ Run with: uv run pytest air1/agents/outreach/agents_online_test.py --online -v -
 """
 
 import pytest
-from loguru import logger
 
 from air1.agents.outreach.models import (
     VoiceProfile,
     OutreachRules,
     MessageRequest,
     MessageType,
+    AdvancedQuestion,
 )
 from air1.agents.outreach.crew import OutreachMessageCrew
+
+
+def print_header(title: str):
+    """Print a formatted header."""
+    print(f"\n{'='*60}")
+    print(f"  {title}")
+    print(f"{'='*60}\n")
+
+
+def print_message(message, label: str = "Generated Message"):
+    """Print a formatted message output."""
+    print(f"\n{'-'*50}")
+    print(f"  {label}")
+    print(f"{'-'*50}")
+    print(f"\n{message.message}\n")
+    print(f"{'-'*50}")
+    print(f"  Type: {message.message_type.value}")
+    print(f"  Characters: {message.character_count}")
+    if message.subject_line:
+        print(f"  Subject: {message.subject_line}")
+    print(f"  Confidence: {message.confidence_score}/100")
+    if message.personalization_elements:
+        print(f"  Personalization: {', '.join(message.personalization_elements)}")
+    if message.reasoning:
+        print(f"  Reasoning: {message.reasoning}")
+    if message.alternative_openers:
+        print(f"  Alternative openers:")
+        for alt in message.alternative_openers:
+            print(f"    - {alt}")
+    print(f"{'-'*50}\n")
 
 
 # Sample data for testing
@@ -79,6 +109,8 @@ class TestVoiceAnalyzerOnline:
 
     def test_voice_analysis(self):
         """Test voice analysis from writing samples."""
+        print_header("VOICE ANALYSIS TEST")
+        
         crew = OutreachMessageCrew()
         
         writing_samples = [
@@ -87,14 +119,25 @@ class TestVoiceAnalyzerOnline:
             "Noticed your post about AI in sales - totally agree. We're seeing similar trends. Happy to chat if you want to compare notes.",
         ]
         
-        logger.info("Testing voice analysis...")
+        print("Input writing samples:")
+        for i, sample in enumerate(writing_samples, 1):
+            print(f"  {i}. \"{sample}\"")
+        
         profile = crew.analyze_voice(writing_samples)
         
-        logger.info(f"Extracted tone: {profile.tone}")
-        logger.info(f"Formality level: {profile.formality_level}")
-        logger.info(f"Greeting style: {profile.greeting_style}")
-        logger.info(f"Uses emojis: {profile.uses_emojis}")
-        logger.info(f"Sentence length: {profile.sentence_length}")
+        print("\n" + "="*50)
+        print("  EXTRACTED VOICE PROFILE")
+        print("="*50)
+        print(f"  Tone: {profile.tone}")
+        print(f"  Formality level: {profile.formality_level}/10")
+        print(f"  Greeting style: '{profile.greeting_style}'")
+        print(f"  Sign-off style: '{profile.sign_off_style}'")
+        print(f"  Uses emojis: {profile.uses_emojis}")
+        print(f"  Uses humor: {profile.uses_humor}")
+        print(f"  Sentence length: {profile.sentence_length}")
+        if profile.common_phrases:
+            print(f"  Common phrases: {profile.common_phrases}")
+        print("="*50 + "\n")
         
         assert profile is not None
         assert profile.writing_samples == writing_samples
@@ -106,18 +149,19 @@ class TestMessageGeneratorOnline:
 
     def test_linkedin_dm_generation(self):
         """Test generating a LinkedIn DM."""
+        print_header("LINKEDIN DM GENERATION TEST")
+        
+        print("Prospect: Sarah Chen, VP of Sales @ TechCorp")
+        print("Trigger: Liked her post about SDR training challenges")
+        print("Voice: Casual, formality 3/10")
+        
         crew = OutreachMessageCrew(
             voice_profile=SAMPLE_VOICE_PROFILE,
             outreach_rules=SAMPLE_RULES,
         )
         
-        logger.info("Testing LinkedIn DM generation...")
         message = crew.generate_message(SAMPLE_REQUEST)
-        
-        logger.info(f"Generated message ({message.character_count} chars):")
-        logger.info(f"---\n{message.message}\n---")
-        logger.info(f"Confidence: {message.confidence_score}")
-        logger.info(f"Personalization: {message.personalization_elements}")
+        print_message(message, "LinkedIn DM")
         
         assert message.message is not None
         assert len(message.message) > 0
@@ -125,6 +169,11 @@ class TestMessageGeneratorOnline:
 
     def test_connection_request_generation(self):
         """Test generating a connection request (300 char limit)."""
+        print_header("CONNECTION REQUEST GENERATION TEST")
+        
+        print("Prospect: Sarah Chen, VP of Sales @ TechCorp")
+        print("Constraint: 300 character limit")
+        
         crew = OutreachMessageCrew(
             voice_profile=SAMPLE_VOICE_PROFILE,
             outreach_rules=SAMPLE_RULES,
@@ -133,19 +182,24 @@ class TestMessageGeneratorOnline:
         request = SAMPLE_REQUEST.model_copy()
         request.message_type = MessageType.CONNECTION_REQUEST
         
-        logger.info("Testing connection request generation...")
         message = crew.generate_message(request)
+        print_message(message, "Connection Request")
         
-        logger.info(f"Generated connection request ({message.character_count} chars):")
-        logger.info(f"---\n{message.message}\n---")
+        if message.character_count > 300:
+            print(f"⚠️  WARNING: Message exceeds 300 char limit ({message.character_count} chars)")
+        else:
+            print(f"✓ Within 300 char limit ({message.character_count} chars)")
         
         assert message.message is not None
         assert message.message_type == MessageType.CONNECTION_REQUEST
-        # Connection requests should be concise
-        logger.info(f"Character count: {message.character_count} (limit: 300)")
 
     def test_email_generation(self):
         """Test generating an email with subject line."""
+        print_header("EMAIL GENERATION TEST")
+        
+        print("Prospect: Sarah Chen, VP of Sales @ TechCorp")
+        print("Includes: Subject line")
+        
         crew = OutreachMessageCrew(
             voice_profile=SAMPLE_VOICE_PROFILE,
             outreach_rules=SAMPLE_RULES,
@@ -154,12 +208,8 @@ class TestMessageGeneratorOnline:
         request = SAMPLE_REQUEST.model_copy()
         request.message_type = MessageType.EMAIL
         
-        logger.info("Testing email generation...")
         message = crew.generate_message(request)
-        
-        logger.info(f"Subject: {message.subject_line}")
-        logger.info(f"Generated email ({message.character_count} chars):")
-        logger.info(f"---\n{message.message}\n---")
+        print_message(message, "Email")
         
         assert message.message is not None
         assert message.message_type == MessageType.EMAIL
@@ -171,29 +221,73 @@ class TestOutreachCrewOnline:
 
     def test_generate_message_without_voice_profile(self):
         """Test generating message without pre-defined voice profile."""
-        crew = OutreachMessageCrew(outreach_rules=SAMPLE_RULES)
+        print_header("MESSAGE WITHOUT VOICE PROFILE TEST")
         
-        logger.info("Testing message generation without voice profile...")
+        print("Testing with default voice profile (no samples)")
+        
+        crew = OutreachMessageCrew(outreach_rules=SAMPLE_RULES)
         message = crew.generate_message(SAMPLE_REQUEST)
         
-        logger.info(f"Generated message ({message.character_count} chars):")
-        logger.info(f"---\n{message.message}\n---")
+        print_message(message, "Default Voice Message")
+        
+        assert message.message is not None
+
+    def test_generate_with_advanced_questions(self):
+        """Test generating message with advanced questions context."""
+        print_header("MESSAGE WITH ADVANCED QUESTIONS TEST")
+        
+        rules = OutreachRules(
+            dos=["Reference their specific challenges"],
+            donts=["Be generic"],
+            advanced_questions=[
+                AdvancedQuestion(
+                    question="What's your unique selling point?",
+                    answer="We reduce SDR ramp time from 3 months to 3 weeks using AI coaching"
+                ),
+                AdvancedQuestion(
+                    question="What's your ideal customer profile?",
+                    answer="Series A-C SaaS companies scaling their sales teams"
+                ),
+                AdvancedQuestion(
+                    question="What objection do you hear most?",
+                    answer="We already have a training program"
+                ),
+            ],
+        )
+        
+        print("Advanced Questions provided:")
+        for qa in rules.advanced_questions:
+            print(f"  Q: {qa.question}")
+            print(f"  A: {qa.answer}")
+            print()
+        
+        crew = OutreachMessageCrew(
+            voice_profile=SAMPLE_VOICE_PROFILE,
+            outreach_rules=rules,
+        )
+        
+        message = crew.generate_message(SAMPLE_REQUEST)
+        print_message(message, "Message with Advanced Context")
         
         assert message.message is not None
 
     def test_generate_sequence(self):
         """Test generating a message sequence."""
+        print_header("MESSAGE SEQUENCE GENERATION TEST")
+        
+        print("Generating 2-message sequence:")
+        print("  1. Initial LinkedIn DM")
+        print("  2. Follow-up message")
+        
         crew = OutreachMessageCrew(
             voice_profile=SAMPLE_VOICE_PROFILE,
             outreach_rules=SAMPLE_RULES,
         )
         
-        logger.info("Testing sequence generation (3 messages)...")
         messages = crew.generate_sequence(SAMPLE_REQUEST, num_messages=2)
         
         for i, msg in enumerate(messages, 1):
-            logger.info(f"\n--- Message {i} ({msg.message_type.value}) ---")
-            logger.info(f"{msg.message}")
+            print_message(msg, f"Sequence Message {i} ({msg.message_type.value})")
         
         assert len(messages) == 2
         assert messages[0].message_type == MessageType.LINKEDIN_DM
