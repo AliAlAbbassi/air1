@@ -292,3 +292,184 @@ class TestOutreachCrewOnline:
         assert len(messages) == 2
         assert messages[0].message_type == MessageType.LINKEDIN_DM
         assert messages[1].message_type == MessageType.FOLLOW_UP
+
+
+@pytest.mark.online
+class TestHodhodRealWorldOnline:
+    """
+    Real-world test case: Hodhod Studios targeting AI integration agencies.
+    
+    This mirrors the actual use case of reaching out to AI agency founders
+    to offer lead generation services.
+    """
+
+    def test_ai_agency_connection_request(self):
+        """Test generating connection request for AI agency founder."""
+        print_header("HODHOD → AI AGENCY CONNECTION REQUEST")
+        
+        # Real voice profile based on Ali's writing style
+        hodhod_voice = VoiceProfile(
+            writing_samples=[
+                "Hi Andrii, I run Hodhod Studios. We use our AI agent to help AI integration agencies get in front of engineering leaders, guaranteeing 10+ meetings in 90 days. It's a fully managed service. Quick chat? https://cal.com/ali-hodhod/30min",
+                "Hey! Saw you're building AI solutions for enterprises. We help agencies like yours book meetings with engineering leaders. Interested in chatting?",
+                "Quick one - noticed your agency focuses on AI integrations. We guarantee 10+ qualified meetings in 90 days for AI agencies. Worth a quick call?",
+            ],
+            tone="direct",
+            formality_level=4,
+            greeting_style="Hi",
+            sign_off_style="",
+            common_phrases=["quick chat", "fully managed", "guarantee", "10+ meetings"],
+            uses_emojis=False,
+            uses_humor=False,
+            sentence_length="short",
+        )
+        
+        hodhod_rules = OutreachRules(
+            dos=[
+                "Mention Hodhod Studios by name",
+                "Include the guarantee (10+ meetings in 90 days)",
+                "Mention it's fully managed",
+                "Include calendar link: https://cal.com/ali-hodhod/30min",
+                "Keep it under 300 characters",
+            ],
+            donts=[
+                "Don't be vague about what we do",
+                "Don't use buzzwords like 'synergy' or 'leverage'",
+                "Don't make it too long",
+            ],
+            banned_phrases=["synergy", "leverage", "circle back", "touch base", "game-changer"],
+            required_cta="Quick chat? with calendar link",
+            max_length=300,
+        )
+        
+        # Target: AI integration agency founder
+        ai_agency_request = MessageRequest(
+            message_type=MessageType.CONNECTION_REQUEST,
+            prospect_name="Andrii",
+            prospect_title="Founder & CEO",
+            prospect_company="AI Solutions Agency",
+            prospect_summary="Andrii is the founder of an AI integration agency that helps enterprises implement AI solutions. 5 years in AI/ML consulting. Previously led AI projects at a Big 4 consulting firm.",
+            company_summary="AI Solutions Agency is a boutique AI consulting firm specializing in enterprise AI integrations. They work with Fortune 500 companies on custom AI implementations.",
+            pain_points=[
+                "Finding qualified enterprise leads",
+                "Long sales cycles with enterprise clients",
+                "Competing with larger consulting firms",
+            ],
+            talking_points=[
+                "Their focus on enterprise AI",
+                "Need for qualified engineering leader meetings",
+            ],
+            relevancy="AI integration agency - perfect fit for our lead gen service targeting engineering leaders",
+            outreach_trigger="Found via LinkedIn search for AI agency founders",
+            product_description="Hodhod Studios - AI-powered lead generation for AI agencies, guaranteeing 10+ meetings with engineering leaders in 90 days",
+            value_proposition="Guarantee 10+ qualified meetings with engineering leaders in 90 days, fully managed",
+        )
+        
+        print("Target: Andrii, Founder @ AI Solutions Agency")
+        print("Product: Hodhod Studios lead gen for AI agencies")
+        print("Goal: Book a call via cal.com/ali-hodhod/30min")
+        print()
+        print("Reference message style:")
+        print('  "Hi Andrii, I run Hodhod Studios. We use our AI agent to help')
+        print('   AI integration agencies get in front of engineering leaders,')
+        print('   guaranteeing 10+ meetings in 90 days. It\'s a fully managed')
+        print('   service. Quick chat? https://cal.com/ali-hodhod/30min"')
+        
+        crew = OutreachMessageCrew(
+            voice_profile=hodhod_voice,
+            outreach_rules=hodhod_rules,
+        )
+        
+        message = crew.generate_message(ai_agency_request)
+        print_message(message, "AI Agency Connection Request")
+        
+        if message.character_count > 300:
+            print(f"⚠️  WARNING: Exceeds 300 char limit ({message.character_count} chars)")
+        else:
+            print(f"✓ Within 300 char limit ({message.character_count} chars)")
+        
+        assert message.message is not None
+        assert message.message_type == MessageType.CONNECTION_REQUEST
+
+    def test_ai_agency_linkedin_dm(self):
+        """Test generating LinkedIn DM for AI agency founder (longer format)."""
+        print_header("HODHOD → AI AGENCY LINKEDIN DM")
+        
+        hodhod_voice = VoiceProfile(
+            writing_samples=[
+                "Hi Andrii, I run Hodhod Studios. We use our AI agent to help AI integration agencies get in front of engineering leaders, guaranteeing 10+ meetings in 90 days. It's a fully managed service. Quick chat? https://cal.com/ali-hodhod/30min",
+                "Hey! Saw you're building AI solutions for enterprises. We help agencies like yours book meetings with engineering leaders. Interested in chatting?",
+            ],
+            tone="direct",
+            formality_level=4,
+            greeting_style="Hi",
+            sign_off_style="",
+            common_phrases=["quick chat", "fully managed", "guarantee"],
+            uses_emojis=False,
+            uses_humor=False,
+            sentence_length="short",
+        )
+        
+        hodhod_rules = OutreachRules(
+            dos=[
+                "Mention Hodhod Studios",
+                "Include the guarantee (10+ meetings in 90 days)",
+                "Reference something specific about their agency",
+                "Include calendar link",
+            ],
+            donts=[
+                "Don't be too salesy",
+                "Don't write more than 4-5 sentences",
+            ],
+            banned_phrases=["synergy", "leverage", "game-changer"],
+            required_cta="Quick chat? with calendar link",
+            max_length=500,
+            advanced_questions=[
+                AdvancedQuestion(
+                    question="What makes Hodhod different?",
+                    answer="We use AI agents to research and personalize outreach at scale, and we guarantee results - 10+ meetings or you don't pay"
+                ),
+                AdvancedQuestion(
+                    question="Who is your ideal customer?",
+                    answer="AI integration agencies and AI consultancies that want to reach engineering leaders at enterprises"
+                ),
+            ],
+        )
+        
+        ai_agency_request = MessageRequest(
+            message_type=MessageType.LINKEDIN_DM,
+            prospect_name="Andrii",
+            prospect_title="Founder & CEO",
+            prospect_company="AI Solutions Agency",
+            prospect_summary="Andrii founded his AI agency 3 years ago after leaving McKinsey. He's built a team of 15 AI engineers and has worked with companies like Walmart and Target on AI implementations.",
+            company_summary="AI Solutions Agency specializes in computer vision and NLP implementations for retail and logistics companies. Recently raised a small seed round.",
+            pain_points=[
+                "Scaling beyond referral-based growth",
+                "Breaking into new enterprise accounts",
+                "Competing for attention with larger firms",
+            ],
+            talking_points=[
+                "His McKinsey background",
+                "Recent seed funding",
+                "Focus on retail/logistics AI",
+            ],
+            relevancy="AI agency founder who needs enterprise leads - exactly who we help",
+            outreach_trigger="Saw his post about scaling an AI consultancy",
+            product_description="Hodhod Studios - AI-powered lead generation guaranteeing 10+ meetings with engineering leaders in 90 days",
+            value_proposition="Fully managed lead gen that guarantees results for AI agencies",
+        )
+        
+        print("Target: Andrii, Founder @ AI Solutions Agency")
+        print("Context: Saw his post about scaling an AI consultancy")
+        print("Format: LinkedIn DM (can be longer than connection request)")
+        
+        crew = OutreachMessageCrew(
+            voice_profile=hodhod_voice,
+            outreach_rules=hodhod_rules,
+        )
+        
+        message = crew.generate_message(ai_agency_request)
+        print_message(message, "AI Agency LinkedIn DM")
+        
+        assert message.message is not None
+        assert message.message_type == MessageType.LINKEDIN_DM
