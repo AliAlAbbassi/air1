@@ -266,6 +266,8 @@ class WritingStyleRecord(BaseModel):
     uses_emojis: bool | None = Field(default=None, alias="usesEmojis")
     uses_humor: bool | None = Field(default=None, alias="usesHumor")
     sentence_length: str | None = Field(default=None, alias="sentenceLength")
+    personal_anecdotes: list[str] | None = Field(default=None, alias="personalAnecdotes")
+    signature_opener: str | None = Field(default=None, alias="signatureOpener")
 
     class Config:
         populate_by_name = True
@@ -283,6 +285,8 @@ class WritingStyleRecord(BaseModel):
             uses_humor=self.uses_humor or False,
             sentence_length=self.sentence_length or "medium",
             instructions=self.instructions or "",
+            personal_anecdotes=self.personal_anecdotes or [],
+            signature_opener=self.signature_opener or "",
         )
 
     def to_outreach_rules(self) -> OutreachRules:
@@ -302,4 +306,60 @@ class WritingStyleRecord(BaseModel):
             donts=self.donts or [],
             instructions=self.instructions or "",
             advanced_questions=questions,
+        )
+
+class WritingStyle(BaseModel):
+    """
+    Complete writing style configuration combining voice profile and outreach rules.
+    
+    This is the main model used by the OutreachMessageCrew to generate messages.
+    It can be created from a WritingStyleRecord (database) or manually configured.
+    """
+    
+    # Identity
+    name: str = Field(default="Default", description="Name of this writing style")
+    
+    # Voice characteristics
+    voice_profile: VoiceProfile = Field(
+        default_factory=VoiceProfile,
+        description="Voice/tone characteristics for message generation"
+    )
+    
+    # Rules and constraints
+    outreach_rules: OutreachRules = Field(
+        default_factory=OutreachRules,
+        description="Dos, don'ts, and constraints for message generation"
+    )
+    
+    @classmethod
+    def from_record(cls, record: WritingStyleRecord) -> "WritingStyle":
+        """Create WritingStyle from a database record."""
+        return cls(
+            name=record.name,
+            voice_profile=record.to_voice_profile(),
+            outreach_rules=record.to_outreach_rules(),
+        )
+    
+    @classmethod
+    def from_samples(
+        cls,
+        name: str,
+        writing_samples: list[str],
+        dos: list[str] | None = None,
+        donts: list[str] | None = None,
+        tone: str = "professional",
+        formality_level: int = 5,
+    ) -> "WritingStyle":
+        """Create WritingStyle from writing samples and basic config."""
+        return cls(
+            name=name,
+            voice_profile=VoiceProfile(
+                writing_samples=writing_samples,
+                tone=tone,
+                formality_level=formality_level,
+            ),
+            outreach_rules=OutreachRules(
+                dos=dos or [],
+                donts=donts or [],
+            ),
         )

@@ -18,6 +18,8 @@ SELECT
     uses_emojis AS "usesEmojis",
     uses_humor AS "usesHumor",
     sentence_length AS "sentenceLength",
+    personal_anecdotes AS "personalAnecdotes",
+    signature_opener AS "signatureOpener",
     created_on AS "createdOn",
     updated_on AS "updatedOn"
 FROM writing_style
@@ -43,6 +45,8 @@ SELECT
     uses_emojis AS "usesEmojis",
     uses_humor AS "usesHumor",
     sentence_length AS "sentenceLength",
+    personal_anecdotes AS "personalAnecdotes",
+    signature_opener AS "signatureOpener",
     created_on AS "createdOn",
     updated_on AS "updatedOn"
 FROM writing_style

@@ -32,6 +32,12 @@ ALTER TABLE writing_style ADD COLUMN IF NOT EXISTS uses_humor BOOLEAN DEFAULT FA
 -- Add sentence_length preference
 ALTER TABLE writing_style ADD COLUMN IF NOT EXISTS sentence_length VARCHAR(20) DEFAULT 'medium';
 
+-- Add personal_anecdotes for stories/references the user likes to use
+ALTER TABLE writing_style ADD COLUMN IF NOT EXISTS personal_anecdotes TEXT[];
+
+-- Add signature_opener for their typical opening line style
+ALTER TABLE writing_style ADD COLUMN IF NOT EXISTS signature_opener TEXT;
+
 -- Add index for user lookup
 CREATE INDEX IF NOT EXISTS idx_writing_style_user_id ON writing_style(user_id);
 

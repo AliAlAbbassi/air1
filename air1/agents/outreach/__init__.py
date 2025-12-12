@@ -9,6 +9,7 @@ from air1.agents.outreach.models import (
     MessageType,
     AdvancedQuestion,
     WritingStyleRecord,
+    WritingStyle,
 )
 from air1.agents.outreach.crew import OutreachMessageCrew
 
@@ -21,5 +22,6 @@ __all__ = [
     "MessageType",
     "AdvancedQuestion",
     "WritingStyleRecord",
+    "WritingStyle",
     "OutreachMessageCrew",
 ]

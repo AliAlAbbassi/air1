@@ -169,10 +169,20 @@ def _build_voice_instructions(voice_profile: VoiceProfile) -> str:
     
     instructions.append(f"- Sentence length: {voice_profile.sentence_length}")
     
+    if voice_profile.signature_opener:
+        instructions.append(f"- Signature opener style: '{voice_profile.signature_opener}'")
+    
+    if voice_profile.personal_anecdotes:
+        anecdotes = "; ".join(voice_profile.personal_anecdotes[:3])
+        instructions.append(f"- Personal anecdotes to reference: {anecdotes}")
+    
     if voice_profile.writing_samples:
         instructions.append("\n**WRITING SAMPLES TO EMULATE:**")
         for i, sample in enumerate(voice_profile.writing_samples[:3], 1):
             instructions.append(f"Sample {i}: \"{sample[:500]}\"")
+    
+    if voice_profile.instructions:
+        instructions.append(f"\n**ADDITIONAL VOICE INSTRUCTIONS:**\n{voice_profile.instructions}")
     
     return "\n".join(instructions)
 

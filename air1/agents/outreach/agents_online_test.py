@@ -326,20 +326,21 @@ class TestHodhodRealWorldOnline:
         
         hodhod_rules = OutreachRules(
             dos=[
-                "Introduce Hodhod Studios - a lead gen agency that uses our AI SaaS 'Hodhod' to help AI integration agencies book meetings",
-                "Mention the guarantee (10+ meetings in 90 days)",
+                "Start with 'Hi [Name], I run Hodhod Studios'",
+                "Explain we help AI integration agencies get meetings with engineering leaders",
+                "Mention the guarantee: 10+ meetings in 90 days",
                 "Mention it's fully managed",
-                "Put the calendar link at the END of the message: https://cal.com/ali-hodhod/30min",
+                "MUST end with: 'Quick chat? https://cal.com/ali-hodhod/30min'",
                 "Keep it under 300 characters",
             ],
             donts=[
                 "Don't be vague about what we do",
-                "Don't use buzzwords like 'synergy' or 'leverage'",
-                "Don't make it too long",
-                "Don't put the calendar link in the middle of the message",
+                "Don't mention any specific industry like retail or logistics",
+                "Don't put the calendar link anywhere except at the END",
+                "Don't end without the calendar link",
             ],
-            banned_phrases=["synergy", "leverage", "circle back", "touch base", "game-changer"],
-            required_cta="Quick chat? followed by calendar link at the very end",
+            banned_phrases=["synergy", "leverage", "circle back", "touch base", "game-changer", "retail", "logistics"],
+            required_cta="MUST end with: Quick chat? https://cal.com/ali-hodhod/30min",
             max_length=300,
         )
         
@@ -349,15 +350,15 @@ class TestHodhodRealWorldOnline:
             prospect_name="Andrii",
             prospect_title="Founder & CEO",
             prospect_company="AI Solutions Agency",
-            prospect_summary="Andrii is the founder of an AI integration agency that helps enterprises implement AI solutions. 5 years in AI/ML consulting. Previously led AI projects at a Big 4 consulting firm.",
-            company_summary="AI Solutions Agency is a boutique AI consulting firm specializing in enterprise AI integrations. They work with Fortune 500 companies on custom AI implementations.",
+            prospect_summary="Andrii is the founder of an AI integration agency that helps software companies implement AI solutions. 5 years in AI/ML consulting.",
+            company_summary="AI Solutions Agency helps software companies and SaaS startups integrate AI into their products. They specialize in LLM integrations and AI automation.",
             pain_points=[
                 "Finding qualified enterprise leads",
                 "Long sales cycles with enterprise clients",
                 "Competing with larger consulting firms",
             ],
             talking_points=[
-                "Their focus on enterprise AI",
+                "Their focus on helping software companies with AI",
                 "Need for qualified engineering leader meetings",
             ],
             relevancy="AI integration agency - perfect fit for our lead gen service targeting engineering leaders",
@@ -413,31 +414,34 @@ class TestHodhodRealWorldOnline:
         
         hodhod_rules = OutreachRules(
             dos=[
-                "Introduce Hodhod Studios - a lead gen agency using our AI SaaS 'Hodhod' to help AI integration agencies",
-                "Include the guarantee (10+ meetings in 90 days)",
-                "Reference something specific about their agency",
-                "Put the calendar link at the END of the message: https://cal.com/ali-hodhod/30min",
+                "Introduce yourself: 'I run Hodhod Studios'",
+                "Explain what Hodhod Studios does: lead gen agency using AI to help AI/software agencies book meetings",
+                "Include the guarantee: 10+ meetings with engineering leaders in 90 days",
+                "Mention it's fully managed",
+                "MUST end the message with: 'Quick chat? https://cal.com/ali-hodhod/30min'",
             ],
             donts=[
+                "Don't mention retail, logistics, or any industry - we help SOFTWARE/AI agencies only",
                 "Don't be too salesy",
                 "Don't write more than 4-5 sentences",
-                "Don't put the calendar link in the middle of the message",
+                "Don't put the calendar link anywhere except at the very END",
+                "Don't end without the calendar link",
             ],
-            banned_phrases=["synergy", "leverage", "game-changer"],
-            required_cta="Quick chat? followed by calendar link at the very end",
+            banned_phrases=["synergy", "leverage", "game-changer", "retail", "logistics"],
+            required_cta="MUST end with exactly: Quick chat? https://cal.com/ali-hodhod/30min",
             max_length=500,
             advanced_questions=[
                 AdvancedQuestion(
                     question="What is Hodhod Studios?",
-                    answer="Hodhod Studios is a lead gen agency that uses our AI SaaS platform 'Hodhod' to help AI integration agencies book meetings with engineering leaders"
+                    answer="Hodhod Studios is a lead gen agency that uses our AI SaaS platform 'Hodhod' to help AI integration agencies and software agencies book meetings with engineering leaders"
+                ),
+                AdvancedQuestion(
+                    question="What industries do you serve?",
+                    answer="We ONLY help AI integration agencies and software agencies. We do NOT work with retail, logistics, or other industries."
                 ),
                 AdvancedQuestion(
                     question="What makes Hodhod different?",
                     answer="We use AI agents to research and personalize outreach at scale, and we guarantee results - 10+ meetings or you don't pay"
-                ),
-                AdvancedQuestion(
-                    question="Who is your ideal customer?",
-                    answer="AI integration agencies and AI consultancies that want to reach engineering leaders at enterprises"
                 ),
             ],
         )
@@ -447,19 +451,18 @@ class TestHodhodRealWorldOnline:
             prospect_name="Andrii",
             prospect_title="Founder & CEO",
             prospect_company="AI Solutions Agency",
-            prospect_summary="Andrii founded his AI agency 3 years ago after leaving McKinsey. He's built a team of 15 AI engineers and has worked with companies like Walmart and Target on AI implementations.",
-            company_summary="AI Solutions Agency specializes in computer vision and NLP implementations for retail and logistics companies. Recently raised a small seed round.",
+            prospect_summary="Andrii founded his AI integration agency 3 years ago. He's built a team of 15 engineers helping software companies integrate AI/ML into their products.",
+            company_summary="AI Solutions Agency helps software companies and SaaS startups integrate AI capabilities into their products. They specialize in LLM integrations, RAG systems, and AI automation.",
             pain_points=[
                 "Scaling beyond referral-based growth",
-                "Breaking into new enterprise accounts",
-                "Competing for attention with larger firms",
+                "Breaking into new enterprise software accounts",
+                "Competing for attention with larger consulting firms",
             ],
             talking_points=[
-                "His McKinsey background",
-                "Recent seed funding",
-                "Focus on retail/logistics AI",
+                "His post about scaling an AI consultancy",
+                "Focus on helping software companies with AI",
             ],
-            relevancy="AI agency founder who needs enterprise leads - exactly who we help",
+            relevancy="AI integration agency founder who needs enterprise leads - exactly who we help",
             outreach_trigger="Saw his post about scaling an AI consultancy",
             product_description="Hodhod Studios - AI-powered lead generation guaranteeing 10+ meetings with engineering leaders in 90 days",
             value_proposition="Fully managed lead gen that guarantees results for AI agencies",
