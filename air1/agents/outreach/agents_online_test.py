@@ -326,19 +326,20 @@ class TestHodhodRealWorldOnline:
         
         hodhod_rules = OutreachRules(
             dos=[
-                "Mention Hodhod Studios by name",
-                "Include the guarantee (10+ meetings in 90 days)",
+                "Introduce Hodhod Studios - a lead gen agency that uses our AI SaaS 'Hodhod' to help AI integration agencies book meetings",
+                "Mention the guarantee (10+ meetings in 90 days)",
                 "Mention it's fully managed",
-                "Include calendar link: https://cal.com/ali-hodhod/30min",
+                "Put the calendar link at the END of the message: https://cal.com/ali-hodhod/30min",
                 "Keep it under 300 characters",
             ],
             donts=[
                 "Don't be vague about what we do",
                 "Don't use buzzwords like 'synergy' or 'leverage'",
                 "Don't make it too long",
+                "Don't put the calendar link in the middle of the message",
             ],
             banned_phrases=["synergy", "leverage", "circle back", "touch base", "game-changer"],
-            required_cta="Quick chat? with calendar link",
+            required_cta="Quick chat? followed by calendar link at the very end",
             max_length=300,
         )
         
@@ -412,19 +413,24 @@ class TestHodhodRealWorldOnline:
         
         hodhod_rules = OutreachRules(
             dos=[
-                "Mention Hodhod Studios",
+                "Introduce Hodhod Studios - a lead gen agency using our AI SaaS 'Hodhod' to help AI integration agencies",
                 "Include the guarantee (10+ meetings in 90 days)",
                 "Reference something specific about their agency",
-                "Include calendar link",
+                "Put the calendar link at the END of the message: https://cal.com/ali-hodhod/30min",
             ],
             donts=[
                 "Don't be too salesy",
                 "Don't write more than 4-5 sentences",
+                "Don't put the calendar link in the middle of the message",
             ],
             banned_phrases=["synergy", "leverage", "game-changer"],
-            required_cta="Quick chat? with calendar link",
+            required_cta="Quick chat? followed by calendar link at the very end",
             max_length=500,
             advanced_questions=[
+                AdvancedQuestion(
+                    question="What is Hodhod Studios?",
+                    answer="Hodhod Studios is a lead gen agency that uses our AI SaaS platform 'Hodhod' to help AI integration agencies book meetings with engineering leaders"
+                ),
                 AdvancedQuestion(
                     question="What makes Hodhod different?",
                     answer="We use AI agents to research and personalize outreach at scale, and we guarantee results - 10+ meetings or you don't pay"
