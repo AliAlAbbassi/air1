@@ -113,6 +113,39 @@ class IService(ABC):
         """
         pass
 
+    @abstractmethod
+    def generate_outreach_message(
+        self,
+        prospect_name: str,
+        prospect_title: str | None = None,
+        prospect_company: str | None = None,
+        prospect_summary: str | None = None,
+        company_summary: str | None = None,
+        pain_points: list[str] | None = None,
+        talking_points: list[str] | None = None,
+        outreach_trigger: str | None = None,
+        message_type: str = "linkedin_dm",
+        voice_profile: any = None,
+        outreach_rules: any = None,
+    ) -> any:
+        """
+        Generate a personalized outreach message in the user's voice.
+        
+        Args:
+            prospect_name: Name of the prospect
+            prospect_title: Job title
+            prospect_company: Company name
+            prospect_summary: AI summary of the prospect
+            company_summary: AI summary of the company
+            pain_points: Identified pain points
+            talking_points: Suggested talking points
+            outreach_trigger: What triggered this outreach
+            message_type: Type of message (connection_request, linkedin_dm, email, etc.)
+            voice_profile: VoiceProfile for style cloning
+            outreach_rules: OutreachRules with dos/don'ts
+        """
+        pass
+
 
 class Service(IService):
     def __init__(self, playwright: Optional[Playwright] = None):
@@ -505,3 +538,67 @@ class Service(IService):
         )
         crew = ResearchProspectCrew(icp_profile=icp_profile)
         return crew.research_prospect(prospect)
+
+    def generate_outreach_message(
+        self,
+        prospect_name: str,
+        prospect_title: str | None = None,
+        prospect_company: str | None = None,
+        prospect_summary: str | None = None,
+        company_summary: str | None = None,
+        pain_points: list[str] | None = None,
+        talking_points: list[str] | None = None,
+        outreach_trigger: str | None = None,
+        message_type: str = "linkedin_dm",
+        voice_profile: any = None,
+        outreach_rules: any = None,
+    ):
+        """
+        Generate a personalized outreach message in the user's voice.
+        
+        Args:
+            prospect_name: Name of the prospect
+            prospect_title: Job title
+            prospect_company: Company name
+            prospect_summary: AI summary of the prospect
+            company_summary: AI summary of the company
+            pain_points: Identified pain points
+            talking_points: Suggested talking points
+            outreach_trigger: What triggered this outreach
+            message_type: Type of message (connection_request, linkedin_dm, email, etc.)
+            voice_profile: VoiceProfile for style cloning
+            outreach_rules: OutreachRules with dos/don'ts
+            
+        Returns:
+            GeneratedMessage with the message and metadata
+        """
+        from air1.agents.outreach.crew import OutreachMessageCrew
+        from air1.agents.outreach.models import MessageRequest, MessageType
+        
+        # Map string to MessageType enum
+        type_map = {
+            "connection_request": MessageType.CONNECTION_REQUEST,
+            "linkedin_dm": MessageType.LINKEDIN_DM,
+            "inmail": MessageType.INMAIL,
+            "follow_up": MessageType.FOLLOW_UP,
+            "email": MessageType.EMAIL,
+        }
+        msg_type = type_map.get(message_type, MessageType.LINKEDIN_DM)
+        
+        request = MessageRequest(
+            message_type=msg_type,
+            prospect_name=prospect_name,
+            prospect_title=prospect_title or "",
+            prospect_company=prospect_company or "",
+            prospect_summary=prospect_summary or "",
+            company_summary=company_summary or "",
+            pain_points=pain_points or [],
+            talking_points=talking_points or [],
+            outreach_trigger=outreach_trigger or "",
+        )
+        
+        crew = OutreachMessageCrew(
+            voice_profile=voice_profile,
+            outreach_rules=outreach_rules,
+        )
+        return crew.generate_message(request)
