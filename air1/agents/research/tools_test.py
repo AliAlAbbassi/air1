@@ -1,6 +1,5 @@
 """Unit tests for research agent tools."""
 
-import pytest
 
 from air1.agents.research.tools import (
     linkedin_profile_tool,
