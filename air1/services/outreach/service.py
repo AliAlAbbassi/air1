@@ -103,7 +103,7 @@ class IService(ABC):
     ) -> any:
         """
         Research a prospect and generate AI summary with ICP scoring.
-        
+
         Args:
             linkedin_username: LinkedIn username to research
             full_name: Prospect's full name
@@ -120,10 +120,12 @@ class Service(IService):
         self._owns_playwright = False
         self._playwright_instance = None
 
-        linkedin_sid = os.getenv("LINKEDIN_SID")
-        if not linkedin_sid:
+        linkedin_write_sid = os.getenv("LINKEDIN_WRITE_SID")
+        linkedin_read_sid = os.getenv("LINKEDIN_READ_SID")
+        if not linkedin_write_sid and not linkedin_read_sid:
             raise ValueError("linkedin_sid environment variable is required")
-        self.linkedin_sid = linkedin_sid
+        self.linkedin_write_sid = linkedin_write_sid
+        self.linkedin_read_sid = linkedin_read_sid
 
     async def __aenter__(self):
         if self.playwright is None:
@@ -136,13 +138,16 @@ class Service(IService):
         if self._owns_playwright and self._playwright_instance:
             await self._playwright_instance.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def launch_browser(self, headless=True) -> BrowserSession:
+    async def launch_browser(self, headless=True, read=True) -> BrowserSession:
         if not self.playwright:
             raise RuntimeError(
                 "Playwright not initialized. Use 'async with Service()' context manager."
             )
         browser = await self.playwright.chromium.launch(headless=headless)
-        return BrowserSession(browser, self.linkedin_sid)
+        return BrowserSession(
+            browser,
+            self.linkedin_read_sid if read else self.linkedin_write_sid
+        )
 
     async def get_profile_info(self, profile_id: str, headless=True) -> LinkedinProfile:
         """
@@ -239,7 +244,9 @@ class Service(IService):
             profile_ids = list(company_people.profile_ids)
             if profile_limit is not None:
                 profile_ids = profile_ids[:profile_limit]
-                logger.info(f"Limiting to {len(profile_ids)} profiles (profile_limit={profile_limit})")
+                logger.info(
+                    f"Limiting to {len(profile_ids)} profiles (profile_limit={profile_limit})"
+                )
 
             for i, profile_id in enumerate(profile_ids):
                 # Random delay between profiles to emulate human behavior (5-15 seconds)
@@ -316,7 +323,12 @@ class Service(IService):
         results = {}
         for company_id in company_ids:
             leads_saved = await self.scrape_and_save_company_leads(
-                company_id, limit=limit, headless=headless, keywords=keywords, location_ids=location_ids, profile_limit=profile_limit
+                company_id,
+                limit=limit,
+                headless=headless,
+                keywords=keywords,
+                location_ids=location_ids,
+                profile_limit=profile_limit,
             )
             results[company_id] = leads_saved
         return results
@@ -483,20 +495,20 @@ class Service(IService):
     ):
         """
         Research a prospect and generate AI summary with ICP scoring.
-        
+
         Args:
             linkedin_username: LinkedIn username to research
             full_name: Prospect's full name
-            headline: LinkedIn headline  
+            headline: LinkedIn headline
             company_name: Current company
             icp_profile: ICPProfile to score against
-            
+
         Returns:
             ResearchOutput with AI summary, pain points, talking points, ICP score
         """
         from air1.agents.research.crew import ResearchProspectCrew
         from air1.agents.research.models import ProspectInput
-        
+
         prospect = ProspectInput(
             linkedin_username=linkedin_username,
             full_name=full_name,
