@@ -1,10 +1,9 @@
 """Unit tests for research crew."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
 from air1.agents.research.crew import ResearchProspectCrew
-from air1.agents.research.models import ProspectInput, AISummary
+from air1.agents.research.models import ProspectInput
 
 
 class TestResearchProspectCrew:

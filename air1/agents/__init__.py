@@ -8,5 +8,6 @@ This module contains AI agents built with CrewAI for:
 """
 
 from air1.agents.research.crew import ResearchProspectCrew
+from air1.agents.company_finder.crew import CompanyFinderCrew
 
-__all__ = ["ResearchProspectCrew"]
+__all__ = ["ResearchProspectCrew", "CompanyFinderCrew"]

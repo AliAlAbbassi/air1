@@ -3,7 +3,6 @@ import asyncio
 from loguru import logger
 
 from air1.db.prisma_client import disconnect_db
-from air1.services.outreach.linkedin_locations import BEIRUT, LEBANON
 from air1.services.outreach.service import Service
 
 

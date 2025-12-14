@@ -13,7 +13,6 @@ Run against real database:
 import uuid
 import pytest
 from unittest.mock import AsyncMock, patch
-from fastapi.testclient import TestClient
 from httpx import AsyncClient, ASGITransport
 from loguru import logger
 
