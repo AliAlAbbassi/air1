@@ -12,7 +12,14 @@ from air1.config import settings
 
 
 def get_llm() -> LLM:
-    """Get the LLM instance for agents using Vertex AI (Gemini)."""
+    """Get the LLM instance for agents using Vertex AI (Gemini) or Groq."""
+    if settings.groq_api_key:
+        return LLM(
+            model=f"groq/{settings.groq_model}",
+            api_key=settings.groq_api_key,
+            temperature=0.7,
+        )
+
     return LLM(
         model=f"vertex_ai/{settings.vertex_ai_model}",
         temperature=0.7,

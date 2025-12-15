@@ -113,6 +113,14 @@ class Settings(BaseSettings):
         default="gemini-1.5-flash", description="Vertex AI model to use"
     )
 
+    # Groq configuration
+    groq_api_key: Optional[str] = Field(
+        default=None, description="Groq API key for LLM"
+    )
+    groq_model: str = Field(
+        default="llama3-70b-8192", description="Groq model to use"
+    )
+
     @field_validator("database_port")
     @classmethod
     def validate_port(cls, v: int) -> int:
