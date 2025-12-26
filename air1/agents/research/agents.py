@@ -21,18 +21,18 @@ def get_llm() -> LLM:
     - Google Cloud credentials (GOOGLE_APPLICATION_CREDENTIALS or gcloud auth) (for Vertex)
     - GROQ_API_KEY env var or settings.groq_api_key (for Groq)
     """
-    if settings.groq_api_key:
+    if settings.google_cloud_project:
         return LLM(
-            model=f"groq/{settings.groq_model}",
-            api_key=settings.groq_api_key,
+            model=f"vertex_ai/{settings.vertex_ai_model}",
             temperature=0.7,
+            vertex_project=settings.google_cloud_project,
+            vertex_location=settings.google_cloud_region,
         )
 
     return LLM(
-        model=f"vertex_ai/{settings.vertex_ai_model}",
+        model=f"groq/{settings.groq_model}",
+        api_key=settings.groq_api_key,
         temperature=0.7,
-        vertex_project=settings.google_cloud_project,
-        vertex_location=settings.google_cloud_region,
     )
 
 

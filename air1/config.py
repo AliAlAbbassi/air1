@@ -110,7 +110,7 @@ class Settings(BaseSettings):
         default="us-central1", description="Google Cloud region for Vertex AI"
     )
     vertex_ai_model: str = Field(
-        default="gemini-1.5-flash", description="Vertex AI model to use"
+        default="gemini-3-flash-preview", description="Vertex AI model to use"
     )
 
     # Groq configuration
@@ -118,7 +118,7 @@ class Settings(BaseSettings):
         default=None, description="Groq API key for LLM"
     )
     groq_model: str = Field(
-        default="llama3-70b-8192", description="Groq model to use"
+        default="qwen/qwen3-32b", description="Groq model to use"
     )
 
     @field_validator("database_port")

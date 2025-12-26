@@ -130,7 +130,7 @@ class IService(ABC):
     ) -> any:
         """
         Generate a personalized outreach message in the user's voice.
-        
+
         Args:
             prospect_name: Name of the prospect
             prospect_title: Job title
@@ -178,8 +178,7 @@ class Service(IService):
             )
         browser = await self.playwright.chromium.launch(headless=headless)
         return BrowserSession(
-            browser,
-            self.linkedin_read_sid if read else self.linkedin_write_sid
+            browser, self.linkedin_read_sid if read else self.linkedin_write_sid
         )
 
     async def get_profile_info(self, profile_id: str, headless=True) -> LinkedinProfile:
@@ -567,7 +566,7 @@ class Service(IService):
     ):
         """
         Generate a personalized outreach message in the user's voice.
-        
+
         Args:
             prospect_name: Name of the prospect
             prospect_title: Job title
@@ -580,13 +579,13 @@ class Service(IService):
             message_type: Type of message (connection_request, linkedin_dm, email, etc.)
             voice_profile: VoiceProfile for style cloning
             outreach_rules: OutreachRules with dos/don'ts
-            
+
         Returns:
             GeneratedMessage with the message and metadata
         """
         from air1.agents.outreach.crew import OutreachMessageCrew
         from air1.agents.outreach.models import MessageRequest, MessageType
-        
+
         # Map string to MessageType enum
         type_map = {
             "connection_request": MessageType.CONNECTION_REQUEST,
@@ -596,7 +595,7 @@ class Service(IService):
             "email": MessageType.EMAIL,
         }
         msg_type = type_map.get(message_type, MessageType.LINKEDIN_DM)
-        
+
         request = MessageRequest(
             message_type=msg_type,
             prospect_name=prospect_name,
@@ -608,7 +607,7 @@ class Service(IService):
             talking_points=talking_points or [],
             outreach_trigger=outreach_trigger or "",
         )
-        
+
         crew = OutreachMessageCrew(
             voice_profile=voice_profile,
             outreach_rules=outreach_rules,
