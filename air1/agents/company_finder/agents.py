@@ -20,8 +20,14 @@ def get_llm() -> LLM:
     3. Groq (fallback)
     """
     if settings.google_api_key:
+        # Use Google AI Studio (Free Tier available)
+        # Ensure model has 'gemini/' prefix for litellm if not present
+        model_name = settings.google_model
+        if not model_name.startswith("gemini/"):
+            model_name = f"gemini/{model_name}"
+            
         return LLM(
-            model=settings.google_model,
+            model=model_name,
             api_key=settings.google_api_key,
             temperature=0.7,
         )
