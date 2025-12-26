@@ -118,7 +118,12 @@ class Settings(BaseSettings):
         default=None, description="Groq API key for LLM"
     )
     groq_model: str = Field(
-        default="qwen/qwen3-32b", description="Groq model to use"
+        default="qwen/qwen-2.5-32b", description="Groq model to use"
+    )
+
+    # Google AI Studio (Gemini Free Tier)
+    google_api_key: Optional[str] = Field(
+        default=None, description="Google AI Studio API key (GEMINI_API_KEY or GOOGLE_API_KEY)"
     )
 
     @field_validator("database_port")
