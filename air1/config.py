@@ -125,6 +125,9 @@ class Settings(BaseSettings):
     google_api_key: Optional[str] = Field(
         default=None, description="Google AI Studio API key (GEMINI_API_KEY or GOOGLE_API_KEY)"
     )
+    google_model: str = Field(
+        default="gemini/gemini-1.5-flash", description="Google AI Studio model to use"
+    )
 
     @field_validator("database_port")
     @classmethod

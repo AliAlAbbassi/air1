@@ -15,25 +15,23 @@ def get_llm() -> LLM:
     """
     Get the LLM instance.
     Priority:
-    1. Vertex AI (if google_cloud_project is set)
-    2. Google AI Studio (if google_api_key is set)
+    1. Google AI Studio (if google_api_key is set) - PREFERRED for dev/free tier
+    2. Vertex AI (if google_cloud_project is set)
     3. Groq (fallback)
     """
+    if settings.google_api_key:
+        return LLM(
+            model=settings.google_model,
+            api_key=settings.google_api_key,
+            temperature=0.7,
+        )
+
     if settings.google_cloud_project:
         return LLM(
             model=f"vertex_ai/{settings.vertex_ai_model}",
             temperature=0.7,
             vertex_project=settings.google_cloud_project,
             vertex_location=settings.google_cloud_region,
-        )
-
-    if settings.google_api_key:
-        # Use Google AI Studio (Free Tier available)
-        # Note: model name for crewai/litellm usually 'gemini/gemini-1.5-flash'
-        return LLM(
-            model="gemini/gemini-1.5-flash",
-            api_key=settings.google_api_key,
-            temperature=0.7,
         )
 
     return LLM(
