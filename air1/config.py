@@ -110,7 +110,29 @@ class Settings(BaseSettings):
         default="us-central1", description="Google Cloud region for Vertex AI"
     )
     vertex_ai_model: str = Field(
-        default="gemini-1.5-flash", description="Vertex AI model to use"
+        default="gemini-3-flash-preview", description="Vertex AI model to use"
+    )
+
+    # Groq configuration
+    groq_api_key: Optional[str] = Field(
+        default=None, 
+        description="Groq API key for LLM",
+        validation_alias="GROQ_API_KEY"
+    )
+    groq_model: str = Field(
+        default="qwen/qwen3-32b", description="Groq model to use"
+    )
+
+    # Google AI Studio (Gemini Free Tier)
+    google_api_key: Optional[str] = Field(
+        default=None, 
+        description="Google AI Studio API key",
+        validation_alias="GOOGLE_API_KEY"
+    )
+    google_model: str = Field(
+        default="gemini-1.5-flash", 
+        description="Google AI Studio model to use",
+        validation_alias="MODEL_ID"
     )
 
     @field_validator("database_port")

@@ -13,18 +13,26 @@ from air1.config import settings
 
 def get_llm() -> LLM:
     """
-    Get the LLM instance for agents using Vertex AI.
+    Get the LLM instance for agents using Vertex AI or Groq.
     
     Requires:
-    - GOOGLE_CLOUD_PROJECT env var or settings.google_cloud_project
-    - GOOGLE_CLOUD_REGION env var or settings.google_cloud_region
-    - Google Cloud credentials (GOOGLE_APPLICATION_CREDENTIALS or gcloud auth)
+    - GOOGLE_CLOUD_PROJECT env var or settings.google_cloud_project (for Vertex)
+    - GOOGLE_CLOUD_REGION env var or settings.google_cloud_region (for Vertex)
+    - Google Cloud credentials (GOOGLE_APPLICATION_CREDENTIALS or gcloud auth) (for Vertex)
+    - GROQ_API_KEY env var or settings.groq_api_key (for Groq)
     """
+    if settings.google_cloud_project:
+        return LLM(
+            model=f"vertex_ai/{settings.vertex_ai_model}",
+            temperature=0.7,
+            vertex_project=settings.google_cloud_project,
+            vertex_location=settings.google_cloud_region,
+        )
+
     return LLM(
-        model=f"vertex_ai/{settings.vertex_ai_model}",
+        model=f"groq/{settings.groq_model}",
+        api_key=settings.groq_api_key,
         temperature=0.7,
-        vertex_project=settings.google_cloud_project,
-        vertex_location=settings.google_cloud_region,
     )
 
 

@@ -12,7 +12,33 @@ from air1.config import settings
 
 
 def get_llm() -> LLM:
-    """Get the LLM instance for agents using Vertex AI (Gemini)."""
+    """
+    Get the LLM instance.
+    Priority:
+    1. Groq (if groq_api_key is set) - EXPLICIT USER PREFERENCE
+    2. Google AI Studio (if google_api_key is set)
+    3. Vertex AI (if google_cloud_project is set)
+    """
+    if settings.groq_api_key:
+        return LLM(
+            model=f"groq/{settings.groq_model}",
+            api_key=settings.groq_api_key,
+            temperature=0.7,
+        )
+
+    if settings.google_api_key:
+        # Use Google AI Studio (Free Tier available)
+        # Ensure model has 'gemini/' prefix for litellm if not present
+        model_name = settings.google_model
+        if not model_name.startswith("gemini/"):
+            model_name = f"gemini/{model_name}"
+            
+        return LLM(
+            model=model_name,
+            api_key=settings.google_api_key,
+            temperature=0.7,
+        )
+
     return LLM(
         model=f"vertex_ai/{settings.vertex_ai_model}",
         temperature=0.7,
