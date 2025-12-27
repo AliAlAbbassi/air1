@@ -115,7 +115,9 @@ class Settings(BaseSettings):
 
     # Groq configuration
     groq_api_key: Optional[str] = Field(
-        default=None, description="Groq API key for LLM"
+        default=None, 
+        description="Groq API key for LLM",
+        validation_alias="GROQ_API_KEY"
     )
     groq_model: str = Field(
         default="qwen/qwen3-32b", description="Groq model to use"
