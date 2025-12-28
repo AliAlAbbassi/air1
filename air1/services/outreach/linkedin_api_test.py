@@ -64,3 +64,43 @@ def test_connect_with_someone_online():
     )
 
     assert success is True, "Failed to send connection request"
+
+
+@pytest.mark.integration
+def test_search_people_online():
+    """
+    Online test that searches for people on LinkedIn.
+    Requires LINKEDIN_WRITE_SID and LINKEDIN_JSESSIONID environment variables.
+    """
+    li_at = os.getenv("LINKEDIN_WRITE_SID")
+    jsessionid = os.getenv("LINKEDIN_JSESSIONID")
+
+    if not li_at or not jsessionid:
+        pytest.skip(
+            "Skipping online test: LINKEDIN_WRITE_SID or LINKEDIN_JSESSIONID not set"
+        )
+
+    # Clean jsessionid for header if it has quotes
+    csrf_token = jsessionid.strip('"')
+
+    cookies = {"li_at": li_at, "JSESSIONID": jsessionid}
+    headers = {"Csrf-Token": csrf_token, "X-RestLi-Protocol-Version": "2.0.0"}
+
+    api = LinkedInAPI(cookies=cookies, headers=headers)
+
+    # Search for technical recruiters in UAE (geo_urn 106204383)
+    results = api.search_people(
+        keywords="technical recruiter",
+        regions=["106204383"],  # UAE
+        limit=5,
+    )
+
+    print(f"\nFound {len(results)} results:")
+    for r in results:
+        headline = r.get("headline", "") or ""
+        print(
+            f"  - {r.get('public_id')} | {r.get('first_name')} {r.get('last_name')} | {headline[:50]}..."
+        )
+
+    assert len(results) > 0, "No search results found"
+    assert results[0].get("public_id") or results[0].get("urn"), "Result missing identifier"

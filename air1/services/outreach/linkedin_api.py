@@ -7,6 +7,8 @@ import requests
 class LinkedInAPI:
     def __init__(self, cookies=None, headers=None):
         self.session = requests.Session()
+        self._csrf_token = None
+
         if cookies:
             self.session.cookies.update(cookies)
 
@@ -24,17 +26,51 @@ class LinkedInAPI:
             self.session.headers.update(headers)
         self.base_url = "https://www.linkedin.com/voyager/api"
 
+    def _ensure_csrf_token(self):
+        """Fetch and cache the CSRF token from LinkedIn."""
+        if self._csrf_token:
+            return self._csrf_token
+
+        # The CSRF token is in the JSESSIONID cookie
+        # We need to visit LinkedIn first to get it
+        jsessionid = self.session.cookies.get("JSESSIONID")
+
+        if not jsessionid:
+            # Fetch a page to get the JSESSIONID cookie
+            res = self.session.get("https://www.linkedin.com/feed/")
+            jsessionid = self.session.cookies.get("JSESSIONID")
+
+        if jsessionid:
+            # Remove surrounding quotes if present
+            self._csrf_token = jsessionid.strip('"')
+
+        return self._csrf_token
+
     def _fetch(self, uri, params=None, headers=None):
         url = f"{self.base_url}{uri}"
-        return self.session.get(url, params=params, headers=headers)
+
+        # Ensure we have the CSRF token and add it to headers
+        csrf_token = self._ensure_csrf_token()
+        fetch_headers = headers.copy() if headers else {}
+        if csrf_token:
+            fetch_headers["csrf-token"] = csrf_token
+
+        return self.session.get(url, params=params, headers=fetch_headers)
 
     def _post(self, uri, data=None, params=None, headers=None, allow_redirects=True):
         url = f"{self.base_url}{uri}"
+
+        # Ensure we have the CSRF token and add it to headers
+        csrf_token = self._ensure_csrf_token()
+        post_headers = headers.copy() if headers else {}
+        if csrf_token:
+            post_headers["csrf-token"] = csrf_token
+
         return self.session.post(
             url,
             data=data,
             params=params,
-            headers=headers,
+            headers=post_headers,
             allow_redirects=allow_redirects,
         )
 
@@ -85,7 +121,6 @@ class LinkedInAPI:
                         info["graphql_endpoint"] = (
                             "/voyager/api/voyagerGrowthGraphQL/graphql"
                         )
-                    print(f"DEBUG: Found GraphQL queryId for connection: {query_id}")
                     break
             if "graphql_query_id" in info:
                 break
@@ -131,7 +166,6 @@ class LinkedInAPI:
                             else "/voyager/api/" + endpoint
                         )
                     info["endpoint"] = endpoint
-                    print(f"DEBUG: Found potential endpoint in HTML: {endpoint}")
                     break
             if "endpoint" in info:
                 break
@@ -167,7 +201,84 @@ class LinkedInAPI:
         Returns:
             tuple: (urn, tracking_id) or (None, None) if not found
         """
-        # Try 1: Search (Blind)
+        # Ensure we have CSRF token for API calls
+        self._ensure_csrf_token()
+
+        # Try 1: GraphQL vanityName endpoint (MOST RELIABLE)
+        # This directly resolves vanityName (public_id) to fsd_profile URN
+        # LinkedIn uses two query IDs for profile lookup - try both
+        graphql_url = "https://www.linkedin.com/voyager/api/graphql"
+        query_ids = [
+            "voyagerIdentityDashProfiles.2ca312bdbe80fac72fd663a3e06a83e7",
+            "voyagerIdentityDashProfiles.a1a483e719b20537a256b6853cdca711",
+        ]
+
+        for query_id in query_ids:
+            # Build URL manually to avoid URL encoding issues
+            # LinkedIn uses a specific format: (vanityName:username) without quotes
+            full_url = f"{graphql_url}?includeWebMetadata=true&variables=(vanityName:{public_id})&queryId={query_id}"
+            
+            # Add CSRF token header for the request
+            csrf_token = self._ensure_csrf_token()
+            headers = {"csrf-token": csrf_token} if csrf_token else {}
+            
+            res = self.session.get(full_url, headers=headers)
+
+            if res.status_code == 200:
+                try:
+                    data = res.json()
+                    
+                    # Navigate to: data.identityDashProfilesByMemberIdentity.elements[0]
+                    # Note: key can be "elements" or "*elements" depending on response format
+                    inner_data = data.get("data", {})
+                    profiles_response = inner_data.get("identityDashProfilesByMemberIdentity", {})
+                    
+                    # Try both key variants: "elements" and "*elements"
+                    elements = profiles_response.get("elements", []) or profiles_response.get("*elements", [])
+                    if elements and len(elements) > 0:
+                        # Elements can be URN strings or objects with entityUrn
+                        first_elem = elements[0]
+                        if isinstance(first_elem, str) and ":fsd_profile:" in first_elem:
+                            return (first_elem, None)
+                        elif isinstance(first_elem, dict) and "entityUrn" in first_elem:
+                            urn = first_elem["entityUrn"]
+                            if ":fsd_profile:" in urn:
+                                return (urn, None)
+                    
+                    # Also check 'included' array for the full profile data
+                    included = data.get("included", [])
+                    for item in included:
+                        if isinstance(item, dict) and "entityUrn" in item:
+                            urn = item["entityUrn"]
+                            if ":fsd_profile:" in urn:
+                                return (urn, None)
+                except Exception:
+                    pass
+
+        # Try 2: Direct profile API (fallback)
+        profile_api_url = f"https://www.linkedin.com/voyager/api/identity/profiles/{public_id}"
+        res = self.session.get(profile_api_url)
+
+        if res.status_code == 200:
+            try:
+                data = res.json()
+                # The entityUrn in the response is the fsd_profile URN
+                if "entityUrn" in data:
+                    urn = data["entityUrn"]
+                    # Convert member URN to fsd_profile URN if needed
+                    if urn.startswith("urn:li:member:"):
+                        member_id = urn.split(":")[-1]
+                        urn = f"urn:li:fsd_profile:{member_id}"
+                    return (urn, None)
+                # Check in 'data' wrapper
+                if "data" in data and isinstance(data["data"], dict):
+                    if "entityUrn" in data["data"]:
+                        urn = data["data"]["entityUrn"]
+                        return (urn, None)
+            except Exception:
+                pass
+
+        # Try 3: Search API (fallback)
         params = {
             "keywords": public_id,
             "filters": "List(resultType->PEOPLE)",
@@ -176,7 +287,6 @@ class LinkedInAPI:
         }
 
         res = self._fetch("/search/blended", params=params)
-        print(f"DEBUG: get_profile_urn search status: {res.status_code}")
 
         if res.status_code == 200:
             data = res.json()
@@ -201,9 +311,8 @@ class LinkedInAPI:
             except Exception:
                 pass
 
-        # Try 2: HTML Page Scraping (Robust Fallback)
+        # Try 4: HTML Page Scraping (Robust Fallback)
         # This works if the user is logged in and allows us to extract trackingId
-        print(f"DEBUG: Falling back to HTML scraping for {public_id}")
         html_text = None
         try:
             profile_url = f"https://www.linkedin.com/in/{public_id}/"
@@ -293,22 +402,36 @@ class LinkedInAPI:
                     fsd_match = re.search(fsd_pattern2, html_text)
                 if not fsd_match:
                     # Try finding any fsd_profile near public_id context
+                    # But first, identify the logged-in user's URN to exclude it
+                    logged_in_user_urn = None
+                    # The logged-in user's URN often appears in meta tags or specific patterns
+                    me_pattern = re.search(
+                        r'"me"[:\s]+["\']?(urn:li:fsd_profile:[a-zA-Z0-9_-]+)',
+                        html_text,
+                    )
+                    if me_pattern:
+                        logged_in_user_urn = me_pattern.group(1)
+
                     public_id_pos = html_text.find(public_id)
                     if public_id_pos != -1:
                         context_start = max(0, public_id_pos - 1000)
                         context_end = min(len(html_text), public_id_pos + 1000)
                         context = html_text[context_start:context_end]
-                        fsd_match = re.search(
+                        # Find all fsd_profile URNs in the context
+                        all_urns = re.findall(
                             r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)", context
                         )
+                        # Filter out the logged-in user's URN
+                        for urn_id in all_urns:
+                            candidate_urn = f"urn:li:fsd_profile:{urn_id}"
+                            if candidate_urn != logged_in_user_urn:
+                                fsd_match = type('obj', (object,), {'group': lambda self, x: urn_id})()
+                                break
 
                 if fsd_match:
                     urn = f"urn:li:fsd_profile:{fsd_match.group(1)}"
                     tracking_id = extract_tracking_id_near_urn(
                         fsd_match.start(), fsd_match.end()
-                    )
-                    print(
-                        f"DEBUG: Found fsd_profile URN (PRIORITY): {urn}, trackingId: {tracking_id}"
                     )
                     return (urn, tracking_id)
 
@@ -326,20 +449,12 @@ class LinkedInAPI:
                     tracking_id = extract_tracking_id_near_urn(
                         match1.start(), match1.end()
                     )
-                    print(
-                        f"DEBUG: Found precise MEMBER URN via regex 1: {urn}, trackingId: {tracking_id}"
-                    )
                     # Try to also find fsd_profile for this member
-                    # Look for fsd_profile in the HTML that might be associated
                     fsd_fallback = re.search(
                         r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)", html_text
                     )
                     if fsd_fallback:
                         fsd_urn = f"urn:li:fsd_profile:{fsd_fallback.group(1)}"
-                        print(
-                            f"DEBUG: Also found fsd_profile URN: {fsd_urn} - will try both"
-                        )
-                        # Return fsd_profile as it's more likely to work
                         return (fsd_urn, tracking_id)
                     return (urn, tracking_id)
 
@@ -354,18 +469,12 @@ class LinkedInAPI:
                     tracking_id = extract_tracking_id_near_urn(
                         match2.start(), match2.end()
                     )
-                    print(
-                        f"DEBUG: Found precise MEMBER URN via regex 2: {urn}, trackingId: {tracking_id}"
-                    )
                     # Try to also find fsd_profile
                     fsd_fallback = re.search(
                         r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)", html_text
                     )
                     if fsd_fallback:
                         fsd_urn = f"urn:li:fsd_profile:{fsd_fallback.group(1)}"
-                        print(
-                            f"DEBUG: Also found fsd_profile URN: {fsd_urn} - will try both"
-                        )
                         return (fsd_urn, tracking_id)
                     return (urn, tracking_id)
 
@@ -376,9 +485,6 @@ class LinkedInAPI:
                     tracking_id = extract_tracking_id_near_urn(
                         match.start(), match.end()
                     )
-                    print(
-                        f"DEBUG: Found fsd_profile URN via scraping: {urn}, trackingId: {tracking_id}"
-                    )
                     return (urn, tracking_id)
 
                 # Last resort member ID (likely to be wrong/self, but maybe better than None)
@@ -388,15 +494,11 @@ class LinkedInAPI:
                     tracking_id = extract_tracking_id_near_urn(
                         match_member.start(), match_member.end()
                     )
-                    print(
-                        f"DEBUG: Found generic MEMBER URN via scraping (RISKY): {urn}, trackingId: {tracking_id}"
-                    )
                     return (urn, tracking_id)
 
-        except Exception as e:
-            print(f"DEBUG: Error scraping profile page: {e}")
+        except Exception:
+            pass
 
-        print(f"DEBUG: Could not resolve URN for {public_id}")
         return (None, None)
 
     def send_connection_request(
@@ -414,9 +516,6 @@ class LinkedInAPI:
         """
         # Ensure we have an fsd_profile URN
         if not profile_urn_id.startswith("urn:li:fsd_profile:"):
-            print(
-                f"ERROR: send_connection_request requires an fsd_profile URN, got: {profile_urn_id}"
-            )
             return False
 
         # The correct endpoint and payload format based on browser network inspection
@@ -429,10 +528,6 @@ class LinkedInAPI:
         if message:
             payload["customMessage"] = message
 
-        print(f"DEBUG: Sending connection request to {profile_urn_id}")
-        print(f"DEBUG: Endpoint: {endpoint}")
-        print(f"DEBUG: Payload: {json.dumps(payload, indent=2)}")
-
         res = self._post(
             endpoint,
             data=json.dumps(payload),
@@ -442,15 +537,12 @@ class LinkedInAPI:
             },
         )
 
-        print(f"DEBUG: HTTP status: {res.status_code}")
-
         # Parse response
         response_data = None
         try:
             response_data = res.json()
-            print(f"DEBUG: Response: {json.dumps(response_data, indent=2)}")
         except (json.JSONDecodeError, ValueError):
-            print(f"DEBUG: Response text (not JSON): {res.text[:500]}")
+            pass
 
         # Check for success - look for invitationUrn in response
         if res.status_code in [200, 201] and response_data:
@@ -460,16 +552,9 @@ class LinkedInAPI:
                     # Check for ActionResponse with value containing invitationUrn
                     if "value" in data and isinstance(data["value"], dict):
                         if "invitationUrn" in data["value"]:
-                            invitation_urn = data["value"]["invitationUrn"]
-                            print(
-                                f"DEBUG: SUCCESS! Connection request sent. Invitation URN: {invitation_urn}"
-                            )
                             return True
                     # Direct invitationUrn check
                     if "invitationUrn" in data:
-                        print(
-                            f"DEBUG: SUCCESS! Connection request sent. Invitation URN: {data['invitationUrn']}"
-                        )
                         return True
 
         # Check for specific error conditions
@@ -480,22 +565,266 @@ class LinkedInAPI:
         ):
             data = response_data["data"]
             if isinstance(data, dict):
-                # Check for status code in response
-                if "status" in data:
-                    status = data["status"]
-                    print(f"DEBUG: Response status in data: {status}")
-                    if status == 422:
-                        print(
-                            "ERROR: 422 - Unprocessable Entity. The request format may be invalid or you may have hit a rate limit."
-                        )
-                    elif status == 400:
-                        print(
-                            "ERROR: 400 - Bad Request. The payload format is incorrect."
-                        )
-                    elif status == 403:
-                        print(
-                            "ERROR: 403 - Forbidden. You may not have permission to connect with this user."
-                        )
+                error_code = data.get("code")
 
-        print(f"DEBUG: Connection request failed")
+                # Handle known error codes
+                if error_code == "CANT_RESEND_YET":
+                    return True  # Connection request already pending
+
+                if error_code == "ALREADY_CONNECTED":
+                    return True  # Already connected
+
         return False
+
+    _MAX_SEARCH_COUNT = 49  # LinkedIn's max per request
+
+    def search(
+        self,
+        params: dict,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> list[dict]:
+        """
+        Generic search function. Returns raw search results.
+
+        Args:
+            params: Search parameters dict with keys:
+                - keywords: Search keywords
+                - filters: List of filter strings like "resultType->PEOPLE", "geoUrn->123"
+            limit: Maximum number of results (default 10)
+            offset: Starting offset for pagination (default 0)
+
+        Returns:
+            List of raw result dicts from LinkedIn API
+        """
+        self._ensure_csrf_token()
+
+        results = []
+        current_start = offset
+
+        while len(results) < limit:
+            # Build filter list
+            filters = params.get("filters", [])
+            filter_str = ",".join(filters) if filters else ""
+
+            # Build query parameters
+            query_parts = []
+            if params.get("keywords"):
+                query_parts.append(f"keywords:{params['keywords']}")
+            query_parts.append("flagshipSearchIntent:SEARCH_SRP")
+
+            # Build queryParameters list
+            query_params_list = []
+            for f in filters:
+                if "->" in f:
+                    key, value = f.split("->", 1)
+                    # Handle list values (pipe-separated)
+                    if "|" in value:
+                        values = value.split("|")
+                        query_params_list.append(f"(key:{key},value:List({','.join(values)}))")
+                    else:
+                        query_params_list.append(f"(key:{key},value:List({value}))")
+
+            if query_params_list:
+                query_parts.append(f"queryParameters:List({','.join(query_params_list)})")
+
+            query_parts.append("includeFiltersInResponse:false")
+            query_str = ",".join(query_parts)
+
+            variables = f"(start:{current_start},origin:FACETED_SEARCH,query:({query_str}))"
+
+            # GraphQL search endpoint
+            graphql_url = "https://www.linkedin.com/voyager/api/graphql"
+            query_id = "voyagerSearchDashClusters.b0928897b71bd00a5a7291755dcd64f0"
+            full_url = f"{graphql_url}?variables={variables}&queryId={query_id}"
+
+            csrf_token = self._ensure_csrf_token()
+            headers = {"csrf-token": csrf_token} if csrf_token else {}
+
+            res = self.session.get(full_url, headers=headers)
+
+            if res.status_code != 200:
+                break
+
+            try:
+                data = res.json()
+                page_results = self._extract_search_results(data)
+
+                if not page_results:
+                    break
+
+                for elem in page_results:
+                    if len(results) >= limit:
+                        break
+                    results.append(elem)
+
+                current_start += len(page_results)
+
+                # If we got fewer results than a typical page, we've hit the end
+                if len(page_results) < 10:
+                    break
+
+            except Exception:
+                break
+
+        return results[:limit]
+
+    def search_people(
+        self,
+        keywords: str = None,
+        connection_of: str = None,
+        network_depths: list[str] = None,
+        current_company: list[str] = None,
+        past_companies: list[str] = None,
+        regions: list[str] = None,
+        industries: list[str] = None,
+        schools: list[str] = None,
+        limit: int = 10,
+    ) -> list[dict]:
+        """
+        Search for people on LinkedIn.
+
+        Args:
+            keywords: Search keywords (e.g., "technical recruiter")
+            connection_of: URN ID of a profile to find connections of
+            network_depths: List of network depths ["F" (1st), "S" (2nd), "O" (3rd+)]
+            current_company: List of company URN IDs to filter by current company
+            past_companies: List of company URN IDs to filter by past companies
+            regions: List of geo URN IDs (e.g., ["106204383"] for UAE)
+            industries: List of industry URN IDs
+            schools: List of school URN IDs
+            limit: Maximum number of results (default 10)
+
+        Returns:
+            List of dicts with profile info:
+            [
+                {
+                    "public_id": "john-doe-123",
+                    "urn": "urn:li:member:123456",
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "headline": "Software Engineer at ...",
+                    "location": "San Francisco, CA",
+                },
+                ...
+            ]
+        """
+        filters = ["resultType->PEOPLE"]
+
+        if connection_of:
+            filters.append(f"connectionOf->{connection_of}")
+        if network_depths:
+            filters.append(f"network->{','.join(network_depths)}")
+        if current_company:
+            filters.append(f"currentCompany->{'|'.join(current_company)}")
+        if past_companies:
+            filters.append(f"pastCompany->{'|'.join(past_companies)}")
+        if regions:
+            filters.append(f"geoUrn->{'|'.join(regions)}")
+        if industries:
+            filters.append(f"industry->{'|'.join(industries)}")
+        if schools:
+            filters.append(f"schools->{'|'.join(schools)}")
+
+        params = {"filters": filters}
+        if keywords:
+            params["keywords"] = keywords
+
+        return self.search(params, limit=limit)
+
+    def search_companies(
+        self,
+        keywords: str = None,
+        limit: int = 10,
+    ) -> list[dict]:
+        """
+        Search for companies on LinkedIn.
+
+        Args:
+            keywords: Search keywords (e.g., "AI startup")
+            limit: Maximum number of results (default 10)
+
+        Returns:
+            List of dicts with company info
+        """
+        filters = ["resultType->COMPANIES"]
+        params = {"filters": filters}
+        if keywords:
+            params["keywords"] = keywords
+
+        return self.search(params, limit=limit)
+
+    def _extract_search_results(self, data: dict) -> list[dict]:
+        """
+        Extract profile/entity information from search API response.
+        """
+        results = []
+
+        try:
+            inner_data = data.get("data", {})
+            clusters = inner_data.get("searchDashClustersByAll", {})
+            elements = clusters.get("elements", [])
+
+            for cluster in elements:
+                items = cluster.get("items", [])
+                for item in items:
+                    entity_result = item.get("item", {}).get("entityResult")
+                    if not entity_result:
+                        continue
+
+                    # Extract common fields
+                    title = entity_result.get("title", {})
+                    primary_subtitle = entity_result.get("primarySubtitle", {})
+                    secondary_subtitle = entity_result.get("secondarySubtitle", {})
+
+                    name_text = title.get("text", "") if isinstance(title, dict) else ""
+                    headline_text = (
+                        primary_subtitle.get("text", "")
+                        if isinstance(primary_subtitle, dict)
+                        else ""
+                    )
+                    location_text = (
+                        secondary_subtitle.get("text", "")
+                        if isinstance(secondary_subtitle, dict)
+                        else ""
+                    )
+
+                    urn = entity_result.get("trackingUrn", "")
+                    nav_url = entity_result.get("navigationUrl", "")
+
+                    # Extract public_id based on entity type
+                    public_id = None
+                    if "/in/" in nav_url:
+                        # People profile
+                        parts = nav_url.split("/in/")
+                        if len(parts) > 1:
+                            public_id = parts[1].split("?")[0].strip("/")
+                    elif "/company/" in nav_url:
+                        # Company
+                        parts = nav_url.split("/company/")
+                        if len(parts) > 1:
+                            public_id = parts[1].split("?")[0].strip("/")
+
+                    # Parse first/last name from full name (for people)
+                    first_name = ""
+                    last_name = ""
+                    if name_text and "/in/" in nav_url:
+                        parts = name_text.split(" ", 1)
+                        first_name = parts[0] if parts else ""
+                        last_name = parts[1] if len(parts) > 1 else ""
+
+                    if public_id:
+                        results.append({
+                            "public_id": public_id,
+                            "urn": urn,
+                            "first_name": first_name,
+                            "last_name": last_name,
+                            "name": name_text,
+                            "headline": headline_text,
+                            "location": location_text,
+                        })
+
+        except Exception:
+            pass
+
+        return results

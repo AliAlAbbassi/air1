@@ -146,6 +146,24 @@ class IService(ABC):
         """
         pass
 
+    @abstractmethod
+    def send_connection_request(
+        self,
+        profile_username: str,
+        message_note: Optional[str] = None,
+    ) -> bool:
+        """
+        Send a LinkedIn connection request to a profile.
+
+        Args:
+            profile_username: LinkedIn profile username (e.g., 'john-doe-123')
+            message_note: Optional connection message/note (defaults to DEFAULT_COLD_CONNECTION_NOTE)
+
+        Returns:
+            bool: True if connection request was sent successfully
+        """
+        pass
+
 
 class Service(IService):
     def __init__(self, playwright: Optional[Playwright] = None):
@@ -613,3 +631,60 @@ class Service(IService):
             outreach_rules=outreach_rules,
         )
         return crew.generate_message(request)
+
+    def send_connection_request(
+        self,
+        profile_username: str,
+        message_note: Optional[str] = None,
+    ) -> bool:
+        """
+        Send a LinkedIn connection request to a profile.
+
+        Args:
+            profile_username: LinkedIn profile username (e.g., 'john-doe-123')
+            message_note: Optional connection message/note (defaults to DEFAULT_COLD_CONNECTION_NOTE)
+
+        Returns:
+            bool: True if connection request was sent successfully
+        """
+        from air1.services.outreach.linkedin_api import LinkedInAPI
+        from air1.services.outreach.templates import DEFAULT_COLD_CONNECTION_NOTE
+
+        if not self.linkedin_write_sid:
+            logger.error("LINKEDIN_WRITE_SID is required to send connection requests")
+            return False
+
+        # Use default connection note if not provided
+        if message_note is None:
+            message_note = DEFAULT_COLD_CONNECTION_NOTE.strip()
+
+        # Initialize the LinkedIn API with the write session cookie
+        api = LinkedInAPI(cookies={"li_at": self.linkedin_write_sid})
+
+        # Resolve the username to an fsd_profile URN
+        logger.info(f"Resolving profile URN for username: {profile_username}")
+        urn, tracking_id = api.get_profile_urn(profile_username)
+
+        if not urn:
+            logger.error(f"Could not resolve URN for username: {profile_username}")
+            return False
+
+        if not urn.startswith("urn:li:fsd_profile:"):
+            logger.error(f"Expected fsd_profile URN, got: {urn}")
+            return False
+
+        logger.info(f"Resolved {profile_username} to URN: {urn}")
+
+        # Send the connection request
+        success = api.send_connection_request(
+            profile_urn_id=urn,
+            message=message_note,
+            tracking_id=tracking_id,
+        )
+
+        if success:
+            logger.success(f"Connection request sent to {profile_username}")
+        else:
+            logger.error(f"Failed to send connection request to {profile_username}")
+
+        return success
