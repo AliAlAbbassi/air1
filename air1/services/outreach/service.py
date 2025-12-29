@@ -10,6 +10,7 @@ from playwright.async_api import Playwright, async_playwright
 
 from air1.services.outreach.browser import BrowserSession
 from air1.services.outreach.email import EmailResult
+from air1.services.outreach.linkedin_api import LinkedInAPI
 from air1.services.outreach.linkedin_profile import (
     CompanyPeople,
     LinkedinProfile,
@@ -22,6 +23,7 @@ from air1.services.outreach.repo import (
     get_company_leads_by_headline,
     save_lead_complete,
 )
+from air1.services.outreach.templates import DEFAULT_COLD_CONNECTION_NOTE
 
 load_dotenv()
 
@@ -177,6 +179,9 @@ class Service(IService):
             raise ValueError("linkedin_sid environment variable is required")
         self.linkedin_write_sid = linkedin_write_sid
         self.linkedin_read_sid = linkedin_read_sid
+
+        # Initialize the LinkedIn API with the write session cookie
+        self.api = LinkedInAPI(cookies={"li_at": self.linkedin_write_sid})
 
     async def __aenter__(self):
         if self.playwright is None:
@@ -635,7 +640,7 @@ class Service(IService):
     def send_connection_request(
         self,
         profile_username: str,
-        message_note: Optional[str] = None,
+        message_note: Optional[str] = DEFAULT_COLD_CONNECTION_NOTE.strip(),
     ) -> bool:
         """
         Send a LinkedIn connection request to a profile.
@@ -647,23 +652,9 @@ class Service(IService):
         Returns:
             bool: True if connection request was sent successfully
         """
-        from air1.services.outreach.linkedin_api import LinkedInAPI
-        from air1.services.outreach.templates import DEFAULT_COLD_CONNECTION_NOTE
-
-        if not self.linkedin_write_sid:
-            logger.error("LINKEDIN_WRITE_SID is required to send connection requests")
-            return False
-
-        # Use default connection note if not provided
-        if message_note is None:
-            message_note = DEFAULT_COLD_CONNECTION_NOTE.strip()
-
-        # Initialize the LinkedIn API with the write session cookie
-        api = LinkedInAPI(cookies={"li_at": self.linkedin_write_sid})
-
         # Resolve the username to an fsd_profile URN
         logger.info(f"Resolving profile URN for username: {profile_username}")
-        urn, tracking_id = api.get_profile_urn(profile_username)
+        urn, tracking_id = self.api.get_profile_urn(profile_username)
 
         if not urn:
             logger.error(f"Could not resolve URN for username: {profile_username}")
@@ -676,7 +667,7 @@ class Service(IService):
         logger.info(f"Resolved {profile_username} to URN: {urn}")
 
         # Send the connection request
-        success = api.send_connection_request(
+        success = self.api.send_connection_request(
             profile_urn_id=urn,
             message=message_note,
             tracking_id=tracking_id,
