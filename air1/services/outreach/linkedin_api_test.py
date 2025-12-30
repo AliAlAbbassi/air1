@@ -4,7 +4,8 @@ import os
 import pytest
 from dotenv import load_dotenv
 
-from air1.services.outreach.linkedin_api import LinkedInAPI
+from air1.services.outreach.linkedin_api import LinkedInAPI, LinkedInProfile
+from air1.services.outreach.linkedin_locations import DUBAI_EMIRATE
 from air1.services.outreach.templates import DEFAULT_COLD_CONNECTION_NOTE
 
 load_dotenv()
@@ -88,19 +89,54 @@ def test_search_people_online():
 
     api = LinkedInAPI(cookies=cookies, headers=headers)
 
-    # Search for technical recruiters in UAE (geo_urn 106204383)
+    # Search for technical recruiters in Dubai/UAE (1 page = ~10 results)
     results = api.search_people(
         keywords="technical recruiter",
-        regions=["106204383"],  # UAE
-        limit=5,
+        regions=[DUBAI_EMIRATE],
+        pages=1,
     )
 
     print(f"\nFound {len(results)} results:")
     for r in results:
-        headline = r.get("headline", "") or ""
-        print(
-            f"  - {r.get('public_id')} | {r.get('first_name')} {r.get('last_name')} | {headline[:50]}..."
-        )
+        print(f"  - {r.public_id} | {r.first_name} {r.last_name} | {r.headline[:50]}...")
 
     assert len(results) > 0, "No search results found"
-    assert results[0].get("public_id") or results[0].get("urn"), "Result missing identifier"
+    assert isinstance(results[0], LinkedInProfile), "Result should be LinkedInProfile"
+    assert results[0].public_id or results[0].urn, "Result missing identifier"
+
+
+@pytest.mark.integration
+def test_search_company_employees_online():
+    """
+    Online test that searches for employees within a specific company.
+    Requires LINKEDIN_WRITE_SID and LINKEDIN_JSESSIONID environment variables.
+    """
+    li_at = os.getenv("LINKEDIN_WRITE_SID")
+    jsessionid = os.getenv("LINKEDIN_JSESSIONID")
+
+    if not li_at or not jsessionid:
+        pytest.skip(
+            "Skipping online test: LINKEDIN_WRITE_SID or LINKEDIN_JSESSIONID not set"
+        )
+
+    csrf_token = jsessionid.strip('"')
+    cookies = {"li_at": li_at, "JSESSIONID": jsessionid}
+    headers = {"Csrf-Token": csrf_token, "X-RestLi-Protocol-Version": "2.0.0"}
+
+    api = LinkedInAPI(cookies=cookies, headers=headers)
+
+    # Search for talent/HR people at Revolut in Dubai/UAE (1 page = ~10 results)
+    results = api.search_company_employees(
+        company="revolut",
+        keywords=["talent"],
+        regions=[DUBAI_EMIRATE],
+        pages=1,
+    )
+
+    print(f"\nFound {len(results)} Revolut employees:")
+    for r in results:
+        print(f"  - {r.public_id} | {r.first_name} {r.last_name} | {r.headline[:50]}...")
+
+    assert len(results) >= 0, "Search should return results or empty list"
+    if results:
+        assert isinstance(results[0], LinkedInProfile), "Result should be LinkedInProfile"

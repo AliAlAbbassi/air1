@@ -63,7 +63,9 @@ async def linkedin_outreach_single_profile_workflow(
 
                     if lead_id:
                         await insert_linkedin_connection(lead_id)
-                        logger.info(f"Tracked connection for {username} (lead_id={lead_id})")
+                        logger.info(
+                            f"Tracked connection for {username} (lead_id={lead_id})"
+                        )
                     else:
                         logger.warning(f"Could not create lead for {username}")
                 except Exception as e:

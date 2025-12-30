@@ -2,6 +2,19 @@ import json
 import re
 
 import requests
+from pydantic import BaseModel
+
+
+class LinkedInProfile(BaseModel):
+    """LinkedIn profile from search results."""
+
+    public_id: str | None = None
+    urn: str | None = None
+    first_name: str = ""
+    last_name: str = ""
+    name: str = ""
+    headline: str = ""
+    location: str = ""
 
 
 class LinkedInAPI:
@@ -576,36 +589,33 @@ class LinkedInAPI:
 
         return False
 
-    _MAX_SEARCH_COUNT = 49  # LinkedIn's max per request
+    _RESULTS_PER_PAGE = 10  # LinkedIn returns ~10 results per page
 
     def search(
         self,
         params: dict,
-        limit: int = 10,
-        offset: int = 0,
-    ) -> list[dict]:
+        pages: int = 1,
+    ) -> list[LinkedInProfile]:
         """
-        Generic search function. Returns raw search results.
+        Generic search function. Returns search results.
 
         Args:
             params: Search parameters dict with keys:
                 - keywords: Search keywords
                 - filters: List of filter strings like "resultType->PEOPLE", "geoUrn->123"
-            limit: Maximum number of results (default 10)
-            offset: Starting offset for pagination (default 0)
+            pages: Number of pages to fetch (default 1, ~10 results per page)
 
         Returns:
-            List of raw result dicts from LinkedIn API
+            List of LinkedInProfile objects
         """
         self._ensure_csrf_token()
 
         results = []
-        current_start = offset
+        current_start = 0
 
-        while len(results) < limit:
+        for page in range(pages):
             # Build filter list
             filters = params.get("filters", [])
-            filter_str = ",".join(filters) if filters else ""
 
             # Build query parameters
             query_parts = []
@@ -653,34 +663,30 @@ class LinkedInAPI:
                 if not page_results:
                     break
 
-                for elem in page_results:
-                    if len(results) >= limit:
-                        break
-                    results.append(elem)
-
+                results.extend(page_results)
                 current_start += len(page_results)
 
                 # If we got fewer results than a typical page, we've hit the end
-                if len(page_results) < 10:
+                if len(page_results) < self._RESULTS_PER_PAGE:
                     break
 
             except Exception:
                 break
 
-        return results[:limit]
+        return results
 
     def search_people(
         self,
-        keywords: str = None,
-        connection_of: str = None,
-        network_depths: list[str] = None,
-        current_company: list[str] = None,
-        past_companies: list[str] = None,
-        regions: list[str] = None,
-        industries: list[str] = None,
-        schools: list[str] = None,
-        limit: int = 10,
-    ) -> list[dict]:
+        keywords: str | None = None,
+        connection_of: str | None = None,
+        network_depths: list[str] | None = None,
+        current_company: list[str] | None = None,
+        past_companies: list[str] | None = None,
+        regions: list[str] | None = None,
+        industries: list[str] | None = None,
+        schools: list[str] | None = None,
+        pages: int = 1,
+    ) -> list[LinkedInProfile]:
         """
         Search for people on LinkedIn.
 
@@ -693,21 +699,10 @@ class LinkedInAPI:
             regions: List of geo URN IDs (e.g., ["106204383"] for UAE)
             industries: List of industry URN IDs
             schools: List of school URN IDs
-            limit: Maximum number of results (default 10)
+            pages: Number of pages to fetch (default 1, ~10 results per page)
 
         Returns:
-            List of dicts with profile info:
-            [
-                {
-                    "public_id": "john-doe-123",
-                    "urn": "urn:li:member:123456",
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "headline": "Software Engineer at ...",
-                    "location": "San Francisco, CA",
-                },
-                ...
-            ]
+            List of LinkedInProfile objects
         """
         filters = ["resultType->PEOPLE"]
 
@@ -730,31 +725,140 @@ class LinkedInAPI:
         if keywords:
             params["keywords"] = keywords
 
-        return self.search(params, limit=limit)
+        return self.search(params, pages=pages)
 
     def search_companies(
         self,
-        keywords: str = None,
-        limit: int = 10,
-    ) -> list[dict]:
+        keywords: str | None = None,
+        pages: int = 1,
+    ) -> list[LinkedInProfile]:
         """
         Search for companies on LinkedIn.
 
         Args:
             keywords: Search keywords (e.g., "AI startup")
-            limit: Maximum number of results (default 10)
+            pages: Number of pages to fetch (default 1, ~10 results per page)
 
         Returns:
-            List of dicts with company info
+            List of LinkedInProfile objects (with company info)
         """
         filters = ["resultType->COMPANIES"]
         params = {"filters": filters}
         if keywords:
             params["keywords"] = keywords
 
-        return self.search(params, limit=limit)
+        return self.search(params, pages=pages)
 
-    def _extract_search_results(self, data: dict) -> list[dict]:
+    def get_company_urn(self, company_name: str) -> str | None:
+        """
+        Resolve a company name/slug to its URN ID.
+
+        Args:
+            company_name: Company name or URL slug (e.g., "revolut", "google")
+
+        Returns:
+            Company URN ID (e.g., "11918617") or None if not found
+        """
+        self._ensure_csrf_token()
+
+        # Try the company API endpoint first
+        company_url = f"https://www.linkedin.com/voyager/api/organization/companies"
+        params = {
+            "decorationId": "com.linkedin.voyager.deco.organization.web.WebFullCompanyMain-12",
+            "q": "universalName",
+            "universalName": company_name,
+        }
+
+        csrf_token = self._ensure_csrf_token()
+        headers = {"csrf-token": csrf_token} if csrf_token else {}
+
+        res = self.session.get(company_url, params=params, headers=headers)
+
+        if res.status_code == 200:
+            try:
+                data = res.json()
+                elements = data.get("elements", [])
+                if elements:
+                    # Extract company ID from entityUrn like "urn:li:fs_normalized_company:11918617"
+                    entity_urn = elements[0].get("entityUrn", "")
+                    if entity_urn:
+                        # Return just the ID part
+                        return entity_urn.split(":")[-1]
+            except Exception:
+                pass
+
+        # Fallback: search for the company and get the first result
+        results = self.search_companies(keywords=company_name, limit=1)
+        if results:
+            urn = results[0].get("urn", "")
+            if urn:
+                return urn.split(":")[-1]
+
+        return None
+
+    def search_company_employees(
+        self,
+        company: str,
+        keywords: list[str] | None = None,
+        regions: list[str] | None = None,
+        pages: int = 1,
+    ) -> list[LinkedInProfile]:
+        """
+        Search for employees within a specific company.
+
+        This replicates the LinkedIn URL pattern:
+        /company/{company}/people/?facetGeoRegion={geo}&keywords={keywords}
+
+        Args:
+            company: Company name/slug (e.g., "revolut", "google") or company URN ID
+            keywords: List of search keywords/titles (joined with OR)
+                      e.g., ["talent"], ["software engineer", "data engineer"]
+            regions: List of geo URN IDs (e.g., ["106204383"] for UAE)
+            pages: Number of pages to fetch (default 1, ~10 results per page)
+
+        Returns:
+            List of LinkedInProfile objects
+
+        Example:
+            # Search for talent/HR people at Revolut in UAE (2 pages = ~20 results)
+            employees = api.search_company_employees(
+                company="revolut",
+                keywords=["talent"],
+                regions=["106204383"],
+                pages=2,
+            )
+
+            # Search for engineers at Google (5 pages = ~50 results)
+            employees = api.search_company_employees(
+                company="google",
+                keywords=["software engineer", "data engineer"],
+                pages=5,
+            )
+        """
+        # Resolve company name to URN ID if needed
+        company_id = company
+        if not company.isdigit():
+            resolved_id = self.get_company_urn(company)
+            if resolved_id:
+                company_id = resolved_id
+            else:
+                # If we can't resolve, try using the name directly
+                company_id = company
+
+        # Join keywords with OR
+        search_keywords = None
+        if keywords:
+            search_keywords = " OR ".join(keywords)
+
+        # Use search_people with current_company filter
+        return self.search_people(
+            keywords=search_keywords,
+            current_company=[company_id],
+            regions=regions,
+            pages=pages,
+        )
+
+    def _extract_search_results(self, data: dict) -> list[LinkedInProfile]:
         """
         Extract profile/entity information from search API response.
         """
@@ -814,15 +918,17 @@ class LinkedInAPI:
                         last_name = parts[1] if len(parts) > 1 else ""
 
                     if public_id:
-                        results.append({
-                            "public_id": public_id,
-                            "urn": urn,
-                            "first_name": first_name,
-                            "last_name": last_name,
-                            "name": name_text,
-                            "headline": headline_text,
-                            "location": location_text,
-                        })
+                        results.append(
+                            LinkedInProfile(
+                                public_id=public_id,
+                                urn=urn,
+                                first_name=first_name,
+                                last_name=last_name,
+                                name=name_text,
+                                headline=headline_text,
+                                location=location_text,
+                            )
+                        )
 
         except Exception:
             pass

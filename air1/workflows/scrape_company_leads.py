@@ -12,6 +12,7 @@ async def company_leads(
     limit: int = 10,
     location_ids: list[str] | None = None,
     profile_limit: int | None = None,
+    headless: bool = True,
 ):
     logger.info(
         f"Starting company leads scraping for {len(companies)} companies with limit {limit}"
@@ -25,6 +26,7 @@ async def company_leads(
                 keywords=keywords,
                 location_ids=location_ids,
                 profile_limit=profile_limit,
+                headless=headless,
             )
             for company, count in results.items():
                 logger.info(f"{company}: {count} leads saved")
@@ -38,11 +40,26 @@ async def company_leads(
 
 # https://www.linkedin.com/company/murex/people/?facetGeoRegion=105606446%2C101834488&keywords=talent
 def run():
-    companies = ["nvidia"]
-    keywords = ["talent"]
+    companies = ["yeet"]
+    keywords = [
+        "talent",
+        "recruiter",
+        "engineering manager",
+        "techlead",
+        "lead",
+        "talent acquisition",
+    ]
     location_ids = []
     # profile_limit limits the number of profiles to process (e.g., 20 out of 124 found)
-    asyncio.run(company_leads(companies, keywords, limit=20, location_ids=location_ids, profile_limit=20))
+    asyncio.run(
+        company_leads(
+            companies,
+            keywords,
+            limit=20,
+            location_ids=location_ids,
+            profile_limit=20,
+        )
+    )
 
 
 run()

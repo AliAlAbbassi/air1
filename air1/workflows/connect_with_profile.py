@@ -21,12 +21,7 @@ async def connect_with_profiles_workflow(
 def run():
     asyncio.run(
         connect_with_profiles_workflow(
-            profile_usernames=[
-                "valeriu-veriga",
-                "alex-frohlick-754076111",
-                "romana-hameed-538b25130",
-                "zunaria-kainat-chrmp-039713190",
-            ],
+            profile_usernames=["saba-naseer-7b0277210"],
             message_note=DEFAULT_COLD_CONNECTION_NOTE,
         )
     )

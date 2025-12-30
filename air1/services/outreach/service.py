@@ -679,3 +679,8 @@ class Service(IService):
             logger.error(f"Failed to send connection request to {profile_username}")
 
         return success
+
+    def get_company_members_from_api(self, company_username: str, keywords: list[str]):
+        self.api.search_company_employees(
+            company=company_username, keywords=keywords, regions=[]
+        )
