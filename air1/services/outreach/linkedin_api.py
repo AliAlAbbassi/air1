@@ -1,8 +1,10 @@
 import json
 import re
+import time
 
 import requests
 from pydantic import BaseModel
+from requests.exceptions import ConnectionError, Timeout
 
 
 class LinkedInProfile(BaseModel):
@@ -53,7 +55,7 @@ class LinkedInAPI:
             self.session.headers.update(headers)
         self.base_url = "https://www.linkedin.com/voyager/api"
 
-    def _ensure_csrf_token(self):
+    def _ensure_csrf_token(self, max_retries: int = 3):
         """Fetch and cache the CSRF token from LinkedIn."""
         if self._csrf_token:
             return self._csrf_token
@@ -63,9 +65,18 @@ class LinkedInAPI:
         jsessionid = self.session.cookies.get("JSESSIONID")
 
         if not jsessionid:
-            # Fetch a page to get the JSESSIONID cookie
-            res = self.session.get("https://www.linkedin.com/feed/")
-            jsessionid = self.session.cookies.get("JSESSIONID")
+            # Fetch a page to get the JSESSIONID cookie with retry logic
+            for attempt in range(max_retries):
+                try:
+                    res = self.session.get("https://www.linkedin.com/feed/", timeout=30)
+                    jsessionid = self.session.cookies.get("JSESSIONID")
+                    break
+                except (ConnectionError, Timeout) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 2  # 2, 4, 6 seconds
+                        time.sleep(wait_time)
+                    else:
+                        raise e
 
         if jsessionid:
             # Remove surrounding quotes if present
@@ -73,7 +84,7 @@ class LinkedInAPI:
 
         return self._csrf_token
 
-    def _fetch(self, uri, params=None, headers=None):
+    def _fetch(self, uri, params=None, headers=None, max_retries: int = 3):
         url = f"{self.base_url}{uri}"
 
         # Ensure we have the CSRF token and add it to headers
@@ -82,7 +93,15 @@ class LinkedInAPI:
         if csrf_token:
             fetch_headers["csrf-token"] = csrf_token
 
-        return self.session.get(url, params=params, headers=fetch_headers)
+        for attempt in range(max_retries):
+            try:
+                return self.session.get(url, params=params, headers=fetch_headers, timeout=30)
+            except (ConnectionError, Timeout) as e:
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 2
+                    time.sleep(wait_time)
+                else:
+                    raise e
 
     def _post(self, uri, data=None, params=None, headers=None, allow_redirects=True):
         url = f"{self.base_url}{uri}"
@@ -858,9 +877,9 @@ class LinkedInAPI:
                 pass
 
         # Fallback: search for the company and get the first result
-        results = self.search_companies(keywords=company_name, limit=1)
+        results = self.search_companies(keywords=company_name, pages=1)
         if results:
-            urn = results[0].get("urn", "")
+            urn = results[0].urn if results[0].urn else ""
             if urn:
                 return urn.split(":")[-1]
 

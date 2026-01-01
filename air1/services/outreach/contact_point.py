@@ -4,6 +4,8 @@ ContactPoint map with contact point type as the key and type id as the value
 
 from loguru import logger
 
+from air1.db.prisma_client import get_prisma
+from air1.db.sql_loader import outreach_queries as queries
 from air1.services.outreach.repo import insert_contact_point
 
 # Contact point type IDs - should match your database
@@ -35,4 +37,25 @@ async def insert_linkedin_connection(lead_id: int) -> bool:
         logger.error(
             f"Failed to insert LinkedIn connection contact point for lead_id={lead_id}: {e}"
         )
+        return False
+
+
+async def has_linkedin_connection(username: str) -> bool:
+    """
+    Check if we've already sent a LinkedIn connection request to this profile.
+
+    Args:
+        username: LinkedIn profile username (e.g., 'john-doe-123')
+
+    Returns:
+        bool: True if a connection request was already sent, False otherwise
+    """
+    try:
+        prisma = await get_prisma()
+        result = await queries.has_linkedin_connection_by_username(
+            prisma, username=username
+        )
+        return result.get("exists", False) if result else False
+    except Exception as e:
+        logger.error(f"Error checking connection status for {username}: {e}")
         return False

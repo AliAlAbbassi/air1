@@ -163,6 +163,10 @@ class OutreachQueries(Protocol):
         self, conn: Any, *, contact_point_type: str
     ) -> Optional[Dict[str, Any]]: ...
 
+    async def has_linkedin_connection_by_username(
+        self, conn: Any, *, username: str
+    ) -> Optional[Dict[str, Any]]: ...
+
     # company.sql
     async def insert_company(
         self,

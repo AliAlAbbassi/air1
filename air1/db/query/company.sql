@@ -1,17 +1,11 @@
 -- name: insert_company^
 INSERT INTO company (name, linkedin_username, source, job_geo_id)
 VALUES (:name, :linkedin_username, :source, :job_geo_id)
-ON CONFLICT (linkedin_username) DO UPDATE SET
-    name = COALESCE(EXCLUDED.name, company.name),
+ON CONFLICT (name) DO UPDATE SET
+    linkedin_username = COALESCE(EXCLUDED.linkedin_username, company.linkedin_username),
     source = COALESCE(EXCLUDED.source, company.source),
     job_geo_id = COALESCE(EXCLUDED.job_geo_id, company.job_geo_id),
     updated_on = NOW()
-RETURNING company_id as "companyId";
-
--- name: insert_company_by_name^
-INSERT INTO company (name, source, job_geo_id)
-VALUES (:name, :source, :job_geo_id)
-ON CONFLICT DO NOTHING
 RETURNING company_id as "companyId";
 
 -- name: get_company_by_name^
