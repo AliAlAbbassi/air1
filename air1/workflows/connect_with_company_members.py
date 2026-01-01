@@ -16,7 +16,6 @@ async def connect_with_company_members(
     regions: list[str] | None = None,
     pages: int = 1,
     delay_range: tuple[float, float] = (2.0, 5.0),
-    headless: bool = False,
 ):
     """
     Search for employees at a company and send connection requests.
@@ -27,7 +26,6 @@ async def connect_with_company_members(
         regions: LinkedIn geo region IDs to filter by
         pages: Number of search result pages to process
         delay_range: Min/max seconds to wait between requests (to avoid rate limiting)
-        headless: Run browser in headless mode when scraping profiles
     """
     async with Service() as service:
         logger.info(f"Searching for employees at {company_username}...")
@@ -64,11 +62,12 @@ async def connect_with_company_members(
 
                     if not lead_id:
                         logger.info(
-                            f"Lead not found for {username}, creating from LinkedIn profile"
+                            f"Lead not found for {username}, creating from LinkedIn API"
                         )
-                        lead_id = await service.save_lead_from_linkedin_profile(
+                        lead_id = await service.save_lead_from_api(
                             profile_username=username,
-                            headless=headless,
+                            company_username=company_username,
+                            job_title=employee.headline,
                         )
 
                     if lead_id:
@@ -96,9 +95,9 @@ async def connect_with_company_members(
 if __name__ == "__main__":
     asyncio.run(
         connect_with_company_members(
-            company_username="revolut",
+            company_username="kingston-stanley",
             keywords=["recruiter", "talent"],
-            regions=[DUBAI_EMIRATE],
-            pages=1,
+            regions=[],
+            pages=7,
         )
     )

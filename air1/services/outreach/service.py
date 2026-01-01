@@ -10,7 +10,7 @@ from playwright.async_api import Playwright, async_playwright
 
 from air1.services.outreach.browser import BrowserSession
 from air1.services.outreach.email import EmailResult
-from air1.services.outreach.linkedin_api import LinkedInAPI
+from air1.services.outreach.linkedin_api import LinkedInAPI, LinkedInProfile as APILinkedInProfile
 from air1.services.outreach.linkedin_profile import (
     CompanyPeople,
     LinkedinProfile,
@@ -523,6 +523,72 @@ class Service(IService):
             return None
         finally:
             await session.browser.close()
+
+    async def save_lead_from_api(
+        self,
+        profile_username: str,
+        company_username: str | None = None,
+        job_title: str | None = None,
+    ) -> int | None:
+        """
+        Fetch a LinkedIn profile via API and save it as a new lead.
+
+        This method uses the LinkedIn API (no browser/Playwright) to fetch profile data,
+        then creates a lead with the associated LinkedIn profile.
+
+        Args:
+            profile_username: LinkedIn profile username (e.g., 'john-doe-123')
+            company_username: Optional company username for company membership
+            job_title: Optional job title at the company
+
+        Returns:
+            lead_id if successful, None otherwise
+        """
+        logger.info(f"Fetching and saving lead for profile via API: {profile_username}")
+
+        # Fetch profile data via API
+        api_profile = self.api.get_profile(profile_username)
+
+        if not api_profile:
+            logger.warning(f"Could not fetch profile data for {profile_username}")
+            return None
+
+        if not api_profile.first_name and not api_profile.last_name:
+            logger.warning(f"Profile {profile_username} has no name data")
+            return None
+
+        # Convert API profile to the format expected by save_lead_complete
+        profile = LinkedinProfile(
+            first_name=api_profile.first_name,
+            full_name=api_profile.name or f"{api_profile.first_name} {api_profile.last_name}".strip(),
+            username=profile_username,
+            location=api_profile.location,
+            headline=api_profile.headline,
+            about=api_profile.about,
+        )
+
+        lead = profile_to_lead(profile)
+
+        try:
+            success, lead_id = await save_lead_complete(
+                lead,
+                profile,
+                company_username=company_username,
+                job_title=job_title,
+            )
+
+            if success and lead_id:
+                logger.success(
+                    f"Saved lead from API {profile_username}: {lead.full_name} (ID: {lead_id})"
+                )
+                return lead_id
+            else:
+                logger.error(f"Failed to save lead for profile {profile_username}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error saving lead from API {profile_username}: {e}")
+            return None
 
     async def create_onboarding_user(self, request):
         """Create a new user with all onboarding data."""

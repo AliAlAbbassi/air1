@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class LinkedInProfile(BaseModel):
-    """LinkedIn profile from search results."""
+    """LinkedIn profile from search results or API."""
 
     public_id: str | None = None
     urn: str | None = None
@@ -15,6 +15,9 @@ class LinkedInProfile(BaseModel):
     name: str = ""
     headline: str = ""
     location: str = ""
+    about: str = ""
+    industry: str = ""
+    profile_picture_url: str = ""
 
 
 class LinkedInAPI:
@@ -24,13 +27,13 @@ class LinkedInAPI:
 
         if cookies:
             self.session.cookies.update(cookies)
-
+        
         # Default headers to mimic a browser
         self.session.headers.update(
             {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "x-li-lang": "en_US",
-                "x-restli-protocol-version": "2.0.0",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "x-li-lang": "en_US",
+            "x-restli-protocol-version": "2.0.0",
                 "accept": "*/*",
             }
         )
@@ -298,9 +301,9 @@ class LinkedInAPI:
             "count": 1,
             "origin": "SWITCH_SEARCH_VERTICAL",
         }
-
+        
         res = self._fetch("/search/blended", params=params)
-
+        
         if res.status_code == 200:
             data = res.json()
             try:
@@ -447,7 +450,7 @@ class LinkedInAPI:
                         fsd_match.start(), fsd_match.end()
                     )
                     return (urn, tracking_id)
-
+                
                 # Pattern 1: objectUrn ... publicIdentifier (common in encoded JSON)
                 # Look for objectUrn followed by publicIdentifier within a reasonable distance
                 # &quot;objectUrn&quot;:&quot;urn:li:member:123&quot; ... &quot;publicIdentifier&quot;:&quot;hrdiksha&quot;
@@ -470,7 +473,7 @@ class LinkedInAPI:
                         fsd_urn = f"urn:li:fsd_profile:{fsd_fallback.group(1)}"
                         return (fsd_urn, tracking_id)
                     return (urn, tracking_id)
-
+                
                 # Pattern 2: publicIdentifier ... objectUrn
                 pattern2 = (
                     re.escape(public_id)
@@ -499,7 +502,7 @@ class LinkedInAPI:
                         match.start(), match.end()
                     )
                     return (urn, tracking_id)
-
+                
                 # Last resort member ID (likely to be wrong/self, but maybe better than None)
                 match_member = re.search(r"urn:li:member:(\d+)", html_text)
                 if match_member:
@@ -513,6 +516,62 @@ class LinkedInAPI:
             pass
 
         return (None, None)
+
+    def get_profile(self, public_id: str) -> LinkedInProfile | None:
+        """
+        Fetch a LinkedIn profile by public ID (username) using the API.
+
+        Args:
+            public_id: LinkedIn profile username (e.g., 'john-doe-123')
+
+        Returns:
+            LinkedInProfile with profile data, or None if not found
+        """
+        self._ensure_csrf_token()
+
+        # Use the identity dash profiles endpoint with full decoration
+        endpoint = f"/identity/dash/profiles?q=memberIdentity&memberIdentity={public_id}&decorationId=com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities-93"
+        res = self._fetch(endpoint)
+
+        if res.status_code != 200:
+            return None
+
+        try:
+            data = res.json()
+
+            # Extract the first profile element
+            elements = data.get("elements", [])
+            if not elements:
+                return None
+
+            profile_data = elements[0]
+
+            # Extract profile fields
+            first_name = profile_data.get("firstName", "")
+            last_name = profile_data.get("lastName", "")
+            headline = profile_data.get("headline", "")
+            industry = profile_data.get("industryName", "") or ""
+            about = profile_data.get("summary", "") or ""
+
+            # Location can be in different formats
+            location = profile_data.get("geoLocationName", "") or profile_data.get("locationName", "") or ""
+
+            # Get URN
+            urn = profile_data.get("entityUrn", "")
+
+            return LinkedInProfile(
+                public_id=public_id,
+                urn=urn,
+                first_name=first_name,
+                last_name=last_name,
+                name=f"{first_name} {last_name}".strip(),
+                headline=headline,
+                location=location,
+                about=about,
+                industry=industry,
+            )
+        except Exception:
+            return None
 
     def send_connection_request(
         self, profile_urn_id, message=None, tracking_id=None, profile_html=None
@@ -549,7 +608,7 @@ class LinkedInAPI:
                 "content-type": "application/json",
             },
         )
-
+        
         # Parse response
         response_data = None
         try:
@@ -569,7 +628,7 @@ class LinkedInAPI:
                     # Direct invitationUrn check
                     if "invitationUrn" in data:
                         return True
-
+            
         # Check for specific error conditions
         if (
             response_data
