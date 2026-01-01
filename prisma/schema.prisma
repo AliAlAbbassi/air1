@@ -74,3 +74,32 @@ model contact_point_types {
   updated_on             DateTime        @default(now()) @db.Timestamp(6)
   contact_point          contact_point[]
 }
+
+model Company {
+  companyId         BigInt            @id @default(autoincrement()) @map("company_id")
+  name              String            @db.VarChar(255)
+  linkedinUsername  String?           @unique @map("linkedin_username") @db.VarChar(255)
+  website           String?           @db.VarChar(255)
+  industry          String?           @db.VarChar(255)
+  size              String?           @db.VarChar(50)
+  source            String?           @db.VarChar(50)
+  jobGeoId          String?           @map("job_geo_id") @db.VarChar(50)
+  createdOn         DateTime          @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn         DateTime          @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  outreach          CompanyOutreach?
+
+  @@map("company")
+}
+
+model CompanyOutreach {
+  companyOutreachId   BigInt   @id @default(autoincrement()) @map("company_outreach_id")
+  companyId           BigInt   @unique @map("company_id")
+  status              String   @default("pending") @db.VarChar(50)
+  employeesContacted  Int      @default(0) @map("employees_contacted")
+  notes               String?
+  createdOn           DateTime @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn           DateTime @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  company             Company  @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@map("company_outreach")
+}

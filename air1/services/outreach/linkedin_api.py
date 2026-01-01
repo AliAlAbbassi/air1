@@ -20,6 +20,17 @@ class LinkedInProfile(BaseModel):
     profile_picture_url: str = ""
 
 
+class LinkedInJob(BaseModel):
+    """Job posting from LinkedIn job search."""
+
+    job_id: str
+    title: str = ""
+    company_name: str = ""
+    company_urn: str | None = None
+    location: str = ""
+    job_url: str = ""
+
+
 class LinkedInAPI:
     def __init__(self, cookies=None, headers=None):
         self.session = requests.Session()
@@ -993,3 +1004,131 @@ class LinkedInAPI:
             pass
 
         return results
+
+    def search_jobs(
+        self,
+        geo_id: str | None = None,
+        keywords: str | None = None,
+        pages: int = 1,
+    ) -> list[LinkedInJob]:
+        """
+        Search for job postings and extract company information.
+
+        Args:
+            geo_id: LinkedIn geo ID for location filter (e.g., '104305776' for UAE)
+            keywords: Job search keywords
+            pages: Number of pages to fetch (25 jobs per page)
+
+        Returns:
+            List of LinkedInJob objects with company info
+        """
+        self._ensure_csrf_token()
+
+        all_jobs = []
+
+        for page in range(pages):
+            start = page * 25
+
+            # Build the query
+            query_parts = ["origin:JOB_SEARCH_PAGE_QUERY_EXPANSION", "spellCorrectionEnabled:true"]
+
+            if geo_id:
+                query_parts.append(f"locationUnion:(geoId:{geo_id})")
+
+            if keywords:
+                query_parts.append(f"keywords:{keywords}")
+
+            query = f"({','.join(query_parts)})"
+
+            endpoint = (
+                f"/voyagerJobsDashJobCards"
+                f"?decorationId=com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollection-186"
+                f"&count=25"
+                f"&q=jobSearch"
+                f"&query={query}"
+                f"&start={start}"
+            )
+
+            res = self._fetch(endpoint)
+
+            if res.status_code != 200:
+                break
+
+            try:
+                data = res.json()
+                jobs = self._extract_job_results(data)
+                all_jobs.extend(jobs)
+            except Exception:
+                break
+
+        return all_jobs
+
+    def _extract_job_results(self, data: dict) -> list[LinkedInJob]:
+        """Extract job posting information from job search API response."""
+        results = []
+
+        try:
+            elements = data.get("elements", [])
+
+            for elem in elements:
+                job_card = elem.get("jobCardUnion", {}).get("jobPostingCard", {})
+                if not job_card:
+                    continue
+
+                # Extract job ID from entityUrn
+                entity_urn = job_card.get("entityUrn", "")
+                job_id = ""
+                if entity_urn:
+                    # Format: urn:li:fsd_jobPostingCard:(4349590584,JOBS_SEARCH)
+                    match = re.search(r"\((\d+),", entity_urn)
+                    if match:
+                        job_id = match.group(1)
+
+                # Extract title
+                title = job_card.get("title", {}).get("text", "")
+
+                # Extract company name from primaryDescription
+                company_name = job_card.get("primaryDescription", {}).get("text", "")
+
+                # Extract location from secondaryDescription
+                location = job_card.get("secondaryDescription", {}).get("text", "")
+
+                # Build job URL
+                job_url = f"https://www.linkedin.com/jobs/view/{job_id}" if job_id else ""
+
+                if job_id:
+                    results.append(
+                        LinkedInJob(
+                            job_id=job_id,
+                            title=title,
+                            company_name=company_name,
+                            location=location,
+                            job_url=job_url,
+                        )
+                    )
+
+        except Exception:
+            pass
+
+        return results
+
+    def get_companies_from_jobs(
+        self,
+        geo_id: str | None = None,
+        keywords: str | None = None,
+        pages: int = 1,
+    ) -> list[str]:
+        """
+        Search jobs and return unique company names.
+
+        Args:
+            geo_id: LinkedIn geo ID for location filter
+            keywords: Job search keywords
+            pages: Number of pages to fetch
+
+        Returns:
+            List of unique company names
+        """
+        jobs = self.search_jobs(geo_id=geo_id, keywords=keywords, pages=pages)
+        companies = list({job.company_name for job in jobs if job.company_name})
+        return companies

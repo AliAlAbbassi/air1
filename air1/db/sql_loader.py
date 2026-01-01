@@ -163,6 +163,47 @@ class OutreachQueries(Protocol):
         self, conn: Any, *, contact_point_type: str
     ) -> Optional[Dict[str, Any]]: ...
 
+    # company.sql
+    async def insert_company(
+        self,
+        conn: Any,
+        *,
+        name: str,
+        linkedin_username: Optional[str] = None,
+        source: Optional[str] = None,
+        job_geo_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_company_by_name(
+        self, conn: Any, *, name: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_companies_by_source(
+        self, conn: Any, *, source: str
+    ) -> List[Dict[str, Any]]: ...
+
+    async def upsert_company_outreach(
+        self,
+        conn: Any,
+        *,
+        company_id: int,
+        status: str,
+        employees_contacted: int = 0,
+        notes: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_companies_with_outreach_status(
+        self, conn: Any, *, source: Optional[str] = None
+    ) -> List[Dict[str, Any]]: ...
+
+    async def increment_employees_contacted(
+        self, conn: Any, *, company_id: int
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def update_outreach_status(
+        self, conn: Any, *, company_id: int, status: str
+    ) -> Optional[Dict[str, Any]]: ...
+
 
 class OnboardingQueries(Protocol):
     """
