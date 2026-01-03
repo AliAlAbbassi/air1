@@ -750,3 +750,92 @@ class Service(IService):
         self.api.search_company_employees(
             company=company_username, keywords=keywords, regions=[]
         )
+
+    async def get_profiles_for_outreach(self, limit: int = 50) -> list[dict]:
+        """
+        Get saved profiles that haven't been contacted yet.
+
+        Args:
+            limit: Maximum number of profiles to return
+
+        Returns:
+            List of profile dicts with username, lead_id, name, headline
+        """
+        from air1.db.prisma_client import get_prisma
+        from air1.services.outreach.contact_point import has_linkedin_connection
+
+        prisma = await get_prisma()
+
+        profiles = await prisma.linkedinprofile.find_many(
+            take=limit * 2,  # Fetch extra since some will be filtered
+            order={"createdOn": "desc"},
+            include={"lead": True},
+        )
+
+        result = []
+        for p in profiles:
+            if len(result) >= limit:
+                break
+
+            # Skip if already connected
+            already_connected = await has_linkedin_connection(p.username)
+            if already_connected:
+                continue
+
+            result.append({
+                "username": p.username,
+                "lead_id": p.leadId,
+                "name": p.lead.fullName if p.lead else None,
+                "headline": p.headline,
+            })
+
+        return result
+
+    async def get_all_saved_profiles(self, limit: int = 50) -> list[dict]:
+        """
+        Get all saved profiles with their connection status.
+
+        Args:
+            limit: Maximum number of profiles to return
+
+        Returns:
+            List of profile dicts with username, lead_id, name, headline, is_connected
+        """
+        from air1.db.prisma_client import get_prisma
+        from air1.services.outreach.contact_point import has_linkedin_connection
+
+        prisma = await get_prisma()
+
+        profiles = await prisma.linkedinprofile.find_many(
+            take=limit,
+            order={"createdOn": "desc"},
+            include={"lead": True},
+        )
+
+        result = []
+        for p in profiles:
+            is_connected = await has_linkedin_connection(p.username)
+            result.append({
+                "username": p.username,
+                "lead_id": p.leadId,
+                "name": p.lead.fullName if p.lead else None,
+                "headline": p.headline,
+                "is_connected": is_connected,
+            })
+
+        return result
+
+    async def profile_exists(self, username: str) -> bool:
+        """Check if a LinkedIn profile already exists in the database."""
+        profile = await get_linkedin_profile_by_username(username)
+        return profile is not None
+
+    async def has_connection_request(self, username: str) -> bool:
+        """Check if we've already sent a connection request to this profile."""
+        from air1.services.outreach.contact_point import has_linkedin_connection
+        return await has_linkedin_connection(username)
+
+    async def track_connection_request(self, lead_id: int) -> bool:
+        """Track that a connection request was sent to a lead."""
+        from air1.services.outreach.contact_point import insert_linkedin_connection
+        return await insert_linkedin_connection(lead_id)
