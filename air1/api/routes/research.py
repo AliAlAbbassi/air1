@@ -19,6 +19,7 @@ class ResearchRequest(BaseModel):
     full_name: Optional[str] = Field(None, description="Full name of the prospect")
     headline: Optional[str] = Field(None, description="LinkedIn headline")
     company_name: Optional[str] = Field(None, description="Current company name")
+    location: Optional[str] = Field(None, description="Location")
     icp_profile: Optional[ICPProfile] = Field(
         None, description="ICP profile to score prospect against"
     )
@@ -62,6 +63,7 @@ async def research_prospect(request: ResearchRequest) -> ResearchResponse:
         full_name=request.full_name,
         headline=request.headline,
         company_name=request.company_name,
+        location=request.location,
     )
     
     try:
