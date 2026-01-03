@@ -1,4 +1,4 @@
 # User service module
-from .service import AuthUser, IUserService, UserService
+from .service import AuthUser, IService, Service
 
-__all__ = ["AuthUser", "IUserService", "UserService"]
+__all__ = ["AuthUser", "IService", "Service"]

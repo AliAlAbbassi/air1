@@ -1,3 +1,13 @@
+-- name: get_user_by_email^
+-- Get user by email for authentication
+SELECT
+    user_id,
+    email,
+    password_hash,
+    auth_method
+FROM hodhod_user
+WHERE email = :email;
+
 -- name: get_account_by_user_id^
 -- Get full account data for a user
 SELECT

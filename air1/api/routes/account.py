@@ -13,12 +13,12 @@ from air1.api.models.account import (
     LinkedinData,
     UserData,
 )
-from air1.services.user.service import UserService
+from air1.services.user.service import Service
 
 router = APIRouter(prefix="/api/account", tags=["account"])
 
 # Service instance
-user_service = UserService()
+user_service = Service()
 
 # Default daily limits
 DEFAULT_CONNECTION_LIMIT = 25

@@ -9,6 +9,20 @@ from air1.db.sql_loader import account_queries as queries
 from air1.services.outreach.exceptions import QueryError
 
 
+async def get_user_by_email(email: str) -> Optional[dict]:
+    """Get user by email for authentication."""
+    try:
+        prisma = await get_prisma()
+        result = await queries.get_user_by_email(prisma, email=email)
+        return result
+    except PrismaError as e:
+        logger.error(f"Database error getting user by email: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error getting user by email: {e}")
+        raise QueryError(f"Unexpected error getting user by email: {e}") from e
+
+
 async def get_account_by_user_id(user_id: int) -> Optional[dict]:
     """Get account data by user ID."""
     try:

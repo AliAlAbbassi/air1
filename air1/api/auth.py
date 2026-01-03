@@ -3,12 +3,12 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from air1.services.user.service import AuthUser, UserService
+from air1.services.user.service import AuthUser, Service
 
 security = HTTPBearer()
 
 # Service instance for token verification
-_user_service = UserService()
+_user_service = Service()
 
 
 async def get_current_user(

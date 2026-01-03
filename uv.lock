@@ -110,6 +110,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosql" },
+    { name = "bcrypt" },
     { name = "beautifulsoup4" },
     { name = "crewai" },
     { name = "crewai-tools" },
@@ -146,6 +147,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiosql", specifier = ">=13.4" },
+    { name = "bcrypt", specifier = ">=4.2.0" },
     { name = "beautifulsoup4", specifier = ">=4.14.2" },
     { name = "crewai", specifier = ">=0.121.0" },
     { name = "crewai-tools", specifier = ">=0.44.0" },
