@@ -62,3 +62,76 @@ async def update_user_profile(
     except Exception as e:
         logger.error(f"Unexpected error updating profile: {e}")
         raise QueryError(f"Unexpected error updating profile: {e}") from e
+
+
+async def get_account_by_clerk_id(clerk_id: str) -> Optional[dict]:
+    """Get account data by Clerk ID."""
+    try:
+        prisma = await get_prisma()
+        result = await queries.get_account_by_clerk_id(prisma, clerk_id=clerk_id)
+        return result
+    except PrismaError as e:
+        logger.error(f"Database error getting account by clerk_id: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error getting account by clerk_id: {e}")
+        raise QueryError(f"Unexpected error getting account by clerk_id: {e}") from e
+
+
+async def create_user_from_clerk(clerk_id: str, email: str) -> Optional[dict]:
+    """Create a new user from Clerk authentication."""
+    try:
+        prisma = await get_prisma()
+        result = await queries.create_user_from_clerk(
+            prisma, clerk_id=clerk_id, email=email
+        )
+        return result
+    except PrismaError as e:
+        logger.error(f"Database error creating user from Clerk: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error creating user from Clerk: {e}")
+        raise QueryError(f"Unexpected error creating user from Clerk: {e}") from e
+
+
+async def get_or_create_user_by_clerk_id(clerk_id: str, email: str) -> Optional[dict]:
+    """Get existing user by Clerk ID, or create if not exists."""
+    account = await get_account_by_clerk_id(clerk_id)
+    if account:
+        return account
+
+    # User doesn't exist, create them
+    logger.info(f"Creating new user for clerk_id: {clerk_id}")
+    created = await create_user_from_clerk(clerk_id, email)
+    if not created:
+        return None
+
+    # Fetch the full account data
+    return await get_account_by_clerk_id(clerk_id)
+
+
+async def update_user_profile_by_clerk_id(
+    clerk_id: str,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+    timezone: Optional[str] = None,
+    meeting_link: Optional[str] = None,
+) -> bool:
+    """Update user profile fields by Clerk ID."""
+    try:
+        prisma = await get_prisma()
+        await queries.update_user_profile_by_clerk_id(
+            prisma,
+            clerk_id=clerk_id,
+            first_name=first_name,
+            last_name=last_name,
+            timezone=timezone,
+            meeting_link=meeting_link,
+        )
+        return True
+    except PrismaError as e:
+        logger.error(f"Database error updating profile by clerk_id: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error updating profile by clerk_id: {e}")
+        raise QueryError(f"Unexpected error updating profile by clerk_id: {e}") from e

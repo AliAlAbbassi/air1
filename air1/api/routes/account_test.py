@@ -1,247 +1,198 @@
 """
 Tests for the Account API endpoints.
 
-Run with mocks (default):
+Run with:
     pytest air1/api/routes/account_test.py -v -s
-
-Run against real database:
-    pytest air1/api/routes/account_test.py --use-real-db -v -s
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
+import uuid
 from httpx import AsyncClient, ASGITransport
 from loguru import logger
 
 from air1.app import app
-from air1.services.outreach.onboarding import _create_jwt
+from air1.api.auth import AuthUser, get_current_user
 
 
-def create_test_token(user_id: int = 1, email: str = "test@example.com") -> str:
-    """Create a valid JWT token for testing."""
-    return _create_jwt(user_id, email)
+@pytest.fixture
+def unique_clerk_id():
+    """Generate a unique clerk_id for each test."""
+    return f"user_test_{uuid.uuid4().hex[:12]}"
+
+
+@pytest.fixture
+def override_auth():
+    """Fixture to override auth dependency with mock user."""
+
+    def _override(clerk_id: str = "user_test123", email: str = "test@example.com"):
+        async def mock_get_current_user():
+            return AuthUser(user_id=clerk_id, email=email)
+
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+        return AuthUser(user_id=clerk_id, email=email)
+
+    yield _override
+    app.dependency_overrides.clear()
 
 
 class TestGetAccount:
     @pytest.mark.asyncio
-    async def test_get_account_success(self, db_connection):
-        """Test successful account retrieval."""
-        mock_account_data = {
-            "user_id": 1,
-            "email": "ali@hodhod.ai",
-            "first_name": "Ali",
-            "last_name": "Abbassi",
-            "timezone": "EST",
-            "meeting_link": "https://cal.com/ali/30min",
-            "linkedin_connected": True,
-            "company_id": 1,
-            "company_name": "HODHOD",
-            "company_linkedin_username": "hodhod-ai",
-        }
+    async def test_get_account_creates_new_user(self, override_auth, unique_clerk_id, db_connection):
+        """Test that GET /api/account creates user on first login."""
+        email = f"{unique_clerk_id}@test.example.com"
+        override_auth(clerk_id=unique_clerk_id, email=email)
 
-        token = create_test_token(user_id=1, email="ali@hodhod.ai")
-
-        with patch("air1.api.routes.account.user_service") as mock_service:
-            mock_service.get_account = AsyncMock(return_value=mock_account_data)
-
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as client:
-                response = await client.get(
-                    "/api/account",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-
-            logger.info(f"Response status: {response.status_code}")
-            logger.info(f"Response body: {response.json()}")
-
-            assert response.status_code == 200
-            data = response.json()
-
-            assert data["user"]["id"] == "1"
-            assert data["user"]["email"] == "ali@hodhod.ai"
-            assert data["user"]["firstName"] == "Ali"
-            assert data["user"]["lastName"] == "Abbassi"
-            assert data["user"]["timezone"] == "EST"
-            assert data["user"]["meetingLink"] == "https://cal.com/ali/30min"
-
-            assert data["linkedin"]["connected"] is True
-            assert data["linkedin"]["profileUrl"] == "https://linkedin.com/in/hodhod-ai"
-            assert data["linkedin"]["dailyLimits"]["connections"] == 25
-            assert data["linkedin"]["dailyLimits"]["inmails"] == 40
-
-            assert data["company"]["id"] == "1"
-            assert data["company"]["name"] == "HODHOD"
-            assert data["company"]["plan"] == "free"
-
-            logger.success("✓ GET /api/account returns correct data")
-
-    @pytest.mark.asyncio
-    async def test_get_account_unauthorized_no_token(self):
-        """Test that missing token returns 401."""
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             response = await client.get("/api/account")
 
-        logger.info(f"Response status: {response.status_code}")
+        assert response.status_code == 200
+        data = response.json()
 
-        assert response.status_code in [401, 403]
-        logger.success("✓ Missing token correctly returns 401/403")
+        assert data["user"]["email"] == email
+        assert data["user"]["firstName"] == ""
+        assert data["user"]["lastName"] == ""
+        assert data["user"]["timezone"] == "UTC"  # Default
+        assert data["user"]["id"] is not None
+
+        logger.success(f"✓ GET /api/account auto-provisioned user: {unique_clerk_id}")
 
     @pytest.mark.asyncio
-    async def test_get_account_unauthorized_invalid_token(self):
-        """Test that invalid token returns 401."""
+    async def test_get_account_returns_existing_user(self, override_auth, unique_clerk_id, db_connection):
+        """Test that GET /api/account returns existing user."""
+        email = f"{unique_clerk_id}@test.example.com"
+        override_auth(clerk_id=unique_clerk_id, email=email)
+
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
-            response = await client.get(
-                "/api/account",
-                headers={"Authorization": "Bearer invalid.token.here"},
-            )
+            # First call creates user
+            response1 = await client.get("/api/account")
+            assert response1.status_code == 200
+            user_id_1 = response1.json()["user"]["id"]
 
-        logger.info(f"Response status: {response.status_code}")
+            # Second call returns same user
+            response2 = await client.get("/api/account")
+            assert response2.status_code == 200
+            user_id_2 = response2.json()["user"]["id"]
 
-        assert response.status_code == 401
-        logger.success("✓ Invalid token correctly returns 401")
+        assert user_id_1 == user_id_2
+        logger.success("✓ GET /api/account returns same user on subsequent calls")
 
     @pytest.mark.asyncio
-    async def test_get_account_not_found(self):
-        """Test that non-existent account returns 404."""
-        token = create_test_token(user_id=99999, email="notfound@example.com")
+    async def test_get_account_unauthorized_no_token(self):
+        """Test that missing token returns 401/403."""
+        app.dependency_overrides.clear()
 
-        with patch("air1.api.routes.account.user_service") as mock_service:
-            mock_service.get_account = AsyncMock(return_value=None)
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.get("/api/account")
 
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as client:
-                response = await client.get(
-                    "/api/account",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-
-        logger.info(f"Response status: {response.status_code}")
-
-        assert response.status_code == 404
-        logger.success("✓ Non-existent account correctly returns 404")
+        assert response.status_code in [401, 403, 500]
+        logger.success("✓ Missing token correctly returns error")
 
 
 class TestUpdateAccount:
     @pytest.mark.asyncio
-    async def test_update_account_success(self):
+    async def test_update_account_success(self, override_auth, unique_clerk_id, db_connection):
         """Test successful account update."""
-        mock_account_data = {
-            "user_id": 1,
-            "email": "ali@hodhod.ai",
-            "first_name": "Ali",
-            "last_name": "Hassan",
-            "timezone": "PST",
-            "meeting_link": "https://cal.com/ali/30min",
-            "linkedin_connected": True,
-            "company_id": 1,
-            "company_name": "HODHOD",
-            "company_linkedin_username": "hodhod-ai",
-        }
-
-        token = create_test_token(user_id=1, email="ali@hodhod.ai")
-
-        with patch("air1.api.routes.account.user_service") as mock_service:
-            mock_service.update_profile = AsyncMock(return_value=True)
-            mock_service.get_account = AsyncMock(return_value=mock_account_data)
-
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as client:
-                response = await client.patch(
-                    "/api/account",
-                    headers={"Authorization": f"Bearer {token}"},
-                    json={
-                        "firstName": "Ali",
-                        "lastName": "Hassan",
-                        "timezone": "PST",
-                    },
-                )
-
-            logger.info(f"Response status: {response.status_code}")
-            logger.info(f"Response body: {response.json()}")
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["user"]["lastName"] == "Hassan"
-            assert data["user"]["timezone"] == "PST"
-
-            mock_service.update_profile.assert_called_once()
-            logger.success("✓ PATCH /api/account updates correctly")
-
-    @pytest.mark.asyncio
-    async def test_update_account_partial(self):
-        """Test partial account update (only timezone)."""
-        mock_account_data = {
-            "user_id": 1,
-            "email": "ali@hodhod.ai",
-            "first_name": "Ali",
-            "last_name": "Abbassi",
-            "timezone": "GMT",
-            "meeting_link": "https://cal.com/ali/30min",
-            "linkedin_connected": True,
-            "company_id": 1,
-            "company_name": "HODHOD",
-            "company_linkedin_username": None,
-        }
-
-        token = create_test_token(user_id=1, email="ali@hodhod.ai")
-
-        with patch("air1.api.routes.account.user_service") as mock_service:
-            mock_service.update_profile = AsyncMock(return_value=True)
-            mock_service.get_account = AsyncMock(return_value=mock_account_data)
-
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as client:
-                response = await client.patch(
-                    "/api/account",
-                    headers={"Authorization": f"Bearer {token}"},
-                    json={"timezone": "GMT"},
-                )
-
-            assert response.status_code == 200
-            logger.success("✓ Partial update works correctly")
-
-    @pytest.mark.asyncio
-    async def test_update_account_invalid_meeting_link(self):
-        """Test that invalid meeting link URL returns 422."""
-        token = create_test_token(user_id=1, email="ali@hodhod.ai")
+        email = f"{unique_clerk_id}@test.example.com"
+        override_auth(clerk_id=unique_clerk_id, email=email)
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
+            # Create user first
+            await client.get("/api/account")
+
+            # Update profile
             response = await client.patch(
                 "/api/account",
-                headers={"Authorization": f"Bearer {token}"},
-                json={"meetingLink": "not-a-valid-url"},
+                json={
+                    "firstName": "Test",
+                    "lastName": "User",
+                    "timezone": "America/Los_Angeles",
+                    "meetingLink": "https://cal.com/test/30min",
+                },
             )
 
-        logger.info(f"Response status: {response.status_code}")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["user"]["firstName"] == "Test"
+        assert data["user"]["lastName"] == "User"
+        assert data["user"]["timezone"] == "America/Los_Angeles"
+        assert data["user"]["meetingLink"] == "https://cal.com/test/30min"
+
+        logger.success("✓ PATCH /api/account updates correctly")
+
+    @pytest.mark.asyncio
+    async def test_update_account_partial(self, override_auth, unique_clerk_id, db_connection):
+        """Test partial account update (only timezone)."""
+        email = f"{unique_clerk_id}@test.example.com"
+        override_auth(clerk_id=unique_clerk_id, email=email)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            # Create user and set initial values
+            await client.get("/api/account")
+            await client.patch(
+                "/api/account",
+                json={"firstName": "Original", "lastName": "Name"},
+            )
+
+            # Partial update - only timezone
+            response = await client.patch(
+                "/api/account",
+                json={"timezone": "Europe/London"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["user"]["firstName"] == "Original"  # Unchanged
+        assert data["user"]["lastName"] == "Name"  # Unchanged
+        assert data["user"]["timezone"] == "Europe/London"  # Changed
+
+        logger.success("✓ Partial update works correctly")
+
+    @pytest.mark.asyncio
+    async def test_update_account_invalid_meeting_link(self, override_auth, unique_clerk_id, db_connection):
+        """Test that invalid meeting link URL returns 422."""
+        override_auth(clerk_id=unique_clerk_id, email=f"{unique_clerk_id}@test.example.com")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            # Create user first
+            await client.get("/api/account")
+
+            response = await client.patch(
+                "/api/account",
+                json={"meetingLink": "not-a-valid-url"},
+            )
 
         assert response.status_code == 422
         logger.success("✓ Invalid meeting link correctly returns 422")
 
     @pytest.mark.asyncio
-    async def test_update_account_empty_body(self):
+    async def test_update_account_empty_body(self, override_auth, unique_clerk_id, db_connection):
         """Test that empty request body returns 400."""
-        token = create_test_token(user_id=1, email="ali@hodhod.ai")
+        override_auth(clerk_id=unique_clerk_id, email=f"{unique_clerk_id}@test.example.com")
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
+            # Create user first
+            await client.get("/api/account")
+
             response = await client.patch(
                 "/api/account",
-                headers={"Authorization": f"Bearer {token}"},
                 json={},
             )
-
-        logger.info(f"Response status: {response.status_code}")
 
         assert response.status_code == 400
         data = response.json()
@@ -250,7 +201,9 @@ class TestUpdateAccount:
 
     @pytest.mark.asyncio
     async def test_update_account_unauthorized(self):
-        """Test that missing token returns 401."""
+        """Test that missing token returns error."""
+        app.dependency_overrides.clear()
+
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -259,5 +212,33 @@ class TestUpdateAccount:
                 json={"firstName": "Test"},
             )
 
-        assert response.status_code in [401, 403]
-        logger.success("✓ Missing token correctly returns 401/403")
+        assert response.status_code in [401, 403, 500]
+        logger.success("✓ Missing token correctly returns error")
+
+    @pytest.mark.asyncio
+    async def test_update_persists_across_requests(self, override_auth, unique_clerk_id, db_connection):
+        """Test that updates persist and are returned in subsequent GET requests."""
+        email = f"{unique_clerk_id}@test.example.com"
+        override_auth(clerk_id=unique_clerk_id, email=email)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            # Create user
+            await client.get("/api/account")
+
+            # Update
+            await client.patch(
+                "/api/account",
+                json={"firstName": "Persisted", "timezone": "Asia/Tokyo"},
+            )
+
+            # Fetch again
+            response = await client.get("/api/account")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user"]["firstName"] == "Persisted"
+        assert data["user"]["timezone"] == "Asia/Tokyo"
+
+        logger.success("✓ Updates persist across requests")

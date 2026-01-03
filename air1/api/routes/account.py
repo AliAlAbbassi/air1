@@ -33,7 +33,7 @@ def _build_account_response(account_data: dict) -> AccountResponse:
     return AccountResponse(
         user=UserData(
             id=user_id,
-            email=account_data["email"],
+            email=account_data["email"] or "",
             firstName=account_data["first_name"] or "",
             lastName=account_data["last_name"] or "",
             avatarUrl=None,
@@ -65,14 +65,17 @@ def _build_account_response(account_data: dict) -> AccountResponse:
     },
 )
 async def get_account(current_user: AuthUser = Depends(get_current_user)):
-    """Get the authenticated user's account data."""
-    account_data = await user_service.get_account(current_user.user_id)
+    """Get the authenticated user's account data. Creates user if first login."""
+    account_data = await user_service.get_or_create_account(
+        clerk_id=current_user.user_id,
+        email=current_user.email or "",
+    )
 
     if not account_data:
-        logger.error(f"Account not found for user_id: {current_user.user_id}")
+        logger.error(f"Failed to get/create account for clerk_id: {current_user.user_id}")
         raise HTTPException(
-            status_code=404,
-            detail={"error": "NOT_FOUND", "message": "Account not found"},
+            status_code=500,
+            detail={"error": "INTERNAL_ERROR", "message": "Failed to load account"},
         )
 
     return _build_account_response(account_data)
@@ -104,7 +107,7 @@ async def update_account(
         )
 
     success = await user_service.update_profile(
-        user_id=current_user.user_id,
+        clerk_id=current_user.user_id,
         first_name=request.first_name,
         last_name=request.last_name,
         timezone=request.timezone,
@@ -118,11 +121,14 @@ async def update_account(
         )
 
     # Fetch and return updated account
-    account_data = await user_service.get_account(current_user.user_id)
+    account_data = await user_service.get_or_create_account(
+        clerk_id=current_user.user_id,
+        email=current_user.email or "",
+    )
     if not account_data:
         raise HTTPException(
-            status_code=404,
-            detail={"error": "NOT_FOUND", "message": "Account not found"},
+            status_code=500,
+            detail={"error": "INTERNAL_ERROR", "message": "Failed to load account"},
         )
 
     return _build_account_response(account_data)
