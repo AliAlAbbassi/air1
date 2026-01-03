@@ -1,167 +1,130 @@
-# Auth API
+# Auth API (Clerk Integration)
 
-## POST /api/auth/login
+Authentication is handled by [Clerk](https://clerk.com). The backend verifies Clerk session tokens on protected endpoints.
 
-Authenticate a user with email and password. Returns a JWT token for use with protected endpoints.
+## Setup
 
-### Request
+### Environment Variables
 
-```
-POST /api/auth/login
-Content-Type: application/json
-```
-
-**Body:**
-
-| Field      | Type   | Required | Description          |
-|------------|--------|----------|----------------------|
-| `email`    | string | Yes      | User's email address |
-| `password` | string | Yes      | User's password      |
-
-### Response
-
-**Success (200 OK):**
-
-```json
-{
-  "authToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "userId": "123",
-  "email": "user@example.com"
-}
+```bash
+# .env
+CLERK_SECRET_KEY=sk_test_xxxxx  # From Clerk Dashboard → API Keys
 ```
 
-**Error (401 Unauthorized):**
+### Frontend
+
+The frontend uses `@clerk/nextjs` to handle sign-in/sign-up. See [Clerk Next.js docs](https://clerk.com/docs/quickstarts/nextjs).
+
+---
+
+## How Authentication Works
+
+1. User signs in via Clerk on the frontend
+2. Clerk creates a session and provides a token
+3. Frontend includes token in API requests: `Authorization: Bearer <token>`
+4. Backend verifies the token with Clerk's SDK
+5. If valid, the request proceeds; if not, returns 401
+
+---
+
+## Protected Endpoints
+
+All endpoints under `/api/*` (except health checks) require authentication.
+
+### Request Format
+
+Include the Clerk session token in the Authorization header:
+
+```
+GET /api/account
+Authorization: Bearer <clerk_session_token>
+```
+
+### Error Response (401 Unauthorized)
 
 ```json
 {
   "error": "UNAUTHORIZED",
-  "message": "Invalid email or password"
+  "message": "Authentication required"
 }
 ```
-
-**Error (422 Validation Error):**
-
-```json
-{
-  "error": "VALIDATION_ERROR",
-  "message": "Invalid request body",
-  "details": [
-    { "field": "body.email", "message": "value is not a valid email address" }
-  ]
-}
-```
-
----
-
-## Usage
-
-### Store the token
-
-After successful login, store `authToken` and include it in the `Authorization` header for all protected API calls:
-
-```
-Authorization: Bearer <authToken>
-```
-
-### Token expiry
-
-Tokens expire after **7 days** (168 hours). After expiry, the user must log in again.
 
 ---
 
 ## Testing with curl
 
-### Successful login
+### Get a session token
 
-```bash
-curl -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "yourpassword"}'
+In your frontend, you can get the token using Clerk's `useAuth` hook:
+
+```typescript
+const { getToken } = useAuth();
+const token = await getToken();
 ```
 
-### Invalid credentials
+### Test authenticated endpoint
 
 ```bash
-curl -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "wrongpassword"}'
-```
-
-### Missing fields
-
-```bash
-curl -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com"}'
-```
-
-### Invalid email format
-
-```bash
-curl -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "not-an-email", "password": "test123"}'
-```
-
-### Using the token
-
-Once you have the token, use it to access protected endpoints like `/api/account`:
-
-```bash
-# First, login and save the token
-TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "yourpassword"}' \
-  | jq -r '.authToken')
-
-# Then use the token for authenticated requests
+# Replace <TOKEN> with the session token from your frontend
 curl http://localhost:8000/api/account \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer <TOKEN>"
 ```
 
 ---
 
-## Frontend Integration Example
+## Frontend Integration
+
+### Getting the token for API calls
 
 ```typescript
-async function login(email: string, password: string) {
-  const response = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
+import { useAuth } from '@clerk/nextjs';
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message);
+function MyComponent() {
+  const { getToken } = useAuth();
+
+  async function fetchAccount() {
+    const token = await getToken();
+    
+    const response = await fetch('/api/account', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    return response.json();
   }
-
-  const { authToken, userId, email: userEmail } = await response.json();
-  
-  // Store token (e.g., in localStorage or secure cookie)
-  localStorage.setItem('authToken', authToken);
-  
-  return { userId, email: userEmail };
-}
-
-// Using the token for authenticated requests
-async function fetchAccount() {
-  const token = localStorage.getItem('authToken');
-  
-  const response = await fetch('/api/account', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (response.status === 401) {
-    // Token expired or invalid - redirect to login
-    localStorage.removeItem('authToken');
-    window.location.href = '/login';
-    return;
-  }
-
-  return response.json();
 }
 ```
 
+### Using with fetch wrapper
+
+```typescript
+// lib/api.ts
+import { auth } from '@clerk/nextjs';
+
+export async function apiClient(endpoint: string, options: RequestInit = {}) {
+  const { getToken } = auth();
+  const token = await getToken();
+
+  return fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+}
+```
+
+---
+
+## User ID Mapping
+
+Clerk uses string IDs (e.g., `user_2NNEqL2nrIRdJ194ndJqAHwEfxC`). 
+
+The `AuthUser` object returned by `get_current_user` contains:
+- `user_id`: Clerk user ID (string)
+- `email`: User's email (optional)
+
+If your database uses integer user IDs, you'll need to map Clerk IDs to internal IDs. See the user provisioning section in the codebase.

@@ -3,8 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
-from air1.api.auth import get_current_user
-from air1.services.user.service import AuthUser
+from air1.api.auth import AuthUser, get_current_user
 from air1.api.models.account import (
     AccountResponse,
     AccountUpdateRequest,
