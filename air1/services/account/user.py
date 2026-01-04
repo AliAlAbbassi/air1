@@ -1,4 +1,7 @@
-"""Repository functions for account data."""
+"""Repository functions for user account data.
+
+These are low-level database operations for user accounts.
+"""
 
 from typing import Optional
 from loguru import logger
@@ -135,3 +138,4 @@ async def update_user_profile_by_clerk_id(
     except Exception as e:
         logger.error(f"Unexpected error updating profile by clerk_id: {e}")
         raise QueryError(f"Unexpected error updating profile by clerk_id: {e}") from e
+
