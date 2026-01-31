@@ -3,9 +3,9 @@
 These are low-level database operations for agency management.
 """
 
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
-import secrets
 
 from loguru import logger
 from prisma.errors import PrismaError
@@ -13,7 +13,6 @@ from prisma.errors import PrismaError
 from air1.db.prisma_client import get_prisma
 from air1.db.sql_loader import admin_queries as queries
 from air1.services.outreach.exceptions import QueryError
-
 
 # ============================================================================
 # AGENCY & MEMBER FUNCTIONS
@@ -31,7 +30,9 @@ async def get_agency_by_member_user_id(user_id: int) -> Optional[dict]:
         return None
     except Exception as e:
         logger.error(f"Unexpected error getting agency for user_id={user_id}: {e}")
-        raise QueryError(f"Unexpected error getting agency for user_id={user_id}: {e}") from e
+        raise QueryError(
+            f"Unexpected error getting agency for user_id={user_id}: {e}"
+        ) from e
 
 
 async def get_agency_members(agency_id: int) -> list[dict]:
@@ -45,7 +46,9 @@ async def get_agency_members(agency_id: int) -> list[dict]:
         return []
     except Exception as e:
         logger.error(f"Unexpected error getting members for agency_id={agency_id}: {e}")
-        raise QueryError(f"Unexpected error getting members for agency_id={agency_id}: {e}") from e
+        raise QueryError(
+            f"Unexpected error getting members for agency_id={agency_id}: {e}"
+        ) from e
 
 
 async def get_agency_used_seats(agency_id: int) -> int:
@@ -55,11 +58,17 @@ async def get_agency_used_seats(agency_id: int) -> int:
         result = await queries.get_agency_used_seats(prisma, agency_id=agency_id)
         return result or 0
     except PrismaError as e:
-        logger.error(f"Database error getting seat count for agency_id={agency_id}: {e}")
+        logger.error(
+            f"Database error getting seat count for agency_id={agency_id}: {e}"
+        )
         return 0
     except Exception as e:
-        logger.error(f"Unexpected error getting seat count for agency_id={agency_id}: {e}")
-        raise QueryError(f"Unexpected error getting seat count for agency_id={agency_id}: {e}") from e
+        logger.error(
+            f"Unexpected error getting seat count for agency_id={agency_id}: {e}"
+        )
+        raise QueryError(
+            f"Unexpected error getting seat count for agency_id={agency_id}: {e}"
+        ) from e
 
 
 async def get_member_by_id(member_id: int) -> Optional[dict]:
@@ -80,14 +89,18 @@ async def get_member_by_email(agency_id: int, email: str) -> Optional[dict]:
     """Get a member by email within an agency."""
     try:
         prisma = await get_prisma()
-        result = await queries.get_member_by_email(prisma, agency_id=agency_id, email=email)
+        result = await queries.get_member_by_email(
+            prisma, agency_id=agency_id, email=email
+        )
         return result
     except PrismaError as e:
         logger.error(f"Database error getting member by email={email}: {e}")
         return None
     except Exception as e:
         logger.error(f"Unexpected error getting member by email={email}: {e}")
-        raise QueryError(f"Unexpected error getting member by email={email}: {e}") from e
+        raise QueryError(
+            f"Unexpected error getting member by email={email}: {e}"
+        ) from e
 
 
 async def insert_agency_member(agency_id: int, email: str, role: str) -> Optional[dict]:
@@ -112,7 +125,9 @@ async def update_member_role(member_id: int, role: str) -> Optional[dict]:
     """Update a member's role."""
     try:
         prisma = await get_prisma()
-        result = await queries.update_member_role(prisma, member_id=member_id, role=role)
+        result = await queries.update_member_role(
+            prisma, member_id=member_id, role=role
+        )
         if result:
             logger.info(f"Updated member_id={member_id} role to {role}")
         return result
@@ -121,7 +136,9 @@ async def update_member_role(member_id: int, role: str) -> Optional[dict]:
         return None
     except Exception as e:
         logger.error(f"Unexpected error updating role for member_id={member_id}: {e}")
-        raise QueryError(f"Unexpected error updating role for member_id={member_id}: {e}") from e
+        raise QueryError(
+            f"Unexpected error updating role for member_id={member_id}: {e}"
+        ) from e
 
 
 async def delete_member(member_id: int) -> bool:
@@ -149,10 +166,14 @@ async def update_member_joined(member_id: int, user_id: int, name: str) -> bool:
         logger.info(f"Member {member_id} joined as user_id={user_id}")
         return True
     except PrismaError as e:
-        logger.error(f"Database error updating member joined for member_id={member_id}: {e}")
+        logger.error(
+            f"Database error updating member joined for member_id={member_id}: {e}"
+        )
         return False
     except Exception as e:
-        logger.error(f"Unexpected error updating member joined for member_id={member_id}: {e}")
+        logger.error(
+            f"Unexpected error updating member joined for member_id={member_id}: {e}"
+        )
         raise QueryError(f"Unexpected error updating member joined: {e}") from e
 
 
@@ -175,7 +196,7 @@ async def create_invite(
     try:
         token = generate_invite_token()
         expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
-        
+
         prisma = await get_prisma()
         result = await queries.create_invite(
             prisma,
@@ -185,7 +206,9 @@ async def create_invite(
             expires_at=expires_at.isoformat(),
         )
         if result:
-            logger.info(f"Created invite token for member_id={member_id}, client_id={client_id}")
+            logger.info(
+                f"Created invite token for member_id={member_id}, client_id={client_id}"
+            )
         return result
     except PrismaError as e:
         logger.error(f"Database error creating invite: {e}")
@@ -233,7 +256,9 @@ async def delete_invites_by_member(member_id: int) -> bool:
         logger.error(f"Database error deleting invites for member_id={member_id}: {e}")
         return False
     except Exception as e:
-        logger.error(f"Unexpected error deleting invites for member_id={member_id}: {e}")
+        logger.error(
+            f"Unexpected error deleting invites for member_id={member_id}: {e}"
+        )
         raise QueryError(f"Unexpected error deleting invites: {e}") from e
 
 
@@ -387,7 +412,7 @@ async def create_impersonation_token(
     try:
         token = secrets.token_urlsafe(32)
         expires_at = datetime.utcnow() + timedelta(hours=expires_in_hours)
-        
+
         prisma = await get_prisma()
         result = await queries.create_impersonation_token(
             prisma,
@@ -397,7 +422,9 @@ async def create_impersonation_token(
             expires_at=expires_at.isoformat(),
         )
         if result:
-            logger.info(f"Created impersonation token for client_id={client_id} by member_id={member_id}")
+            logger.info(
+                f"Created impersonation token for client_id={client_id} by member_id={member_id}"
+            )
         return result
     except PrismaError as e:
         logger.error(f"Database error creating impersonation token: {e}")
@@ -433,4 +460,3 @@ async def delete_impersonation_token(token_id: int) -> bool:
     except Exception as e:
         logger.error(f"Unexpected error deleting impersonation token: {e}")
         raise QueryError(f"Unexpected error deleting impersonation token: {e}") from e
-
