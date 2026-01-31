@@ -9,6 +9,10 @@ class LinkedInError(OutreachError):
     """Base exception for LinkedIn-related errors."""
 
 
+class LinkedInAuthenticationError(LinkedInError):
+    """Raised when LinkedIn authentication fails (expired/invalid session token)."""
+
+
 class ProfileScrapingError(LinkedInError):
     """Raised when profile scraping fails due to page structure changes or timeouts."""
 
