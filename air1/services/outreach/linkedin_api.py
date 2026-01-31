@@ -403,14 +403,8 @@ class LinkedInAPI:
                     )
                     return (urn, tracking_id)
 
-                # Last resort: any fsd_profile URN in HTML
-                match_fsd = re.search(r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)", html_text)
-                if match_fsd:
-                    urn = f"urn:li:fsd_profile:{match_fsd.group(1)}"
-                    tracking_id = extract_tracking_id_near_urn(
-                        match_fsd.start(), match_fsd.end()
-                    )
-                    return (urn, tracking_id)
+                # Don't use "last resort any URN" - it matches wrong profiles!
+                # If we can't find the URN near the publicIdentifier, fall through to API methods
 
                 # FALLBACK: Member URN (if no fsd_profile URN found)
                 # Pattern 1: objectUrn ... publicIdentifier (common in encoded JSON)
@@ -440,14 +434,7 @@ class LinkedInAPI:
                     )
                     return (urn, tracking_id)
 
-                # Last resort member ID (any member URN in the HTML)
-                match_member = re.search(r"urn:li:member:(\d+)", html_text)
-                if match_member:
-                    urn = f"urn:li:member:{match_member.group(1)}"
-                    tracking_id = extract_tracking_id_near_urn(
-                        match_member.start(), match_member.end()
-                    )
-                    return (urn, tracking_id)
+                # Don't use "last resort any member URN" - it matches wrong profiles!
 
         except LinkedInAuthenticationError:
             # Re-raise auth errors
@@ -686,8 +673,11 @@ class LinkedInAPI:
         if message:
             payload["customMessage"] = message
 
-        print(f"DEBUG: Posting to {self.base_url}{endpoint}")
-        print(f"DEBUG: Using full URN: {profile_urn_id}")
+        # Use logger instead of print for better visibility
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Posting to {self.base_url}{endpoint}")
+        logger.debug(f"Using full URN: {profile_urn_id}")
 
         res = self._post(
             endpoint,
