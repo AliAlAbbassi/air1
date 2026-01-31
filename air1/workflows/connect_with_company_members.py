@@ -4,30 +4,30 @@ from air1.services.outreach.service import Service
 
 
 async def connect_with_company_members(
-    company_username: str,
+    company_usernames: list[str],
     keywords: list[str] | None = None,
     regions: list[str] | None = None,
     pages: int = 1,
     delay_range: tuple[float, float] = (2.0, 5.0),
-) -> int:
+) -> dict[str, int]:
     """
-    Search for employees at a company and send connection requests.
+    Search for employees at companies and send connection requests.
 
     This is a thin wrapper around the service method.
 
     Args:
-        company_username: LinkedIn company username (e.g., 'revolut')
+        company_usernames: List of LinkedIn company usernames (e.g., ['revolut', 'stripe'])
         keywords: Keywords to filter employees (e.g., ['recruiter', 'talent'])
         regions: LinkedIn geo region IDs to filter by
-        pages: Number of search result pages to process
+        pages: Number of search result pages to process per company
         delay_range: Min/max seconds to wait between requests (to avoid rate limiting)
 
     Returns:
-        int: Number of successful connection requests sent
+        dict[str, int]: Mapping of company username to number of successful connection requests
     """
     async with Service() as service:
         return await service.connect_with_company_members(
-            company_username=company_username,
+            company_usernames=company_usernames,
             keywords=keywords,
             regions=regions,
             pages=pages,
@@ -38,7 +38,7 @@ async def connect_with_company_members(
 if __name__ == "__main__":
     asyncio.run(
         connect_with_company_members(
-            company_username="kingston-stanley",
+            company_usernames=["kingston-stanley"],
             keywords=["recruiter", "talent"],
             regions=[],
             pages=7,

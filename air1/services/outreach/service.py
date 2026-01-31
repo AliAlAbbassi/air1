@@ -169,24 +169,24 @@ class IService(ABC):
     @abstractmethod
     async def connect_with_company_members(
         self,
-        company_username: str,
+        company_usernames: list[str],
         keywords: list[str] | None = None,
         regions: list[str] | None = None,
         pages: int = 1,
         delay_range: tuple[float, float] = (2.0, 5.0),
-    ) -> int:
+    ) -> dict[str, int]:
         """
-        Search for employees at a company and send connection requests.
+        Search for employees at companies and send connection requests.
 
         Args:
-            company_username: LinkedIn company username (e.g., 'revolut')
+            company_usernames: List of LinkedIn company usernames (e.g., ['revolut', 'stripe'])
             keywords: Keywords to filter employees (e.g., ['recruiter', 'talent'])
             regions: LinkedIn geo region IDs to filter by
-            pages: Number of search result pages to process
+            pages: Number of search result pages to process per company
             delay_range: Min/max seconds to wait between requests (to avoid rate limiting)
 
         Returns:
-            int: Number of successful connection requests sent
+            dict[str, int]: Mapping of company username to number of successful connection requests
         """
         pass
 
@@ -866,24 +866,24 @@ class Service(IService):
 
     async def connect_with_company_members(
         self,
-        company_username: str,
+        company_usernames: list[str],
         keywords: list[str] | None = None,
         regions: list[str] | None = None,
         pages: int = 1,
         delay_range: tuple[float, float] = (2.0, 5.0),
-    ) -> int:
+    ) -> dict[str, int]:
         """
-        Search for employees at a company and send connection requests.
+        Search for employees at companies and send connection requests.
 
         Args:
-            company_username: LinkedIn company username (e.g., 'revolut')
+            company_usernames: List of LinkedIn company usernames (e.g., ['revolut', 'stripe'])
             keywords: Keywords to filter employees (e.g., ['recruiter', 'talent'])
             regions: LinkedIn geo region IDs to filter by
-            pages: Number of search result pages to process
+            pages: Number of search result pages to process per company
             delay_range: Min/max seconds to wait between requests (to avoid rate limiting)
 
         Returns:
-            int: Number of successful connection requests sent
+            dict[str, int]: Mapping of company username to number of successful connection requests
         """
         import random
         import time
@@ -891,65 +891,73 @@ class Service(IService):
         from air1.services.outreach.contact_point import insert_linkedin_connection
         from air1.services.outreach.repo import get_linkedin_profile_by_username
 
-        logger.info(f"Searching for employees at {company_username}...")
+        results: dict[str, int] = {}
 
-        employees = self.api.search_company_employees(
-            company=company_username,
-            keywords=keywords,
-            regions=regions,
-            pages=pages,
-        )
+        for company_username in company_usernames:
+            logger.info(f"Searching for employees at {company_username}...")
 
-        logger.info(f"Found {len(employees)} employees matching criteria")
+            employees = self.api.search_company_employees(
+                company=company_username,
+                keywords=keywords,
+                regions=regions,
+                pages=pages,
+            )
 
-        success_count = 0
-        for i, employee in enumerate(employees):
-            if not employee.public_id:
-                logger.warning(
-                    f"[{i + 1}/{len(employees)}] Skipping employee without public_id"
-                )
-                continue
+            logger.info(f"Found {len(employees)} employees matching criteria for {company_username}")
 
-            username = employee.public_id
-            logger.info(f"[{i + 1}/{len(employees)}] Sending request to {username}")
+            success_count = 0
+            for i, employee in enumerate(employees):
+                if not employee.public_id:
+                    logger.warning(
+                        f"[{company_username}][{i + 1}/{len(employees)}] Skipping employee without public_id"
+                    )
+                    continue
 
-            success = self.send_connection_request(username)
+                username = employee.public_id
+                logger.info(f"[{company_username}][{i + 1}/{len(employees)}] Sending request to {username}")
 
-            if success:
-                success_count += 1
+                success = self.send_connection_request(username)
 
-                # Track the connection
-                try:
-                    linkedin_profile = await get_linkedin_profile_by_username(username)
-                    lead_id = linkedin_profile.leadId if linkedin_profile else None
+                if success:
+                    success_count += 1
 
-                    if not lead_id:
-                        logger.info(
-                            f"Lead not found for {username}, creating from LinkedIn API"
-                        )
-                        lead_id = await self.save_lead_from_api(
-                            profile_username=username,
-                            company_username=company_username,
-                            job_title=employee.headline,
-                        )
+                    # Track the connection
+                    try:
+                        linkedin_profile = await get_linkedin_profile_by_username(username)
+                        lead_id = linkedin_profile.leadId if linkedin_profile else None
 
-                    if lead_id:
-                        await insert_linkedin_connection(lead_id)
-                        logger.info(
-                            f"Tracked connection for {username} (lead_id={lead_id})"
-                        )
-                    else:
-                        logger.warning(f"Could not create lead for {username}")
-                except Exception as e:
-                    logger.error(f"Failed to track connection for {username}: {e}")
+                        if not lead_id:
+                            logger.info(
+                                f"Lead not found for {username}, creating from LinkedIn API"
+                            )
+                            lead_id = await self.save_lead_from_api(
+                                profile_username=username,
+                                company_username=company_username,
+                                job_title=employee.headline,
+                            )
 
-            # Add random delay between requests to avoid rate limiting
-            if i < len(employees) - 1:
-                delay = random.uniform(*delay_range)
-                logger.debug(f"Waiting {delay:.1f}s before next request...")
-                time.sleep(delay)
+                        if lead_id:
+                            await insert_linkedin_connection(lead_id)
+                            logger.info(
+                                f"Tracked connection for {username} (lead_id={lead_id})"
+                            )
+                        else:
+                            logger.warning(f"Could not create lead for {username}")
+                    except Exception as e:
+                        logger.error(f"Failed to track connection for {username}: {e}")
 
-        logger.success(
-            f"Completed: {success_count}/{len(employees)} connection requests sent"
-        )
-        return success_count
+                # Add random delay between requests to avoid rate limiting
+                if i < len(employees) - 1:
+                    delay = random.uniform(*delay_range)
+                    logger.debug(f"Waiting {delay:.1f}s before next request...")
+                    time.sleep(delay)
+
+            logger.success(
+                f"Completed {company_username}: {success_count}/{len(employees)} connection requests sent"
+            )
+            results[company_username] = success_count
+
+        total = sum(results.values())
+        logger.success(f"All companies completed: {total} total connection requests sent")
+        return results
+
