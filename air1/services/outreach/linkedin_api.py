@@ -667,50 +667,40 @@ class LinkedInAPI:
             tracking_id: Optional tracking ID - IMPORTANT for avoiding spam filters
             profile_html: Optional HTML of the profile page (unused currently)
         """
-        # Extract the ID from the URN if present
-        # e.g., urn:li:member:12345 -> 12345
-        profile_id = profile_urn_id
-        if ":" in profile_urn_id:
-            profile_id = profile_urn_id.split(":")[-1]
-
-        # Use the legacy robust endpoint
-        endpoint = "/growth/normInvitations"
+        # Use the current LinkedIn endpoint (as of 2026-01)
+        # This uses the full fsd_profile URN, not extracted ID
+        endpoint = "/voyagerRelationshipsDashMemberRelationships"
+        params = {
+            "action": "verifyQuotaAndCreateV2",
+            "decorationId": "com.linkedin.voyager.dash.deco.relationships.InvitationCreationResultWithInvitee-2"
+        }
 
         payload = {
-            "emberEntityName": "growth/invitation/norm-invitation",
             "invitee": {
-                "com.linkedin.voyager.growth.invitation.InviteeProfile": {
-                    "profileId": profile_id
+                "inviteeUnion": {
+                    "memberProfile": profile_urn_id  # Use full URN
                 }
-            },
+            }
         }
 
         if message:
-            payload["message"] = message
-
-        if tracking_id:
-            payload["trackingId"] = tracking_id
+            payload["customMessage"] = message
 
         print(f"DEBUG: Posting to {self.base_url}{endpoint}")
-        print(f"DEBUG: Profile ID: {profile_id} (from URN: {profile_urn_id})")
+        print(f"DEBUG: Using full URN: {profile_urn_id}")
 
         res = self._post(
             endpoint,
             data=json.dumps(payload),
+            params=params,
             headers={
                 "accept": "application/vnd.linkedin.normalized+json+2.1",
                 "content-type": "application/json",
             },
-            allow_redirects=False,  # Don't follow redirects to see what's happening
         )
-
-        # Check for redirect
-        if res.status_code in (301, 302, 303, 307, 308):
-            print(f"DEBUG: Got redirect {res.status_code}, Location: {res.headers.get('Location', 'N/A')}")
-            print(f"DEBUG: Response body: {res.text}")
         
-        # Check for success
-        if res.status_code == 201:
+        # Check for success (200 or 201)
+        if res.status_code in (200, 201):
             return True
 
         # Parse response for error details
@@ -719,6 +709,21 @@ class LinkedInAPI:
             response_data = res.json()
         except Exception:
             pass
+
+        # Handle 400 errors - check if it's "already sent" vs actual error
+        if res.status_code == 400:
+            if response_data and isinstance(response_data, dict):
+                error_code = response_data.get("data", {}).get("code", "")
+
+                # CANT_RESEND_YET means we already sent a connection request (success)
+                if error_code == "CANT_RESEND_YET":
+                    print(f"INFO: Connection request already sent (400 CANT_RESEND_YET)")
+                    return True
+
+                # Other 400 errors are actual failures
+                print(f"ERROR: Connection request failed with 400: {error_code}")
+                print(f"ERROR: Response: {res.text}")
+                return False
 
         # Handle 422 errors - need to distinguish between different types
         if res.status_code == 422:
