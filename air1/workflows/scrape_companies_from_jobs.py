@@ -8,7 +8,6 @@ import asyncio
 
 from loguru import logger
 
-from air1.services.outreach.linkedin_api import LinkedInAPI
 from air1.services.outreach.linkedin_locations import DUBAI_EMIRATE
 from air1.services.outreach.repo import save_companies_from_jobs
 from air1.services.outreach.service import Service

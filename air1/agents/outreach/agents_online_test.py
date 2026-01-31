@@ -40,7 +40,7 @@ def print_message(message, label: str = "Generated Message"):
     if message.reasoning:
         print(f"  Reasoning: {message.reasoning}")
     if message.alternative_openers:
-        print(f"  Alternative openers:")
+        print("  Alternative openers:")
         for alt in message.alternative_openers:
             print(f"    - {alt}")
     print(f"{'-'*50}\n")

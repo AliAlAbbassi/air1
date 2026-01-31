@@ -1,14 +1,10 @@
 """Unit tests for OutreachMessageCrew."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 
 from air1.agents.outreach.models import (
     VoiceProfile,
     OutreachRules,
-    MessageRequest,
     MessageType,
-    GeneratedMessage,
     AdvancedQuestion,
     WritingStyleRecord,
 )

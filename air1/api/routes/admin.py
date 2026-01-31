@@ -6,7 +6,6 @@ All endpoints require:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from loguru import logger
 
 from air1.api.auth import AuthUser, get_current_user
 from air1.api.models.admin import (
