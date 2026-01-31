@@ -275,10 +275,15 @@ class LinkedInAPI:
     def get_profile_urn(self, public_id):
         """
         Resolves a public profile ID (slug) to a URN and trackingId.
-        Example: "alina-mahtab" -> ("urn:li:member:12345", "trackingId123")
 
-        IMPORTANT: Prioritizes member URNs (numeric IDs) over fsd_profile URNs
-        because normInvitations endpoint requires member IDs.
+        Tries multiple resolution strategies in order of reliability:
+        1. HTML scraping (can find both fsd_profile and member URNs)
+        2. GraphQL API (vanityName lookup)
+        3. Profile API (direct profile endpoint)
+        4. Search API (last resort, must match publicIdentifier)
+
+        Args:
+            public_id: LinkedIn vanity URL username (e.g., 'john-doe')
 
         Returns:
             tuple: (urn, tracking_id) or (None, None) if not found
@@ -286,14 +291,45 @@ class LinkedInAPI:
         Raises:
             LinkedInAuthenticationError: If the LinkedIn session token is expired or invalid
         """
-        import logging
-        logger = logging.getLogger(__name__)
-
         # Ensure we have CSRF token for API calls
         self._ensure_csrf_token()
 
-        # Try 1: HTML Page Scraping FIRST (can extract member URNs - needed for normInvitations)
-        print(f"[{public_id}] Trying HTML scraping...")
+        # Try resolution strategies in order
+        strategies = [
+            ("HTML Scraping", self._resolve_via_html_scraping),
+            ("GraphQL API", self._resolve_via_graphql_api),
+            ("Profile API", self._resolve_via_profile_api),
+            ("Search API", self._resolve_via_search_api),
+        ]
+
+        for strategy_name, strategy_func in strategies:
+            try:
+                print(f"[{public_id}] Trying {strategy_name}...")
+                urn, tracking_id = strategy_func(public_id)
+                if urn:
+                    print(f"[{public_id}] ✓ Resolved via {strategy_name}: {urn}")
+                    return (urn, tracking_id)
+            except LinkedInAuthenticationError:
+                # Re-raise auth errors immediately
+                raise
+            except Exception as e:
+                # Log and continue to next strategy
+                print(f"[{public_id}] {strategy_name} failed: {str(e)[:100]}")
+                continue
+
+        print(f"[{public_id}] ❌ Could not resolve URN using any method")
+        return (None, None)
+
+    def _resolve_via_html_scraping(self, public_id):
+        """
+        Extract URN from profile HTML page.
+
+        Priority: fsd_profile URNs (work with current connection endpoint)
+        Fallback: member URNs (numeric IDs)
+
+        Returns:
+            tuple: (urn, tracking_id) or (None, None)
+        """
         # PRIORITY 1: Member URN (Legacy ID) - Most reliable for normInvitations
         html_text = None
         try:
@@ -448,10 +484,19 @@ class LinkedInAPI:
         except Exception:
             pass
 
-        # Try 2: GraphQL vanityName endpoint (fallback - returns fsd_profile URN)
-        # This directly resolves vanityName (public_id) to fsd_profile URN
-        # LinkedIn uses two query IDs for profile lookup - try both
-        print(f"[{public_id}] Trying GraphQL vanityName API...")
+        # HTML scraping didn't find a URN
+        return (None, None)
+
+    def _resolve_via_graphql_api(self, public_id):
+        """
+        Query GraphQL API to resolve vanityName to URN.
+
+        Uses LinkedIn's GraphQL endpoint with vanityName query.
+        Returns fsd_profile URN.
+
+        Returns:
+            tuple: (urn, tracking_id) or (None, None)
+        """
         graphql_url = "https://www.linkedin.com/voyager/api/graphql"
         query_ids = [
             "voyagerIdentityDashProfiles.2ca312bdbe80fac72fd663a3e06a83e7",
@@ -519,8 +564,18 @@ class LinkedInAPI:
                 except Exception:
                     pass
 
-        # Try 2: Direct profile API (fallback)
-        print(f"[{public_id}] Trying Profile API...")
+        # GraphQL didn't find a URN
+        return (None, None)
+
+    def _resolve_via_profile_api(self, public_id):
+        """
+        Query Profile API to get URN.
+
+        Uses direct profile endpoint: /identity/profiles/{public_id}
+
+        Returns:
+            tuple: (urn, tracking_id) or (None, None)
+        """
         profile_api_url = f"https://www.linkedin.com/voyager/api/identity/profiles/{public_id}"
         try:
             res = self.session.get(profile_api_url, allow_redirects=False)
@@ -559,7 +614,19 @@ class LinkedInAPI:
             except Exception:
                 pass
 
-        # Try 3: Search API (fallback)
+        # Profile API didn't find a URN
+        return (None, None)
+
+    def _resolve_via_search_api(self, public_id):
+        """
+        Search for profile and extract URN.
+
+        Uses LinkedIn search API. ONLY returns URN if publicIdentifier
+        matches exactly (to avoid returning wrong profiles).
+
+        Returns:
+            tuple: (urn, tracking_id) or (None, None)
+        """
         params = {
             "keywords": public_id,
             "filters": "List(resultType->PEOPLE)",
@@ -588,8 +655,7 @@ class LinkedInAPI:
             except Exception:
                 pass
 
-        # If HTML scraping didn't find a member URN, return None
-        # (GraphQL/API methods were already tried and didn't find member URNs)
+        # Search API didn't find a matching profile
         return (None, None)
 
     def get_profile(self, public_id: str) -> LinkedInProfile | None:
