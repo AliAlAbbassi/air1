@@ -17,41 +17,39 @@
 -- Step 1: Identify affected contact points
 -- (Run this first to review before deletion)
 SELECT
-    cp.id as contact_point_id,
+    cp.contact_point_id,
     lp.username,
     lp.name,
-    cp.created_at,
-    l.id as lead_id,
+    cp.created_on,
+    cp.lead_id,
     'Invalid - connection failed with 422' as status
 FROM contact_point cp
 JOIN linkedin_profile lp ON lp.lead_id = cp.lead_id
-JOIN lead l ON l.id = cp.lead_id
 WHERE cp.contact_point_type_id = 1  -- LinkedIn connection type
-  AND cp.created_at >= '2026-01-31 20:00:00'
-  AND cp.created_at <= '2026-01-31 23:00:00'
-ORDER BY cp.created_at DESC;
+  AND cp.created_on >= '2026-01-31 20:00:00'
+  AND cp.created_on <= '2026-01-31 23:00:00'
+ORDER BY cp.created_on DESC;
 
 -- Step 2: Delete the invalid contact points
 -- IMPORTANT: Review the SELECT results above before running this DELETE
 DELETE FROM contact_point
-WHERE id IN (
-    SELECT cp.id
+WHERE contact_point_id IN (
+    SELECT cp.contact_point_id
     FROM contact_point cp
-    JOIN linkedin_profile lp ON lp.lead_id = cp.lead_id
     WHERE cp.contact_point_type_id = 1
-      AND cp.created_at >= '2026-01-31 20:00:00'
-      AND cp.created_at <= '2026-01-31 23:00:00'
+      AND cp.created_on >= '2026-01-31 20:00:00'
+      AND cp.created_on <= '2026-01-31 23:00:00'
 );
 
 -- Step 3: Verify deletion
--- This should match the count from Step 1
+-- This should return 0 rows after deletion
 SELECT
-    COUNT(*) as deleted_contact_points,
-    'These profiles will be retried in future runs' as note
+    COUNT(*) as remaining_invalid_contact_points,
+    'Should be 0 after successful cleanup' as note
 FROM contact_point cp
 WHERE cp.contact_point_type_id = 1
-  AND cp.created_at >= '2026-01-31 20:00:00'
-  AND cp.created_at <= '2026-01-31 23:00:00';
+  AND cp.created_on >= '2026-01-31 20:00:00'
+  AND cp.created_on <= '2026-01-31 23:00:00';
 
 -- Expected result: 0 rows (all invalid contact points removed)
 
