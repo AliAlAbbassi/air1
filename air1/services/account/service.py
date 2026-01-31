@@ -15,7 +15,7 @@ from typing import Optional
 from loguru import logger
 
 from air1.services.account import user as user_repo
-from air1.services.account import admin as admin_repo
+from air1.services.account import repo as admin_repo
 
 
 # ============================================================================

@@ -3,14 +3,14 @@
 These tests run against the real database (Docker localhost).
 
 Run with:
-    pytest air1/services/account/admin_test.py -v -s --use-real-db
+    pytest air1/services/account/repo_test.py -v -s --use-real-db
 """
 
 import pytest
 import uuid
 
 from air1.db.prisma_client import get_prisma
-from air1.services.account import admin as repo
+from air1.services.account import repo
 
 
 @pytest.fixture
