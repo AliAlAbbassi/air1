@@ -12,12 +12,12 @@ from air1.api.models.account import (
     LinkedinData,
     UserData,
 )
-from air1.services.user.service import Service
+from air1.services.account import Service
 
 router = APIRouter(prefix="/api/account", tags=["account"])
 
 # Service instance
-user_service = Service()
+account_service = Service()
 
 # Default daily limits
 DEFAULT_CONNECTION_LIMIT = 25
@@ -66,7 +66,7 @@ def _build_account_response(account_data: dict) -> AccountResponse:
 )
 async def get_account(current_user: AuthUser = Depends(get_current_user)):
     """Get the authenticated user's account data. Creates user if first login."""
-    account_data = await user_service.get_or_create_account(
+    account_data = await account_service.get_or_create_account(
         clerk_id=current_user.user_id,
         email=current_user.email or "",
     )
@@ -106,7 +106,7 @@ async def update_account(
             },
         )
 
-    success = await user_service.update_profile(
+    success = await account_service.update_profile(
         clerk_id=current_user.user_id,
         first_name=request.first_name,
         last_name=request.last_name,
@@ -121,7 +121,7 @@ async def update_account(
         )
 
     # Fetch and return updated account
-    account_data = await user_service.get_or_create_account(
+    account_data = await account_service.get_or_create_account(
         clerk_id=current_user.user_id,
         email=current_user.email or "",
     )

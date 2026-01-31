@@ -255,8 +255,115 @@ class AccountQueries(Protocol):
     ) -> None: ...
 
 
+class AdminQueries(Protocol):
+    """Protocol for admin API SQL queries."""
+
+    # Agency & Member queries
+    async def get_agency_by_member_user_id(
+        self, conn: Any, *, user_id: int
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_agency_members(
+        self, conn: Any, *, agency_id: int
+    ) -> List[Dict[str, Any]]: ...
+
+    async def get_agency_used_seats(
+        self, conn: Any, *, agency_id: int
+    ) -> Optional[int]: ...
+
+    async def get_member_by_id(
+        self, conn: Any, *, member_id: int
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_member_by_email(
+        self, conn: Any, *, agency_id: int, email: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_agency_member(
+        self, conn: Any, *, agency_id: int, email: str, role: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def update_member_role(
+        self, conn: Any, *, member_id: int, role: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def delete_member(
+        self, conn: Any, *, member_id: int
+    ) -> None: ...
+
+    async def update_member_joined(
+        self, conn: Any, *, member_id: int, user_id: int, name: str
+    ) -> None: ...
+
+    # Invite queries
+    async def create_invite(
+        self, conn: Any, *, member_id: Optional[int], client_id: Optional[int],
+        token: str, expires_at: Any
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_invite_by_token(
+        self, conn: Any, *, token: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def delete_invite(
+        self, conn: Any, *, invite_id: int
+    ) -> None: ...
+
+    async def delete_invites_by_member(
+        self, conn: Any, *, member_id: int
+    ) -> None: ...
+
+    # Client queries
+    async def get_agency_clients(
+        self, conn: Any, *, agency_id: int
+    ) -> List[Dict[str, Any]]: ...
+
+    async def get_agency_clients_filtered(
+        self, conn: Any, *, agency_id: int, status: Optional[str], search: Optional[str]
+    ) -> List[Dict[str, Any]]: ...
+
+    async def count_agency_clients(
+        self, conn: Any, *, agency_id: int, status: Optional[str], search: Optional[str]
+    ) -> Optional[int]: ...
+
+    async def get_client_by_id(
+        self, conn: Any, *, client_id: int
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_client(
+        self, conn: Any, *, agency_id: int, name: str, admin_email: str, plan: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def update_client(
+        self, conn: Any, *, client_id: int, name: Optional[str], plan: Optional[str]
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def delete_client(
+        self, conn: Any, *, client_id: int
+    ) -> None: ...
+
+    # Client team queries
+    async def get_client_team(
+        self, conn: Any, *, client_id: int
+    ) -> List[Dict[str, Any]]: ...
+
+    # Impersonation queries
+    async def create_impersonation_token(
+        self, conn: Any, *, client_id: int, member_id: int, token: str, expires_at: Any
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_impersonation_token(
+        self, conn: Any, *, token: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def delete_impersonation_token(
+        self, conn: Any, *, token_id: int
+    ) -> None: ...
+
+
 # Load queries for the Outreach service
 # This object contains methods from all SQL files in the directory
 outreach_queries: OutreachQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 onboarding_queries: OnboardingQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 account_queries: AccountQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
+admin_queries: AdminQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
