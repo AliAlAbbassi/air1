@@ -1,12 +1,5 @@
 import asyncio
-import random
-import time
 
-from loguru import logger
-
-from air1.services.outreach.contact_point import insert_linkedin_connection
-from air1.services.outreach.linkedin_locations import DUBAI_EMIRATE
-from air1.services.outreach.repo import get_linkedin_profile_by_username
 from air1.services.outreach.service import Service
 
 
@@ -16,9 +9,11 @@ async def connect_with_company_members(
     regions: list[str] | None = None,
     pages: int = 1,
     delay_range: tuple[float, float] = (2.0, 5.0),
-):
+) -> int:
     """
     Search for employees at a company and send connection requests.
+
+    This is a thin wrapper around the service method.
 
     Args:
         company_username: LinkedIn company username (e.g., 'revolut')
@@ -26,70 +21,18 @@ async def connect_with_company_members(
         regions: LinkedIn geo region IDs to filter by
         pages: Number of search result pages to process
         delay_range: Min/max seconds to wait between requests (to avoid rate limiting)
+
+    Returns:
+        int: Number of successful connection requests sent
     """
     async with Service() as service:
-        logger.info(f"Searching for employees at {company_username}...")
-
-        employees = service.api.search_company_employees(
-            company=company_username,
+        return await service.connect_with_company_members(
+            company_username=company_username,
             keywords=keywords,
             regions=regions,
             pages=pages,
+            delay_range=delay_range,
         )
-
-        logger.info(f"Found {len(employees)} employees matching criteria")
-
-        success_count = 0
-        for i, employee in enumerate(employees):
-            if not employee.public_id:
-                logger.warning(
-                    f"[{i + 1}/{len(employees)}] Skipping employee without public_id"
-                )
-                continue
-
-            username = employee.public_id
-            logger.info(f"[{i + 1}/{len(employees)}] Sending request to {username}")
-
-            success = service.send_connection_request(username)
-
-            if success:
-                success_count += 1
-
-                # Track the connection
-                try:
-                    linkedin_profile = await get_linkedin_profile_by_username(username)
-                    lead_id = linkedin_profile.leadId if linkedin_profile else None
-
-                    if not lead_id:
-                        logger.info(
-                            f"Lead not found for {username}, creating from LinkedIn API"
-                        )
-                        lead_id = await service.save_lead_from_api(
-                            profile_username=username,
-                            company_username=company_username,
-                            job_title=employee.headline,
-                        )
-
-                    if lead_id:
-                        await insert_linkedin_connection(lead_id)
-                        logger.info(
-                            f"Tracked connection for {username} (lead_id={lead_id})"
-                        )
-                    else:
-                        logger.warning(f"Could not create lead for {username}")
-                except Exception as e:
-                    logger.error(f"Failed to track connection for {username}: {e}")
-
-            # Add random delay between requests to avoid rate limiting
-            if i < len(employees) - 1:
-                delay = random.uniform(*delay_range)
-                logger.debug(f"Waiting {delay:.1f}s before next request...")
-                time.sleep(delay)
-
-        logger.success(
-            f"Completed: {success_count}/{len(employees)} connection requests sent"
-        )
-        return success_count
 
 
 if __name__ == "__main__":
