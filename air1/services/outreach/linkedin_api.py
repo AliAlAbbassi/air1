@@ -802,7 +802,7 @@ class LinkedInAPI:
         self._ensure_csrf_token()
 
         # Try the company API endpoint first
-        company_url = f"https://www.linkedin.com/voyager/api/organization/companies"
+        company_url = "https://www.linkedin.com/voyager/api/organization/companies"
         params = {
             "decorationId": "com.linkedin.voyager.deco.organization.web.WebFullCompanyMain-12",
             "q": "universalName",
