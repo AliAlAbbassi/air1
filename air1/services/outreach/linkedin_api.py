@@ -581,14 +581,10 @@ class LinkedInAPI:
                                     and result["publicIdentifier"] == public_id
                                 ):
                                     urn = result["targetUrn"]
-                                    # Search API doesn't typically provide trackingId
+                                    print(f"[{public_id}] ✓ Resolved via Search API: {urn}")
                                     return (urn, None)
-                                if (
-                                    "targetUrn" in result
-                                    and ":fsd_profile:" in result["targetUrn"]
-                                ):
-                                    urn = result["targetUrn"]
-                                    return (urn, None)
+                                # REMOVED dangerous fallback that grabbed ANY search result
+                                # This was causing 4 different usernames to resolve to same wrong URN
             except Exception:
                 pass
 
