@@ -130,13 +130,28 @@ class LinkedInAPI:
         if csrf_token:
             post_headers["csrf-token"] = csrf_token
 
-        return self.session.post(
-            url,
-            data=data,
-            params=params,
-            headers=post_headers,
-            allow_redirects=allow_redirects,
-        )
+        try:
+            res = self.session.post(
+                url,
+                data=data,
+                params=params,
+                headers=post_headers,
+                allow_redirects=allow_redirects,
+            )
+
+            # Log redirects for debugging
+            if res.history:
+                print(f"DEBUG: Request was redirected {len(res.history)} time(s)")
+                for i, r in enumerate(res.history):
+                    print(f"DEBUG: Redirect {i+1}: {r.status_code} -> {r.headers.get('Location', 'N/A')}")
+
+            return res
+        except TooManyRedirects:
+            raise LinkedInAuthenticationError(
+                "LinkedIn session token (li_at cookie) is expired or invalid. "
+                "Too many redirects occurred during POST request. "
+                "Please update the LINKEDIN_WRITE_SID environment variable with a fresh session token."
+            )
 
     def _extract_connection_endpoint_info(self, html_text):
         """
@@ -365,7 +380,39 @@ class LinkedInAPI:
 
                     return None
 
-                # PRIORITY 1: Member URN (Legacy ID) - Most reliable for normInvitations
+                # PRIORITY 1: FSD Profile URN - This is what was working before
+                # Look for fsd_profile URN near the public_id
+                fsd_pattern = (
+                    r"publicIdentifier[&quot;:\s]+[&quot;]?"
+                    + re.escape(public_id)
+                    + r"[&quot;,\s]+.*?urn:li:fsd_profile:([a-zA-Z0-9_-]+)"
+                )
+                fsd_match = re.search(fsd_pattern, html_text)
+                if not fsd_match:
+                    # Try reverse pattern
+                    fsd_pattern2 = (
+                        r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)[&quot;,\s]+.*?publicIdentifier[&quot;:\s]+[&quot;]?"
+                        + re.escape(public_id)
+                    )
+                    fsd_match = re.search(fsd_pattern2, html_text)
+
+                if fsd_match:
+                    urn = f"urn:li:fsd_profile:{fsd_match.group(1)}"
+                    tracking_id = extract_tracking_id_near_urn(
+                        fsd_match.start(), fsd_match.end()
+                    )
+                    return (urn, tracking_id)
+
+                # Last resort: any fsd_profile URN in HTML
+                match_fsd = re.search(r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)", html_text)
+                if match_fsd:
+                    urn = f"urn:li:fsd_profile:{match_fsd.group(1)}"
+                    tracking_id = extract_tracking_id_near_urn(
+                        match_fsd.start(), match_fsd.end()
+                    )
+                    return (urn, tracking_id)
+
+                # FALLBACK: Member URN (if no fsd_profile URN found)
                 # Pattern 1: objectUrn ... publicIdentifier (common in encoded JSON)
                 pattern1 = (
                     r"objectUrn[&quot;:\s]+urn:li:member:(\d+)[&quot;,\s]+.*?"
@@ -399,39 +446,6 @@ class LinkedInAPI:
                     urn = f"urn:li:member:{match_member.group(1)}"
                     tracking_id = extract_tracking_id_near_urn(
                         match_member.start(), match_member.end()
-                    )
-                    return (urn, tracking_id)
-
-                # FALLBACK: FSD Profile URN (if no member URN found)
-                # This is less ideal for normInvitations but better than nothing
-                # Look for fsd_profile URN near the public_id
-                fsd_pattern = (
-                    r"publicIdentifier[&quot;:\s]+[&quot;]?"
-                    + re.escape(public_id)
-                    + r"[&quot;,\s]+.*?urn:li:fsd_profile:([a-zA-Z0-9_-]+)"
-                )
-                fsd_match = re.search(fsd_pattern, html_text)
-                if not fsd_match:
-                    # Try reverse pattern
-                    fsd_pattern2 = (
-                        r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)[&quot;,\s]+.*?publicIdentifier[&quot;:\s]+[&quot;]?"
-                        + re.escape(public_id)
-                    )
-                    fsd_match = re.search(fsd_pattern2, html_text)
-
-                if fsd_match:
-                    urn = f"urn:li:fsd_profile:{fsd_match.group(1)}"
-                    tracking_id = extract_tracking_id_near_urn(
-                        fsd_match.start(), fsd_match.end()
-                    )
-                    return (urn, tracking_id)
-
-                # Last resort: any fsd_profile URN in HTML
-                match_fsd = re.search(r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)", html_text)
-                if match_fsd:
-                    urn = f"urn:li:fsd_profile:{match_fsd.group(1)}"
-                    tracking_id = extract_tracking_id_near_urn(
-                        match_fsd.start(), match_fsd.end()
                     )
                     return (urn, tracking_id)
 
@@ -677,6 +691,9 @@ class LinkedInAPI:
         if tracking_id:
             payload["trackingId"] = tracking_id
 
+        print(f"DEBUG: Posting to {self.base_url}{endpoint}")
+        print(f"DEBUG: Profile ID: {profile_id} (from URN: {profile_urn_id})")
+
         res = self._post(
             endpoint,
             data=json.dumps(payload),
@@ -684,7 +701,13 @@ class LinkedInAPI:
                 "accept": "application/vnd.linkedin.normalized+json+2.1",
                 "content-type": "application/json",
             },
+            allow_redirects=False,  # Don't follow redirects to see what's happening
         )
+
+        # Check for redirect
+        if res.status_code in (301, 302, 303, 307, 308):
+            print(f"DEBUG: Got redirect {res.status_code}, Location: {res.headers.get('Location', 'N/A')}")
+            print(f"DEBUG: Response body: {res.text}")
         
         # Check for success
         if res.status_code == 201:
