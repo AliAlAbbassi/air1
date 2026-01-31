@@ -293,7 +293,7 @@ class LinkedInAPI:
         self._ensure_csrf_token()
 
         # Try 1: HTML Page Scraping FIRST (can extract member URNs - needed for normInvitations)
-        logger.debug(f"[{public_id}] Trying HTML scraping...")
+        print(f"[{public_id}] Trying HTML scraping...")
         # PRIORITY 1: Member URN (Legacy ID) - Most reliable for normInvitations
         html_text = None
         try:
@@ -405,12 +405,12 @@ class LinkedInAPI:
                     tracking_id = extract_tracking_id_near_urn(
                         fsd_match.start(), fsd_match.end()
                     )
-                    logger.info(f"[{public_id}] ✓ Resolved via HTML fsd_profile pattern: {urn}")
+                    print(f"[{public_id}] ✓ Resolved via HTML fsd_profile pattern: {urn}")
                     return (urn, tracking_id)
 
                 # Don't use "last resort any URN" - it matches wrong profiles!
                 # If we can't find the URN near the publicIdentifier, fall through to API methods
-                logger.debug(f"[{public_id}] HTML scraping found no URN near publicIdentifier")
+                print(f"[{public_id}] HTML scraping found no URN near publicIdentifier")
 
                 # FALLBACK: Member URN (if no fsd_profile URN found)
                 # Pattern 1: objectUrn ... publicIdentifier (common in encoded JSON)
@@ -451,7 +451,7 @@ class LinkedInAPI:
         # Try 2: GraphQL vanityName endpoint (fallback - returns fsd_profile URN)
         # This directly resolves vanityName (public_id) to fsd_profile URN
         # LinkedIn uses two query IDs for profile lookup - try both
-        logger.debug(f"[{public_id}] Trying GraphQL vanityName API...")
+        print(f"[{public_id}] Trying GraphQL vanityName API...")
         graphql_url = "https://www.linkedin.com/voyager/api/graphql"
         query_ids = [
             "voyagerIdentityDashProfiles.2ca312bdbe80fac72fd663a3e06a83e7",
@@ -500,12 +500,12 @@ class LinkedInAPI:
                         # Elements can be URN strings or objects with entityUrn
                         first_elem = elements[0]
                         if isinstance(first_elem, str) and ":fsd_profile:" in first_elem:
-                            logger.info(f"[{public_id}] ✓ Resolved via GraphQL: {first_elem}")
+                            print(f"[{public_id}] ✓ Resolved via GraphQL: {first_elem}")
                             return (first_elem, None)
                         elif isinstance(first_elem, dict) and "entityUrn" in first_elem:
                             urn = first_elem["entityUrn"]
                             if ":fsd_profile:" in urn:
-                                logger.info(f"[{public_id}] ✓ Resolved via GraphQL: {urn}")
+                                print(f"[{public_id}] ✓ Resolved via GraphQL: {urn}")
                                 return (urn, None)
                     
                     # Also check 'included' array for the full profile data
@@ -514,13 +514,13 @@ class LinkedInAPI:
                         if isinstance(item, dict) and "entityUrn" in item:
                             urn = item["entityUrn"]
                             if ":fsd_profile:" in urn:
-                                logger.info(f"[{public_id}] ✓ Resolved via GraphQL included: {urn}")
+                                print(f"[{public_id}] ✓ Resolved via GraphQL included: {urn}")
                                 return (urn, None)
                 except Exception:
                     pass
 
         # Try 2: Direct profile API (fallback)
-        logger.debug(f"[{public_id}] Trying Profile API...")
+        print(f"[{public_id}] Trying Profile API...")
         profile_api_url = f"https://www.linkedin.com/voyager/api/identity/profiles/{public_id}"
         try:
             res = self.session.get(profile_api_url, allow_redirects=False)
@@ -687,8 +687,8 @@ class LinkedInAPI:
         # Use logger instead of print for better visibility
         import logging
         logger = logging.getLogger(__name__)
-        logger.debug(f"Posting to {self.base_url}{endpoint}")
-        logger.debug(f"Using full URN: {profile_urn_id}")
+        print(f"Posting to {self.base_url}{endpoint}")
+        print(f"Using full URN: {profile_urn_id}")
 
         res = self._post(
             endpoint,
