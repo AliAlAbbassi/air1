@@ -960,3 +960,4 @@ class Service(IService):
         total = sum(results.values())
         logger.success(f"All companies completed: {total} total connection requests sent")
         return results
+
