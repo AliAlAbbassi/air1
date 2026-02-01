@@ -42,13 +42,13 @@ class LinkedInAPI:
 
         if cookies:
             self.session.cookies.update(cookies)
-        
+
         # Default headers to mimic a browser
         self.session.headers.update(
             {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "x-li-lang": "en_US",
-            "x-restli-protocol-version": "2.0.0",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "x-li-lang": "en_US",
+                "x-restli-protocol-version": "2.0.0",
                 "accept": "*/*",
             }
         )
@@ -70,10 +70,19 @@ class LinkedInAPI:
             # Fetch a page to get the JSESSIONID cookie with retry logic
             for attempt in range(max_retries):
                 try:
-                    res = self.session.get("https://www.linkedin.com/feed/", timeout=30, allow_redirects=False)
+                    res = self.session.get(
+                        "https://www.linkedin.com/feed/",
+                        timeout=30,
+                        allow_redirects=False,
+                    )
 
                     # Check if we're being redirected to login (authentication failed)
-                    if res.status_code in (302, 303, 307, 308) and '/uas/login' in res.headers.get('Location', ''):
+                    if res.status_code in (
+                        302,
+                        303,
+                        307,
+                        308,
+                    ) and "/uas/login" in res.headers.get("Location", ""):
                         raise LinkedInAuthenticationError(
                             "LinkedIn session token (li_at cookie) is expired or invalid. "
                             "Please update the LINKEDIN_WRITE_SID environment variable with a fresh session token. "
@@ -113,7 +122,9 @@ class LinkedInAPI:
 
         for attempt in range(max_retries):
             try:
-                return self.session.get(url, params=params, headers=fetch_headers, timeout=30)
+                return self.session.get(
+                    url, params=params, headers=fetch_headers, timeout=30
+                )
             except (ConnectionError, Timeout) as e:
                 if attempt < max_retries - 1:
                     wait_time = (attempt + 1) * 2
@@ -143,7 +154,9 @@ class LinkedInAPI:
             if res.history:
                 print(f"DEBUG: Request was redirected {len(res.history)} time(s)")
                 for i, r in enumerate(res.history):
-                    print(f"DEBUG: Redirect {i+1}: {r.status_code} -> {r.headers.get('Location', 'N/A')}")
+                    print(
+                        f"DEBUG: Redirect {i + 1}: {r.status_code} -> {r.headers.get('Location', 'N/A')}"
+                    )
 
             return res
         except TooManyRedirects:
@@ -338,7 +351,12 @@ class LinkedInAPI:
                 res = self.session.get(profile_url, allow_redirects=False)
 
                 # Check for authentication redirect
-                if res.status_code in (302, 303, 307, 308) and '/uas/login' in res.headers.get('Location', ''):
+                if res.status_code in (
+                    302,
+                    303,
+                    307,
+                    308,
+                ) and "/uas/login" in res.headers.get("Location", ""):
                     raise LinkedInAuthenticationError(
                         "LinkedIn session token (li_at cookie) is expired or invalid. "
                         "Please update the LINKEDIN_WRITE_SID environment variable with a fresh session token. "
@@ -376,7 +394,7 @@ class LinkedInAPI:
                         # Pattern 2: "trackingId": "value" (with space)
                         r'[&quot;"]trackingId[&quot;"]\s*[:]\s*[&quot;"]?([a-zA-Z0-9_\-+/=]+)[&quot;"]?',
                         # Pattern 3: trackingId:value (no quotes, colon)
-                        r'trackingId\s*[:]\s*([a-zA-Z0-9_\-+/=]+)',
+                        r"trackingId\s*[:]\s*([a-zA-Z0-9_\-+/=]+)",
                         # Pattern 4: trackingId=value (equals sign)
                         r"trackingId\s*[=]\s*([a-zA-Z0-9_\-+/=]+)",
                     ]
@@ -441,7 +459,9 @@ class LinkedInAPI:
                     tracking_id = extract_tracking_id_near_urn(
                         fsd_match.start(), fsd_match.end()
                     )
-                    print(f"[{public_id}] ✓ Resolved via HTML fsd_profile pattern: {urn}")
+                    print(
+                        f"[{public_id}] ✓ Resolved via HTML fsd_profile pattern: {urn}"
+                    )
                     return (urn, tracking_id)
 
                 # Don't use "last resort any URN" - it matches wrong profiles!
@@ -516,7 +536,12 @@ class LinkedInAPI:
                 res = self.session.get(full_url, headers=headers, allow_redirects=False)
 
                 # Check for authentication redirect
-                if res.status_code in (302, 303, 307, 308) and '/uas/login' in res.headers.get('Location', ''):
+                if res.status_code in (
+                    302,
+                    303,
+                    307,
+                    308,
+                ) and "/uas/login" in res.headers.get("Location", ""):
                     raise LinkedInAuthenticationError(
                         "LinkedIn session token (li_at cookie) is expired or invalid. "
                         "Please update the LINKEDIN_WRITE_SID environment variable with a fresh session token. "
@@ -533,18 +558,25 @@ class LinkedInAPI:
             if res.status_code == 200:
                 try:
                     data = res.json()
-                    
+
                     # Navigate to: data.identityDashProfilesByMemberIdentity.elements[0]
                     # Note: key can be "elements" or "*elements" depending on response format
                     inner_data = data.get("data", {})
-                    profiles_response = inner_data.get("identityDashProfilesByMemberIdentity", {})
-                    
+                    profiles_response = inner_data.get(
+                        "identityDashProfilesByMemberIdentity", {}
+                    )
+
                     # Try both key variants: "elements" and "*elements"
-                    elements = profiles_response.get("elements", []) or profiles_response.get("*elements", [])
+                    elements = profiles_response.get(
+                        "elements", []
+                    ) or profiles_response.get("*elements", [])
                     if elements and len(elements) > 0:
                         # Elements can be URN strings or objects with entityUrn
                         first_elem = elements[0]
-                        if isinstance(first_elem, str) and ":fsd_profile:" in first_elem:
+                        if (
+                            isinstance(first_elem, str)
+                            and ":fsd_profile:" in first_elem
+                        ):
                             print(f"[{public_id}] ✓ Resolved via GraphQL: {first_elem}")
                             return (first_elem, None)
                         elif isinstance(first_elem, dict) and "entityUrn" in first_elem:
@@ -552,14 +584,16 @@ class LinkedInAPI:
                             if ":fsd_profile:" in urn:
                                 print(f"[{public_id}] ✓ Resolved via GraphQL: {urn}")
                                 return (urn, None)
-                    
+
                     # Also check 'included' array for the full profile data
                     included = data.get("included", [])
                     for item in included:
                         if isinstance(item, dict) and "entityUrn" in item:
                             urn = item["entityUrn"]
                             if ":fsd_profile:" in urn:
-                                print(f"[{public_id}] ✓ Resolved via GraphQL included: {urn}")
+                                print(
+                                    f"[{public_id}] ✓ Resolved via GraphQL included: {urn}"
+                                )
                                 return (urn, None)
                 except Exception:
                     pass
@@ -576,12 +610,19 @@ class LinkedInAPI:
         Returns:
             tuple: (urn, tracking_id) or (None, None)
         """
-        profile_api_url = f"https://www.linkedin.com/voyager/api/identity/profiles/{public_id}"
+        profile_api_url = (
+            f"https://www.linkedin.com/voyager/api/identity/profiles/{public_id}"
+        )
         try:
             res = self.session.get(profile_api_url, allow_redirects=False)
 
             # Check for authentication redirect
-            if res.status_code in (302, 303, 307, 308) and '/uas/login' in res.headers.get('Location', ''):
+            if res.status_code in (
+                302,
+                303,
+                307,
+                308,
+            ) and "/uas/login" in res.headers.get("Location", ""):
                 raise LinkedInAuthenticationError(
                     "LinkedIn session token (li_at cookie) is expired or invalid. "
                     "Please update the LINKEDIN_WRITE_SID environment variable with a fresh session token. "
@@ -633,9 +674,9 @@ class LinkedInAPI:
             "count": 1,
             "origin": "SWITCH_SEARCH_VERTICAL",
         }
-        
+
         res = self._fetch("/search/blended", params=params)
-        
+
         if res.status_code == 200:
             data = res.json()
             try:
@@ -648,7 +689,9 @@ class LinkedInAPI:
                                     and result["publicIdentifier"] == public_id
                                 ):
                                     urn = result["targetUrn"]
-                                    print(f"[{public_id}] ✓ Resolved via Search API: {urn}")
+                                    print(
+                                        f"[{public_id}] ✓ Resolved via Search API: {urn}"
+                                    )
                                     return (urn, None)
                                 # REMOVED dangerous fallback that grabbed ANY search result
                                 # This was causing 4 different usernames to resolve to same wrong URN
@@ -695,7 +738,11 @@ class LinkedInAPI:
             about = profile_data.get("summary", "") or ""
 
             # Location can be in different formats
-            location = profile_data.get("geoLocationName", "") or profile_data.get("locationName", "") or ""
+            location = (
+                profile_data.get("geoLocationName", "")
+                or profile_data.get("locationName", "")
+                or ""
+            )
 
             # Get URN
             urn = profile_data.get("entityUrn", "")
@@ -732,7 +779,7 @@ class LinkedInAPI:
         endpoint = "/voyagerRelationshipsDashMemberRelationships"
         params = {
             "action": "verifyQuotaAndCreateV2",
-            "decorationId": "com.linkedin.voyager.dash.deco.relationships.InvitationCreationResultWithInvitee-2"
+            "decorationId": "com.linkedin.voyager.dash.deco.relationships.InvitationCreationResultWithInvitee-2",
         }
 
         payload = {
@@ -748,6 +795,7 @@ class LinkedInAPI:
 
         # Use logger instead of print for better visibility
         import logging
+
         logger = logging.getLogger(__name__)
         print(f"Posting to {self.base_url}{endpoint}")
         print(f"Using full URN: {profile_urn_id}")
@@ -761,7 +809,7 @@ class LinkedInAPI:
                 "content-type": "application/json",
             },
         )
-        
+
         # Check for success (200 or 201)
         if res.status_code in (200, 201):
             return True
@@ -780,7 +828,9 @@ class LinkedInAPI:
 
                 # CANT_RESEND_YET means we already sent a connection request (success)
                 if error_code == "CANT_RESEND_YET":
-                    print(f"INFO: Connection request already sent (400 CANT_RESEND_YET)")
+                    print(
+                        f"INFO: Connection request already sent (400 CANT_RESEND_YET)"
+                    )
                     return True
 
                 # Other 400 errors are actual failures
@@ -803,8 +853,12 @@ class LinkedInAPI:
                 # Try to extract error message from various response formats
                 if "message" in response_data:
                     error_message = str(response_data.get("message", "")).lower()
-                elif "data" in response_data and isinstance(response_data["data"], dict):
-                    error_message = str(response_data["data"].get("message", "")).lower()
+                elif "data" in response_data and isinstance(
+                    response_data["data"], dict
+                ):
+                    error_message = str(
+                        response_data["data"].get("message", "")
+                    ).lower()
 
                 # Check included array for error details
                 included = response_data.get("included", [])
@@ -813,27 +867,38 @@ class LinkedInAPI:
                         error_message += " " + str(item.get("message", "")).lower()
 
                 # Only treat as success if response indicates duplicate/already connected
-                if any(keyword in error_message for keyword in [
-                    "already connected",
-                    "pending invitation",
-                    "invitation already sent",
-                    "already requested",
-                    "duplicate"
-                ]):
-                    print(f"INFO: Connection request already exists (422 - duplicate/already connected)")
+                if any(
+                    keyword in error_message
+                    for keyword in [
+                        "already connected",
+                        "pending invitation",
+                        "invitation already sent",
+                        "already requested",
+                        "duplicate",
+                    ]
+                ):
+                    print(
+                        f"INFO: Connection request already exists (422 - duplicate/already connected)"
+                    )
                     return True
                 else:
                     # Empty or minimal 422 response = invalid request
-                    print(f"ERROR: Connection request failed with 422 - likely invalid profile ID format")
+                    print(
+                        f"ERROR: Connection request failed with 422 - likely invalid profile ID format"
+                    )
                     print(f"ERROR: Response: {res.text}")
                     return False
             else:
                 # No response data, likely invalid request
-                print(f"ERROR: Connection request failed with 422 - no response data (invalid request)")
+                print(
+                    f"ERROR: Connection request failed with 422 - no response data (invalid request)"
+                )
                 return False
 
         # Log other error codes
-        print(f"ERROR: Connection request failed with status {res.status_code}: {res.text}")
+        print(
+            f"ERROR: Connection request failed with status {res.status_code}: {res.text}"
+        )
         return False
 
     _RESULTS_PER_PAGE = 10  # LinkedIn returns ~10 results per page
@@ -878,17 +943,23 @@ class LinkedInAPI:
                     # Handle list values (pipe-separated)
                     if "|" in value:
                         values = value.split("|")
-                        query_params_list.append(f"(key:{key},value:List({','.join(values)}))")
+                        query_params_list.append(
+                            f"(key:{key},value:List({','.join(values)}))"
+                        )
                     else:
                         query_params_list.append(f"(key:{key},value:List({value}))")
 
             if query_params_list:
-                query_parts.append(f"queryParameters:List({','.join(query_params_list)})")
+                query_parts.append(
+                    f"queryParameters:List({','.join(query_params_list)})"
+                )
 
             query_parts.append("includeFiltersInResponse:false")
             query_str = ",".join(query_parts)
 
-            variables = f"(start:{current_start},origin:FACETED_SEARCH,query:({query_str}))"
+            variables = (
+                f"(start:{current_start},origin:FACETED_SEARCH,query:({query_str}))"
+            )
 
             # GraphQL search endpoint
             graphql_url = "https://www.linkedin.com/voyager/api/graphql"
@@ -902,7 +973,12 @@ class LinkedInAPI:
                 res = self.session.get(full_url, headers=headers, allow_redirects=False)
 
                 # Check for authentication redirect
-                if res.status_code in (302, 303, 307, 308) and '/uas/login' in res.headers.get('Location', ''):
+                if res.status_code in (
+                    302,
+                    303,
+                    307,
+                    308,
+                ) and "/uas/login" in res.headers.get("Location", ""):
                     raise LinkedInAuthenticationError(
                         "LinkedIn session token (li_at cookie) is expired or invalid. "
                         "Please update the LINKEDIN_WRITE_SID environment variable with a fresh session token. "
@@ -1039,10 +1115,17 @@ class LinkedInAPI:
         headers = {"csrf-token": csrf_token} if csrf_token else {}
 
         try:
-            res = self.session.get(company_url, params=params, headers=headers, allow_redirects=False)
+            res = self.session.get(
+                company_url, params=params, headers=headers, allow_redirects=False
+            )
 
             # Check for authentication redirect
-            if res.status_code in (302, 303, 307, 308) and '/uas/login' in res.headers.get('Location', ''):
+            if res.status_code in (
+                302,
+                303,
+                307,
+                308,
+            ) and "/uas/login" in res.headers.get("Location", ""):
                 raise LinkedInAuthenticationError(
                     "LinkedIn session token (li_at cookie) is expired or invalid. "
                     "Please update the LINKEDIN_WRITE_SID environment variable with a fresh session token. "
@@ -1242,7 +1325,10 @@ class LinkedInAPI:
             start = page * 25
 
             # Build the query
-            query_parts = ["origin:JOB_SEARCH_PAGE_QUERY_EXPANSION", "spellCorrectionEnabled:true"]
+            query_parts = [
+                "origin:JOB_SEARCH_PAGE_QUERY_EXPANSION",
+                "spellCorrectionEnabled:true",
+            ]
 
             if geo_id:
                 query_parts.append(f"locationUnion:(geoId:{geo_id})")
@@ -1306,7 +1392,9 @@ class LinkedInAPI:
                 location = job_card.get("secondaryDescription", {}).get("text", "")
 
                 # Build job URL
-                job_url = f"https://www.linkedin.com/jobs/view/{job_id}" if job_id else ""
+                job_url = (
+                    f"https://www.linkedin.com/jobs/view/{job_id}" if job_id else ""
+                )
 
                 if job_id:
                     results.append(
