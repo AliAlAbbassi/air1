@@ -35,18 +35,26 @@ function extractCompanyUsernames(debug = false) {
     const jobCards = document.querySelectorAll(selector);
     log(`Selector "${selector}" found ${jobCards.length} job cards`);
 
-    jobCards.forEach(card => {
+    jobCards.forEach((card, idx) => {
       // Try multiple ways to find company link within the card
       const companyLink =
         card.querySelector('a[href*="/company/"]') ||
         card.querySelector('.job-card-container__company-name a') ||
-        card.querySelector('[data-tracking-control-name*="company"] a');
+        card.querySelector('[data-tracking-control-name*="company"] a') ||
+        card.querySelector('.artdeco-entity-lockup__subtitle a') ||
+        card.querySelector('[class*="company"] a');
 
       if (companyLink && companyLink.href) {
         const match = companyLink.href.match(/\/company\/([^/?#]+)/);
         if (match && match[1]) {
           companies.add(match[1]);
-          log(`Extracted from job card: ${match[1]}`);
+          log(`Extracted from job card ${idx + 1}: ${match[1]}`);
+        }
+      } else {
+        // No company link found - log for debugging
+        if (debug) {
+          const allLinks = card.querySelectorAll('a');
+          log(`Job card ${idx + 1} has ${allLinks.length} links but no company link`);
         }
       }
     });
@@ -157,14 +165,66 @@ function extractCompanyUsernames(debug = false) {
   return result;
 }
 
+// Auto-extract from multiple pages
+async function autoExtractPages(maxPages = 5, debug = false) {
+  const log = debug ? console.log.bind(console, '[Hodhod Auto]') : () => {};
+  const allCompanies = new Set();
+  let currentPage = 1;
+
+  while (currentPage <= maxPages) {
+    log(`Extracting page ${currentPage}/${maxPages}...`);
+
+    // Extract from current page
+    const companies = extractCompanyUsernames(debug);
+    companies.forEach(c => allCompanies.add(c));
+
+    log(`Page ${currentPage} found ${companies.length} companies (${allCompanies.size} total unique)`);
+
+    // Try to find and click the "Next" button
+    const nextButton =
+      document.querySelector('button[aria-label*="next" i]') ||
+      document.querySelector('button[aria-label*="View next page" i]') ||
+      document.querySelector('.artdeco-pagination__button--next') ||
+      document.querySelector('button.jobs-search-pagination__button--next') ||
+      document.querySelector('[data-test-pagination-page-btn].selected + [data-test-pagination-page-btn]');
+
+    if (!nextButton || nextButton.disabled || nextButton.getAttribute('aria-disabled') === 'true') {
+      log(`No more pages (stopped at page ${currentPage})`);
+      break;
+    }
+
+    // Click next button
+    log('Clicking next button...');
+    nextButton.click();
+
+    // Wait for page to load (2 seconds)
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    currentPage++;
+  }
+
+  log(`Auto-extraction complete: ${allCompanies.size} total companies from ${currentPage} pages`);
+  return Array.from(allCompanies);
+}
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'extractCompanies') {
     const debug = request.debug || false;
     const companies = extractCompanyUsernames(debug);
     sendResponse({ companies });
+  } else if (request.action === 'autoExtractPages') {
+    const debug = request.debug || false;
+    const maxPages = request.maxPages || 5;
+
+    // Run async extraction
+    autoExtractPages(maxPages, debug).then(companies => {
+      sendResponse({ companies });
+    });
+
+    return true; // Keep message channel open for async response
   }
-  return true; // Keep the message channel open for async response
+  return true;
 });
 
 // Add visual indicator when hovering over company links
