@@ -121,6 +121,11 @@ async function autoExtractPages() {
     return;
   }
 
+  if (!tab.url?.includes('/jobs/search')) {
+    showNotification('Please navigate to a LinkedIn job search page', 'warning');
+    return;
+  }
+
   // Disable button and show loading state
   const button = document.getElementById('autoExtractBtn');
   const originalText = button.textContent;
@@ -130,7 +135,7 @@ async function autoExtractPages() {
   const debugMode = document.getElementById('debugMode')?.checked || false;
 
   try {
-    showNotification('Auto-extracting from up to 5 pages... (10 seconds)', 'success');
+    showNotification('Auto-extracting from up to 5 pages... This takes ~10 seconds', 'success');
 
     const response = await chrome.tabs.sendMessage(tab.id, {
       action: 'autoExtractPages',
@@ -138,17 +143,25 @@ async function autoExtractPages() {
       debug: debugMode
     });
 
+    if (!response) {
+      throw new Error('No response from content script. Try refreshing the page.');
+    }
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
     const extracted = response.companies || [];
 
     if (extracted.length === 0) {
-      showNotification('No companies found', 'warning');
+      showNotification('No companies found. Try scrolling down first.', 'warning');
       return;
     }
 
     const addedCount = addCompanies(extracted);
     const totalCount = extracted.length;
     showNotification(
-      `Auto-extracted ${totalCount} companies, added ${addedCount} new!`,
+      `✅ Auto-extracted ${totalCount} companies, added ${addedCount} new!`,
       'success'
     );
 
@@ -158,7 +171,8 @@ async function autoExtractPages() {
     }
   } catch (error) {
     console.error('[Hodhod] Error auto-extracting:', error);
-    showNotification('Error auto-extracting. Try manual extraction.', 'error');
+    const errorMsg = error.message || 'Unknown error';
+    showNotification(`Error: ${errorMsg}. Try manual extraction.`, 'error');
   } finally {
     // Re-enable button
     button.disabled = false;

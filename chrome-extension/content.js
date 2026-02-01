@@ -213,18 +213,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const debug = request.debug || false;
     const companies = extractCompanyUsernames(debug);
     sendResponse({ companies });
+    return false; // Sync response
   } else if (request.action === 'autoExtractPages') {
     const debug = request.debug || false;
     const maxPages = request.maxPages || 5;
 
     // Run async extraction
-    autoExtractPages(maxPages, debug).then(companies => {
-      sendResponse({ companies });
-    });
+    (async () => {
+      try {
+        const companies = await autoExtractPages(maxPages, debug);
+        sendResponse({ companies, success: true });
+      } catch (error) {
+        console.error('[Hodhod] Auto-extract error:', error);
+        sendResponse({ companies: [], success: false, error: error.message });
+      }
+    })();
 
     return true; // Keep message channel open for async response
   }
-  return true;
+  return false;
 });
 
 // Add visual indicator when hovering over company links
