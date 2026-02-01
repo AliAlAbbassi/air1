@@ -38,7 +38,7 @@ async def connect_with_company_members(
 if __name__ == "__main__":
     asyncio.run(
         connect_with_company_members(
-            company_usernames=["kingston-stanley"],
+            company_usernames=["sully-ai"],
             keywords=["recruiter", "talent"],
             regions=[],
             pages=7,

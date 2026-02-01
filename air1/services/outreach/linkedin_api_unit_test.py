@@ -1,7 +1,9 @@
 import json
 import pytest
 from unittest.mock import MagicMock, patch
+from requests.exceptions import TooManyRedirects
 from air1.services.outreach.linkedin_api import LinkedInAPI
+from air1.services.outreach.exceptions import LinkedInAuthenticationError
 
 # Mock HTML content for testing get_profile_urn
 MOCK_PROFILE_HTML_MEMBER = """
@@ -131,18 +133,34 @@ class TestLinkedInAPIUnit:
         assert payload['trackingId'] == "track123"
 
     @patch('air1.services.outreach.linkedin_api.requests.Session.post')
-    def test_send_connection_request_duplicate_422(self, mock_post, api):
-        # Setup
+    def test_send_connection_request_invalid_422(self, mock_post, api):
+        # Setup - 422 with minimal response means invalid request
         mock_response = MagicMock()
         mock_response.status_code = 422
-        mock_response.text = "Unprocessable Entity"
+        mock_response.text = '{"data":{"status":422},"included":[]}'
+        mock_response.json.return_value = {"data":{"status":422},"included":[]}
         mock_post.return_value = mock_response
 
         # Execute
         result = api.send_connection_request("urn:li:member:12345")
 
-        # Verify
-        assert result is True # Should treat as success due to our recent change
+        # Verify - should return False for invalid request
+        assert result is False
+
+    @patch('air1.services.outreach.linkedin_api.requests.Session.post')
+    def test_send_connection_request_already_connected_422(self, mock_post, api):
+        # Setup - 422 with "already connected" message should succeed
+        mock_response = MagicMock()
+        mock_response.status_code = 422
+        mock_response.text = '{"message":"Already connected to this member"}'
+        mock_response.json.return_value = {"message":"Already connected to this member"}
+        mock_post.return_value = mock_response
+
+        # Execute
+        result = api.send_connection_request("urn:li:member:12345")
+
+        # Verify - should return True for legitimate duplicate
+        assert result is True
 
     @patch('air1.services.outreach.linkedin_api.requests.Session.post')
     def test_send_connection_request_failure_400(self, mock_post, api):
@@ -157,3 +175,66 @@ class TestLinkedInAPIUnit:
 
         # Verify
         assert result is False
+
+    @patch('air1.services.outreach.linkedin_api.requests.Session.get')
+    def test_get_company_urn_expired_token_redirect(self, mock_get, api):
+        """Test that expired token causing redirect to login raises LinkedInAuthenticationError"""
+        # Setup - simulate redirect to login page
+        mock_response = MagicMock()
+        mock_response.status_code = 302
+        mock_response.headers = {'Location': '/uas/login'}
+        mock_get.return_value = mock_response
+
+        # Execute & Verify
+        with pytest.raises(LinkedInAuthenticationError) as exc_info:
+            api.get_company_urn("test-company")
+
+        assert "expired or invalid" in str(exc_info.value)
+        assert "LINKEDIN_WRITE_SID" in str(exc_info.value)
+
+    @patch('air1.services.outreach.linkedin_api.requests.Session.get')
+    def test_get_company_urn_too_many_redirects(self, mock_get, api):
+        """Test that TooManyRedirects raises LinkedInAuthenticationError"""
+        # Setup - simulate too many redirects
+        mock_get.side_effect = TooManyRedirects("Exceeded 30 redirects")
+
+        # Execute & Verify
+        with pytest.raises(LinkedInAuthenticationError) as exc_info:
+            api.get_company_urn("test-company")
+
+        assert "expired or invalid" in str(exc_info.value)
+        assert "Too many redirects" in str(exc_info.value)
+
+    @patch('air1.services.outreach.linkedin_api.requests.Session.get')
+    def test_get_profile_urn_expired_token(self, mock_get, api):
+        """Test that get_profile_urn raises LinkedInAuthenticationError for expired token"""
+        # Setup
+        mock_response = MagicMock()
+        mock_response.status_code = 303
+        mock_response.headers = {'Location': 'https://www.linkedin.com/uas/login'}
+        mock_get.return_value = mock_response
+
+        # Execute & Verify
+        with pytest.raises(LinkedInAuthenticationError) as exc_info:
+            api.get_profile_urn("john-doe")
+
+        assert "expired or invalid" in str(exc_info.value)
+
+    @patch('air1.services.outreach.linkedin_api.requests.Session.get')
+    def test_ensure_csrf_token_expired_token(self, mock_get):
+        """Test that _ensure_csrf_token raises LinkedInAuthenticationError for expired token"""
+        # Create API without JSESSIONID cookie
+        api = LinkedInAPI(cookies={"li_at": "expired_token"})
+
+        # Setup - simulate redirect to login
+        mock_response = MagicMock()
+        mock_response.status_code = 302
+        mock_response.headers = {'Location': '/uas/login'}
+        mock_response.cookies = {}
+        mock_get.return_value = mock_response
+
+        # Execute & Verify
+        with pytest.raises(LinkedInAuthenticationError) as exc_info:
+            api._ensure_csrf_token()
+
+        assert "expired or invalid" in str(exc_info.value)

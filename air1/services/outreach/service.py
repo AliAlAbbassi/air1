@@ -742,7 +742,7 @@ class Service(IService):
         Returns:
             bool: True if connection request was sent successfully
         """
-        # Resolve the username to an fsd_profile URN
+        # Resolve the username to a member URN (needed for normInvitations endpoint)
         logger.info(f"Resolving profile URN for username: {profile_username}")
         urn, tracking_id = self.api.get_profile_urn(profile_username)
 
@@ -750,8 +750,10 @@ class Service(IService):
             logger.error(f"Could not resolve URN for username: {profile_username}")
             return False
 
-        if not urn.startswith("urn:li:fsd_profile:"):
-            logger.error(f"Expected fsd_profile URN, got: {urn}")
+        # Accept both member and fsd_profile URNs
+        # (member URNs are preferred for normInvitations endpoint)
+        if not (urn.startswith("urn:li:member:") or urn.startswith("urn:li:fsd_profile:")):
+            logger.error(f"Expected member or fsd_profile URN, got: {urn}")
             return False
 
         logger.info(f"Resolved {profile_username} to URN: {urn}")
