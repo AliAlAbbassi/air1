@@ -151,11 +151,14 @@ function clearAll() {
   }
 }
 
-// Event listeners
-document.getElementById('extractBtn').addEventListener('click', extractFromPage);
-document.getElementById('clearBtn').addEventListener('click', clearAll);
-document.getElementById('copyArrayBtn').addEventListener('click', copyAsPythonArray);
-document.getElementById('copyListBtn').addEventListener('click', copyAsList);
+// Wait for DOM to be ready before adding event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  // Event listeners
+  document.getElementById('extractBtn').addEventListener('click', extractFromPage);
+  document.getElementById('clearBtn').addEventListener('click', clearAll);
+  document.getElementById('copyArrayBtn').addEventListener('click', copyAsPythonArray);
+  document.getElementById('copyListBtn').addEventListener('click', copyAsList);
 
-// Initialize
-loadCompanies();
+  // Initialize
+  loadCompanies();
+});

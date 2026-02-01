@@ -106,19 +106,53 @@ function extractCompanyUsernames(debug = false) {
     });
   });
 
-  // Method 6: Deep search in all text content for company URLs (last resort)
-  // This catches companies in JSON/data attributes
+  // Method 6: Deep search in all text content for company URLs (aggressive)
+  // This catches companies in JSON/data attributes and any inline URLs
   const bodyText = document.body.innerHTML;
-  const urlMatches = bodyText.matchAll(/\/company\/([a-zA-Z0-9_-]+)(?=[\/?"#])/g);
+
+  // Pattern 1: /company/{username} with various endings
+  const urlMatches = bodyText.matchAll(/linkedin\.com\/company\/([a-zA-Z0-9_-]+)/g);
+  let deepSearchCount = 0;
   for (const match of urlMatches) {
     if (match[1] && match[1] !== 'undefined' && match[1].length > 2) {
       companies.add(match[1]);
+      deepSearchCount++;
     }
   }
+  log(`Deep search found ${deepSearchCount} additional companies`);
+
+  // Method 7: Check data attributes and JSON blobs
+  const elementsWithData = document.querySelectorAll('[data-entity-urn], [data-urn]');
+  log(`Found ${elementsWithData.length} elements with data attributes`);
+
+  elementsWithData.forEach(el => {
+    const dataUrn = el.getAttribute('data-entity-urn') || el.getAttribute('data-urn') || '';
+    // Extract company ID from URNs
+    const companyMatch = dataUrn.match(/company[:/](\d+)/i);
+    if (companyMatch) {
+      // Try to find the associated company link nearby
+      const nearbyLink = el.querySelector('a[href*="/company/"]') ||
+                        el.closest('[data-entity-urn]')?.querySelector('a[href*="/company/"]');
+      if (nearbyLink) {
+        const match = nearbyLink.href.match(/\/company\/([^/?#]+)/);
+        if (match && match[1]) {
+          companies.add(match[1]);
+          log(`Extracted from data-urn: ${match[1]}`);
+        }
+      }
+    }
+  });
 
   const result = Array.from(companies);
   log(`Total unique companies found: ${result.length}`);
   log('Companies:', result);
+
+  // If we found very few companies, log a warning
+  if (result.length < 5 && debug) {
+    console.warn('[Hodhod] Only found', result.length, 'companies. This seems low.');
+    console.warn('[Hodhod] Page URL:', window.location.href);
+    console.warn('[Hodhod] Try scrolling down to load more results, then extract again.');
+  }
 
   return result;
 }
