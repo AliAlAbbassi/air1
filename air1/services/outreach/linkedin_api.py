@@ -440,16 +440,18 @@ class LinkedInAPI:
 
                 # PRIORITY 1: FSD Profile URN - This is what was working before
                 # Look for fsd_profile URN near the public_id
+                # CRITICAL: Limit match distance to avoid matching wrong profiles
+                # Use {0,500} instead of .*? to prevent matching across unrelated content
                 fsd_pattern = (
                     r"publicIdentifier[&quot;:\s]+[&quot;]?"
                     + re.escape(public_id)
-                    + r"[&quot;,\s]+.*?urn:li:fsd_profile:([a-zA-Z0-9_-]+)"
+                    + r"[&quot;,\s]+.{0,500}?urn:li:fsd_profile:([a-zA-Z0-9_-]+)"
                 )
                 fsd_match = re.search(fsd_pattern, html_text)
                 if not fsd_match:
-                    # Try reverse pattern
+                    # Try reverse pattern (URN before publicIdentifier)
                     fsd_pattern2 = (
-                        r"urn:li:fsd_profile:([a-zA-Z0-9_-]+)[&quot;,\s]+.*?publicIdentifier[&quot;:\s]+[&quot;]?"
+                        r"urn:li:fsd_profile:([a-zA-Z0-9_-]+).{0,500}?publicIdentifier[&quot;:\s]+[&quot;]?"
                         + re.escape(public_id)
                     )
                     fsd_match = re.search(fsd_pattern2, html_text)
@@ -470,8 +472,9 @@ class LinkedInAPI:
 
                 # FALLBACK: Member URN (if no fsd_profile URN found)
                 # Pattern 1: objectUrn ... publicIdentifier (common in encoded JSON)
+                # CRITICAL: Limit match distance to avoid matching wrong profiles
                 pattern1 = (
-                    r"objectUrn[&quot;:\s]+urn:li:member:(\d+)[&quot;,\s]+.*?"
+                    r"objectUrn[&quot;:\s]+urn:li:member:(\d+)[&quot;,\s]+.{0,500}?"
                     + re.escape(public_id)
                     + r"[&quot;]"
                 )
@@ -484,9 +487,10 @@ class LinkedInAPI:
                     return (urn, tracking_id)
 
                 # Pattern 2: publicIdentifier ... objectUrn
+                # CRITICAL: Limit match distance to avoid matching wrong profiles
                 pattern2 = (
                     re.escape(public_id)
-                    + r"[&quot;,\s]+.*?objectUrn[&quot;:\s]+urn:li:member:(\d+)"
+                    + r"[&quot;,\s]+.{0,500}?objectUrn[&quot;:\s]+urn:li:member:(\d+)"
                 )
                 match2 = re.search(pattern2, html_text)
                 if match2:
