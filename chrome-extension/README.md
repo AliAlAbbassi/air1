@@ -103,15 +103,41 @@ Company usernames are extracted from URLs like:
 **"No companies found on this page"**
 - Make sure you're on a LinkedIn page with company information
 - Try a job search results page or company search
+- Enable **Debug mode** checkbox and check the browser console (F12) for details
+- Scroll down the page to load more results, then extract again
+
+**Only extracting a few companies?**
+1. Enable **Debug mode** to see what's being found
+2. Open browser console (F12) to see extraction details
+3. Scroll down to load more job listings
+4. LinkedIn uses lazy loading - results appear as you scroll
+5. Extract multiple times as you scroll through pages
 
 **"Error extracting companies"**
 - Refresh the LinkedIn page and try again
 - LinkedIn may have updated their HTML structure
+- Enable Debug mode to see detailed error info
 
 **Extension not working**
 - Make sure you're on `https://www.linkedin.com/*`
 - Check that the extension has permissions for LinkedIn
 - Reload the extension from `chrome://extensions/`
+
+## Debug Mode
+
+Enable the **Debug mode** checkbox to see detailed extraction information in the browser console:
+
+1. Click the extension icon
+2. Check "Debug mode"
+3. Open browser console (F12)
+4. Click "Extract from Page"
+5. See detailed logs of what's being extracted
+
+Debug output includes:
+- Number of links found
+- Each selector's results
+- Individual companies extracted
+- Total count
 
 ## Privacy
 

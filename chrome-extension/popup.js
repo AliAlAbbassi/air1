@@ -77,19 +77,37 @@ async function extractFromPage() {
     return;
   }
 
+  // Check if debug mode is enabled
+  const debugMode = document.getElementById('debugMode').checked;
+
   try {
-    const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractCompanies' });
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      action: 'extractCompanies',
+      debug: debugMode
+    });
     const extracted = response.companies || [];
 
     if (extracted.length === 0) {
       showNotification('No companies found on this page', 'warning');
+      if (debugMode) {
+        console.log('[Hodhod] No companies found. Check the page console for details.');
+      }
       return;
     }
 
     const addedCount = addCompanies(extracted);
-    showNotification(`Added ${addedCount} new ${addedCount === 1 ? 'company' : 'companies'}!`, 'success');
+    const totalCount = extracted.length;
+    showNotification(
+      `Found ${totalCount} total, added ${addedCount} new ${addedCount === 1 ? 'company' : 'companies'}!`,
+      'success'
+    );
+
+    if (debugMode) {
+      console.log('[Hodhod] Extracted companies:', extracted);
+      console.log('[Hodhod] Added new companies:', addedCount);
+    }
   } catch (error) {
-    console.error('Error extracting companies:', error);
+    console.error('[Hodhod] Error extracting companies:', error);
     showNotification('Error extracting companies. Try refreshing the page.', 'error');
   }
 }
