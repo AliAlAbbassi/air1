@@ -916,6 +916,20 @@ class Service(IService):
                     continue
 
                 username = employee.public_id
+
+                # Check DB first to avoid unnecessary HTTP requests
+                try:
+                    from air1.services.outreach.repo import has_linkedin_connection
+
+                    if await has_linkedin_connection(username):
+                        logger.info(
+                            f"[{company_username}][{i + 1}/{len(employees)}] Already contacted {username} (found in DB) - skipping"
+                        )
+                        success_count += 1
+                        continue
+                except Exception as e:
+                    logger.warning(f"Failed to check DB for {username}: {e}, proceeding with request")
+
                 logger.info(f"[{company_username}][{i + 1}/{len(employees)}] Sending request to {username}")
 
                 success = self.send_connection_request(username)
