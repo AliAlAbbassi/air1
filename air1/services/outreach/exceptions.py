@@ -13,6 +13,10 @@ class LinkedInAuthenticationError(LinkedInError):
     """Raised when LinkedIn authentication fails (expired/invalid session token)."""
 
 
+class LinkedInRateLimitError(LinkedInError):
+    """Raised when LinkedIn rate limits are exceeded (429 errors)."""
+
+
 class ProfileScrapingError(LinkedInError):
     """Raised when profile scraping fails due to page structure changes or timeouts."""
 

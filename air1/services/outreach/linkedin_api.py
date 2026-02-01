@@ -825,6 +825,35 @@ class LinkedInAPI:
         except Exception:
             pass
 
+        # Handle 429 rate limit errors - LinkedIn is throttling requests
+        if res.status_code == 429:
+            if response_data and isinstance(response_data, dict):
+                error_code = response_data.get("data", {}).get("code", "")
+
+                if error_code == "FUSE_LIMIT_EXCEEDED":
+                    print("\n" + "="*70)
+                    print("⚠️  RATE LIMIT REACHED - LinkedIn is throttling connection requests")
+                    print("="*70)
+                    print("LinkedIn has temporarily blocked further connection requests.")
+                    print("This is normal when sending many requests in a short time.")
+                    print("\nRecommendations:")
+                    print("  • Wait 24-48 hours before resuming")
+                    print("  • LinkedIn typically allows ~100-200 weekly connection requests")
+                    print("  • Your progress has been saved to the database")
+                    print("="*70 + "\n")
+
+                    # Raise an exception to stop the workflow
+                    from air1.services.outreach.exceptions import LinkedInRateLimitError
+                    raise LinkedInRateLimitError(
+                        "LinkedIn rate limit exceeded (429 FUSE_LIMIT_EXCEEDED). "
+                        "Wait 24-48 hours before resuming connection requests."
+                    )
+
+            # Generic 429 without specific error code
+            print(f"ERROR: Rate limited by LinkedIn (429): {res.text}")
+            from air1.services.outreach.exceptions import LinkedInRateLimitError
+            raise LinkedInRateLimitError(f"LinkedIn rate limit exceeded: {res.text}")
+
         # Handle 400 errors - check if it's "already sent" vs actual error
         if res.status_code == 400:
             if response_data and isinstance(response_data, dict):
