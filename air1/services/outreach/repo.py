@@ -338,6 +338,40 @@ async def get_company_leads(company_username: str) -> list[CompanyLeadRecord]:
         ) from e
 
 
+async def has_linkedin_connection(username: str) -> bool:
+    """
+    Check if a LinkedIn connection contact point already exists for a given username.
+
+    Args:
+        username: LinkedIn username to check
+
+    Returns:
+        True if contact point exists, False otherwise
+    """
+    try:
+        prisma = await get_prisma()
+        result = await queries.has_linkedin_connection_by_username(
+            prisma,
+            username=username,
+        )
+
+        if result and result.get("exists"):
+            return True
+        return False
+    except PrismaError as e:
+        logger.error(
+            f"Database error checking contact point for username={username}: {e}"
+        )
+        return False
+    except Exception as e:
+        logger.error(
+            f"Unexpected error checking contact point for username={username}: {e}"
+        )
+        raise QueryError(
+            f"Unexpected error checking contact point for username={username}: {e}"
+        ) from e
+
+
 async def insert_contact_point(lead_id: int, contact_point_type_id: int) -> bool:
     try:
         logger.debug(

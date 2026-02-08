@@ -60,13 +60,10 @@ def api():
 
 class TestLinkedInAPIUnit:
     
-    @patch('air1.services.outreach.linkedin_api.requests.Session.get')
-    def test_get_profile_urn_member_id(self, mock_get, api):
-        # Setup
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = MOCK_PROFILE_HTML_MEMBER
-        mock_get.return_value = mock_response
+    @patch('air1.services.outreach.linkedin_api.LinkedInAPI._resolve_via_html_scraping')
+    def test_get_profile_urn_member_id(self, mock_html, api):
+        # Setup - mock the HTML scraping strategy
+        mock_html.return_value = ("urn:li:member:12345", "test_tracking_id_123")
 
         # Execute
         urn, tracking_id = api.get_profile_urn("test-user")
@@ -75,13 +72,10 @@ class TestLinkedInAPIUnit:
         assert urn == "urn:li:member:12345"
         assert tracking_id == "test_tracking_id_123"
         
-    @patch('air1.services.outreach.linkedin_api.requests.Session.get')
-    def test_get_profile_urn_fsd_profile(self, mock_get, api):
-        # Setup
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = MOCK_PROFILE_HTML_FSD
-        mock_get.return_value = mock_response
+    @patch('air1.services.outreach.linkedin_api.LinkedInAPI._resolve_via_html_scraping')
+    def test_get_profile_urn_fsd_profile(self, mock_html, api):
+        # Setup - mock the HTML scraping strategy
+        mock_html.return_value = ("urn:li:fsd_profile:ACoAAB12345", "fsd_tracking_id_456")
 
         # Execute
         urn, tracking_id = api.get_profile_urn("test-user-fsd")
@@ -90,13 +84,10 @@ class TestLinkedInAPIUnit:
         assert urn == "urn:li:fsd_profile:ACoAAB12345"
         assert tracking_id == "fsd_tracking_id_456"
 
-    @patch('air1.services.outreach.linkedin_api.requests.Session.get')
-    def test_get_profile_urn_no_tracking(self, mock_get, api):
-        # Setup
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = MOCK_PROFILE_HTML_NO_TRACKING
-        mock_get.return_value = mock_response
+    @patch('air1.services.outreach.linkedin_api.LinkedInAPI._resolve_via_html_scraping')
+    def test_get_profile_urn_no_tracking(self, mock_html, api):
+        # Setup - mock the HTML scraping strategy
+        mock_html.return_value = ("urn:li:member:98765", None)
 
         # Execute
         urn, tracking_id = api.get_profile_urn("user-no-tracking")
@@ -114,23 +105,21 @@ class TestLinkedInAPIUnit:
 
         # Execute
         result = api.send_connection_request(
-            "urn:li:member:12345", 
-            message="Hello", 
-            tracking_id="track123"
+            "urn:li:member:12345",
+            message="Hello",
+            tracking_id="track123"  # Note: tracking_id currently not used in payload
         )
 
         # Verify
         assert result is True
-        
+
         args, kwargs = mock_post.call_args
-        assert args[0].endswith("/growth/normInvitations")
+        assert args[0].endswith("/voyagerRelationshipsDashMemberRelationships")
         payload = json.loads(kwargs['data'])
-        
+
         # Verify Payload Structure
-        assert payload['emberEntityName'] == "growth/invitation/norm-invitation"
-        assert payload['invitee']['com.linkedin.voyager.growth.invitation.InviteeProfile']['profileId'] == "12345"
-        assert payload['message'] == "Hello"
-        assert payload['trackingId'] == "track123"
+        assert payload['invitee']['inviteeUnion']['memberProfile'] == "urn:li:member:12345"
+        assert payload['customMessage'] == "Hello"
 
     @patch('air1.services.outreach.linkedin_api.requests.Session.post')
     def test_send_connection_request_invalid_422(self, mock_post, api):
@@ -238,3 +227,19 @@ class TestLinkedInAPIUnit:
             api._ensure_csrf_token()
 
         assert "expired or invalid" in str(exc_info.value)
+
+    @patch('air1.services.outreach.linkedin_api.requests.Session.post')
+    def test_send_connection_request_cant_resend_yet(self, mock_post, api):
+        """Test that 400 CANT_RESEND_YET is treated as success"""
+        # Setup - 400 with CANT_RESEND_YET error code
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.text = '{"data":{"code":"CANT_RESEND_YET"}}'
+        mock_response.json.return_value = {"data":{"code":"CANT_RESEND_YET"}}
+        mock_post.return_value = mock_response
+
+        # Execute
+        result = api.send_connection_request("urn:li:member:12345")
+
+        # Verify - should return True for CANT_RESEND_YET
+        assert result is True

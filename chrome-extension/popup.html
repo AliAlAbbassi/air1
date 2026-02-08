@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hodhod - Company Collector</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🐦 Hodhod</h1>
+      <p class="subtitle">LinkedIn Company Collector</p>
+    </header>
+
+    <div class="actions">
+      <button id="extractBtn" class="btn btn-primary">
+        📋 Extract from Page
+      </button>
+      <button id="autoExtractBtn" class="btn btn-primary">
+        🔄 Auto-Extract Pages
+      </button>
+    </div>
+
+    <div class="actions">
+      <button id="clearBtn" class="btn btn-secondary">
+        🗑️ Clear All
+      </button>
+    </div>
+
+    <div class="debug-section">
+      <label class="debug-checkbox">
+        <input type="checkbox" id="debugMode">
+        <span>Debug mode (check console)</span>
+      </label>
+    </div>
+
+    <div class="stats">
+      <span id="companyCount">0 companies</span>
+    </div>
+
+    <div class="company-list-container">
+      <ul id="companyList" class="company-list"></ul>
+    </div>
+
+    <div class="export-section">
+      <button id="copyArrayBtn" class="btn btn-export">
+        📄 Copy as Python Array
+      </button>
+      <button id="copyListBtn" class="btn btn-export">
+        📝 Copy as List
+      </button>
+    </div>
+
+    <div id="notification" class="notification hidden"></div>
+
+    <footer>
+      <p class="help-text">
+        💡 Navigate to LinkedIn job search or company pages, then click "Extract from Page"
+      </p>
+      <p class="help-text" style="margin-top: 8px; color: #9ca3af;">
+        Not finding companies? Enable debug mode and check browser console (F12)
+      </p>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
