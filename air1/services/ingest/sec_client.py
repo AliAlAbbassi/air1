@@ -6,6 +6,7 @@ caching, and retries internally.
 """
 
 import asyncio
+import math
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Optional
@@ -37,14 +38,23 @@ class SECClient:
 
         logger.info("Fetching company tickers from SEC EDGAR...")
         df = await asyncio.to_thread(get_company_tickers)
+
+        def _clean(val):
+            """Convert pandas NaN/None to None."""
+            if val is None:
+                return None
+            if isinstance(val, float) and math.isnan(val):
+                return None
+            return str(val)
+
         companies = []
         for row in df.itertuples():
             companies.append(
                 SecCompanyData(
                     cik=str(row.cik),
                     name=row.company,
-                    ticker=row.ticker if hasattr(row, "ticker") else None,
-                    exchange=row.exchange if hasattr(row, "exchange") else None,
+                    ticker=_clean(row.ticker) if hasattr(row, "ticker") else None,
+                    exchange=_clean(row.exchange) if hasattr(row, "exchange") else None,
                 )
             )
         logger.info(f"Fetched {len(companies)} company tickers")

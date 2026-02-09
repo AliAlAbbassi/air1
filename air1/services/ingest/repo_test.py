@@ -93,7 +93,7 @@ async def test_get_companies_not_enriched():
     cik = f"U{_uid()}"
     await upsert_company(SecCompanyData(cik=cik, name="Unenriched Co"))
 
-    rows = await get_companies_not_enriched(limit=1000)
+    rows = await get_companies_not_enriched(limit=50000)
     ciks = [r["cik"] for r in rows]
     assert cik in ciks
 
