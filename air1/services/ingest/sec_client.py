@@ -252,7 +252,9 @@ class SECClient:
             minimum_investment = _to_decimal(getattr(offering, "minimum_investment", None))
             is_equity = _to_bool(getattr(offering, "is_equity", None))
             is_pooled_investment = _to_bool(getattr(offering, "is_pooled_investment", None))
-            is_new_offering = _to_bool(getattr(offering, "is_new", None))
+            # edgartools `is_new` is actually `isAmendment` (True = amendment, not new)
+            _is_amendment = _to_bool(getattr(offering, "is_new", None))
+            is_new_offering = not _is_amendment if _is_amendment is not None else None
             more_than_one_year = _to_bool(getattr(offering, "more_than_one_year", None))
 
             # Investors
@@ -303,14 +305,11 @@ class SECClient:
             first = getattr(person, "first_name", None)
             last = getattr(person, "last_name", None)
 
-            # Try to find title from signature block
+            # Try to find title from signature block (full name only to avoid mismatches)
             person_title = None
             if first and last:
                 full_name = f"{first} {last}".strip().lower()
                 person_title = title_map.get(full_name)
-                if not person_title:
-                    # Try last name only
-                    person_title = title_map.get(last.strip().lower())
 
             officers.append(
                 SecOfficerData(
@@ -345,10 +344,10 @@ class SECClient:
             cik=cik,
             filing_date=filing_date_parsed,
             issuer_name=getattr(issuer, "entity_name", None) if issuer else None,
-            issuer_street=issuer.primary_address.street1 if issuer and hasattr(issuer, "primary_address") and issuer.primary_address else None,
-            issuer_city=issuer.primary_address.city if issuer and hasattr(issuer, "primary_address") and issuer.primary_address else None,
+            issuer_street=getattr(issuer.primary_address, "street1", None) if issuer and getattr(issuer, "primary_address", None) else None,
+            issuer_city=getattr(issuer.primary_address, "city", None) if issuer and getattr(issuer, "primary_address", None) else None,
             issuer_state=getattr(issuer, "jurisdiction", None) if issuer else None,
-            issuer_zip=issuer.primary_address.zipcode if issuer and hasattr(issuer, "primary_address") and issuer.primary_address else None,
+            issuer_zip=getattr(issuer.primary_address, "zipcode", None) if issuer and getattr(issuer, "primary_address", None) else None,
             issuer_phone=getattr(issuer, "phone_number", None) if issuer else None,
             entity_type=getattr(issuer, "entity_type", None) if issuer else None,
             industry_group_type=industry_group_type,
