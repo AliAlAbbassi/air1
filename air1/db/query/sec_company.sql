@@ -10,16 +10,16 @@ RETURNING sec_company_id AS "secCompanyId";
 
 -- name: enrich_sec_company!
 UPDATE sec_company SET
-    sic = :sic,
-    sic_description = :sic_description,
-    state_of_incorp = :state_of_incorp,
-    fiscal_year_end = :fiscal_year_end,
-    street = :street,
-    city = :city,
-    state_or_country = :state_or_country,
-    zip_code = :zip_code,
-    phone = :phone,
-    website = :website,
+    sic = COALESCE(:sic, sic),
+    sic_description = COALESCE(:sic_description, sic_description),
+    state_of_incorp = COALESCE(:state_of_incorp, state_of_incorp),
+    fiscal_year_end = COALESCE(:fiscal_year_end, fiscal_year_end),
+    street = COALESCE(:street, street),
+    city = COALESCE(:city, city),
+    state_or_country = COALESCE(:state_or_country, state_or_country),
+    zip_code = COALESCE(:zip_code, zip_code),
+    phone = COALESCE(:phone, phone),
+    website = COALESCE(:website, website),
     enriched_at = NOW(),
     updated_on = NOW()
 WHERE cik = :cik;

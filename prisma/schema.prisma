@@ -164,9 +164,20 @@ model SecFormD {
   totalOfferingAmount Decimal?    @map("total_offering_amount") @db.Decimal(20, 2)
   totalAmountSold     Decimal?    @map("total_amount_sold") @db.Decimal(20, 2)
   totalRemaining      Decimal?    @map("total_remaining") @db.Decimal(20, 2)
-  dateOfFirstSale     DateTime?   @map("date_of_first_sale") @db.Date
-  createdOn           DateTime    @default(now()) @map("created_on") @db.Timestamp(6)
-  updatedOn           DateTime    @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  dateOfFirstSale             DateTime?   @map("date_of_first_sale") @db.Date
+  minimumInvestment           Decimal?    @map("minimum_investment") @db.Decimal(20, 2)
+  totalInvestors              Int?        @map("total_investors")
+  hasNonAccreditedInvestors   Boolean?    @map("has_non_accredited_investors")
+  isEquity                    Boolean?    @map("is_equity")
+  isPooledInvestment          Boolean?    @map("is_pooled_investment")
+  isNewOffering               Boolean?    @map("is_new_offering")
+  moreThanOneYear             Boolean?    @map("more_than_one_year")
+  isBusinessCombination       Boolean?    @map("is_business_combination")
+  salesCommission             Decimal?    @map("sales_commission") @db.Decimal(20, 2)
+  findersFees                 Decimal?    @map("finders_fees") @db.Decimal(20, 2)
+  grossProceedsUsed           Decimal?    @map("gross_proceeds_used") @db.Decimal(20, 2)
+  createdOn                   DateTime    @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn                   DateTime    @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
   secFiling           SecFiling   @relation(fields: [secFilingId], references: [secFilingId], onDelete: Cascade)
   officers            SecOfficer[]
 

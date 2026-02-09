@@ -435,6 +435,10 @@ class IngestQueries(Protocol):
         self, conn: Any, **kwargs: Any
     ) -> Optional[Dict[str, Any]]: ...
 
+    async def delete_officers_by_form_d(
+        self, conn: Any, *, sec_form_d_id: int
+    ) -> None: ...
+
     async def insert_sec_officer(
         self, conn: Any, **kwargs: Any
     ) -> Optional[Dict[str, Any]]: ...

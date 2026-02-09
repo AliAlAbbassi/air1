@@ -213,7 +213,11 @@ async def get_form_d_filings_not_parsed(limit: int = 100) -> list[dict]:
 async def save_form_d_complete(
     form_d: SecFormDData, sec_filing_id: int
 ) -> tuple[bool, int | None]:
-    """Save Form D data with officers. Returns (success, sec_form_d_id)."""
+    """Save Form D data with officers atomically. Returns (success, sec_form_d_id).
+
+    Uses a database transaction so that if any officer insert fails,
+    the entire operation is rolled back (no partial state).
+    """
     try:
         prisma = await get_prisma()
 
@@ -223,54 +227,65 @@ async def save_form_d_complete(
         def _bool(val):
             return str(val).lower() if val is not None else None
 
-        form_d_result = await queries.upsert_sec_form_d(
-            prisma,
-            sec_filing_id=sec_filing_id,
-            issuer_name=form_d.issuer_name,
-            issuer_street=form_d.issuer_street,
-            issuer_city=form_d.issuer_city,
-            issuer_state=form_d.issuer_state,
-            issuer_zip=form_d.issuer_zip,
-            issuer_phone=form_d.issuer_phone,
-            entity_type=form_d.entity_type,
-            industry_group_type=form_d.industry_group_type,
-            revenue_range=form_d.revenue_range,
-            federal_exemptions=form_d.federal_exemptions,
-            total_offering_amount=_dec(form_d.total_offering_amount),
-            total_amount_sold=_dec(form_d.total_amount_sold),
-            total_remaining=_dec(form_d.total_remaining),
-            date_of_first_sale=form_d.date_of_first_sale.isoformat() if form_d.date_of_first_sale else None,
-            minimum_investment=_dec(form_d.minimum_investment),
-            total_investors=str(form_d.total_investors) if form_d.total_investors is not None else None,
-            has_non_accredited_investors=_bool(form_d.has_non_accredited_investors),
-            is_equity=_bool(form_d.is_equity),
-            is_pooled_investment=_bool(form_d.is_pooled_investment),
-            is_new_offering=_bool(form_d.is_new_offering),
-            more_than_one_year=_bool(form_d.more_than_one_year),
-            is_business_combination=_bool(form_d.is_business_combination),
-            sales_commission=_dec(form_d.sales_commission),
-            finders_fees=_dec(form_d.finders_fees),
-            gross_proceeds_used=_dec(form_d.gross_proceeds_used),
-        )
-        if not form_d_result:
-            return False, None
-
-        form_d_id = form_d_result["secFormDId"]
-
-        for officer in form_d.officers:
-            await queries.insert_sec_officer(
+        # Begin transaction
+        await prisma.query_raw("BEGIN")
+        try:
+            form_d_result = await queries.upsert_sec_form_d(
                 prisma,
-                sec_form_d_id=form_d_id,
-                first_name=officer.first_name,
-                last_name=officer.last_name,
-                title=officer.title,
-                street=officer.street,
-                city=officer.city,
-                state=officer.state,
-                zip_code=officer.zip_code,
+                sec_filing_id=sec_filing_id,
+                issuer_name=form_d.issuer_name,
+                issuer_street=form_d.issuer_street,
+                issuer_city=form_d.issuer_city,
+                issuer_state=form_d.issuer_state,
+                issuer_zip=form_d.issuer_zip,
+                issuer_phone=form_d.issuer_phone,
+                entity_type=form_d.entity_type,
+                industry_group_type=form_d.industry_group_type,
+                revenue_range=form_d.revenue_range,
+                federal_exemptions=form_d.federal_exemptions,
+                total_offering_amount=_dec(form_d.total_offering_amount),
+                total_amount_sold=_dec(form_d.total_amount_sold),
+                total_remaining=_dec(form_d.total_remaining),
+                date_of_first_sale=form_d.date_of_first_sale.isoformat() if form_d.date_of_first_sale else None,
+                minimum_investment=_dec(form_d.minimum_investment),
+                total_investors=str(form_d.total_investors) if form_d.total_investors is not None else None,
+                has_non_accredited_investors=_bool(form_d.has_non_accredited_investors),
+                is_equity=_bool(form_d.is_equity),
+                is_pooled_investment=_bool(form_d.is_pooled_investment),
+                is_new_offering=_bool(form_d.is_new_offering),
+                more_than_one_year=_bool(form_d.more_than_one_year),
+                is_business_combination=_bool(form_d.is_business_combination),
+                sales_commission=_dec(form_d.sales_commission),
+                finders_fees=_dec(form_d.finders_fees),
+                gross_proceeds_used=_dec(form_d.gross_proceeds_used),
             )
+            if not form_d_result:
+                await prisma.query_raw("ROLLBACK")
+                return False, None
 
-        return True, form_d_id
+            form_d_id = form_d_result["secFormDId"]
+
+            # Delete existing officers before re-inserting (prevents duplicates on re-parse)
+            await queries.delete_officers_by_form_d(prisma, sec_form_d_id=form_d_id)
+
+            for officer in form_d.officers:
+                await queries.insert_sec_officer(
+                    prisma,
+                    sec_form_d_id=form_d_id,
+                    first_name=officer.first_name,
+                    last_name=officer.last_name,
+                    title=officer.title,
+                    street=officer.street,
+                    city=officer.city,
+                    state=officer.state,
+                    zip_code=officer.zip_code,
+                )
+
+            await prisma.query_raw("COMMIT")
+            return True, form_d_id
+        except Exception:
+            await prisma.query_raw("ROLLBACK")
+            raise
     except PrismaError as e:
         logger.error(f"Database error saving Form D {form_d.accession_number}: {e}")
         return False, None
