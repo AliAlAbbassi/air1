@@ -129,7 +129,7 @@ async def upsert_filing(filing: SecFilingData) -> tuple[bool, int | None]:
             accession_number=filing.accession_number,
             cik=filing.cik,
             form_type=filing.form_type,
-            filing_date=filing.filing_date,
+            filing_date=filing.filing_date.isoformat(),
             company_name=filing.company_name,
         )
         if result:
@@ -183,10 +183,10 @@ async def save_form_d_complete(
             industry_group_type=form_d.industry_group_type,
             revenue_range=form_d.revenue_range,
             federal_exemptions=form_d.federal_exemptions,
-            total_offering_amount=form_d.total_offering_amount,
-            total_amount_sold=form_d.total_amount_sold,
-            total_remaining=form_d.total_remaining,
-            date_of_first_sale=form_d.date_of_first_sale,
+            total_offering_amount=str(form_d.total_offering_amount) if form_d.total_offering_amount is not None else None,
+            total_amount_sold=str(form_d.total_amount_sold) if form_d.total_amount_sold is not None else None,
+            total_remaining=str(form_d.total_remaining) if form_d.total_remaining is not None else None,
+            date_of_first_sale=form_d.date_of_first_sale.isoformat() if form_d.date_of_first_sale else None,
         )
         if not form_d_result:
             return False, None

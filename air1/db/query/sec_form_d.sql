@@ -10,8 +10,8 @@ VALUES (
     :sec_filing_id, :issuer_name, :issuer_street, :issuer_city,
     :issuer_state, :issuer_zip, :issuer_phone, :entity_type,
     :industry_group_type, :revenue_range, :federal_exemptions,
-    :total_offering_amount, :total_amount_sold, :total_remaining,
-    :date_of_first_sale
+    CAST(:total_offering_amount AS DECIMAL(20,2)), CAST(:total_amount_sold AS DECIMAL(20,2)), CAST(:total_remaining AS DECIMAL(20,2)),
+    CAST(:date_of_first_sale AS DATE)
 )
 ON CONFLICT (sec_filing_id) DO UPDATE SET
     issuer_name = COALESCE(EXCLUDED.issuer_name, sec_form_d.issuer_name),

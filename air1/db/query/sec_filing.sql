@@ -1,7 +1,7 @@
 -- name: upsert_sec_filing^
 INSERT INTO sec_filing (accession_number, cik, form_type, filing_date, company_name, sec_company_id)
 VALUES (
-    :accession_number, :cik, :form_type, :filing_date, :company_name,
+    :accession_number, :cik, :form_type, CAST(:filing_date AS DATE), :company_name,
     (SELECT sec_company_id FROM sec_company WHERE cik = :cik)
 )
 ON CONFLICT (accession_number) DO UPDATE SET
