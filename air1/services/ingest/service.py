@@ -4,6 +4,7 @@ Orchestrates SEC EDGAR data fetching and database persistence.
 Uses edgartools for API access and the repo layer for storage.
 """
 
+from abc import ABC, abstractmethod
 from datetime import date, timedelta
 from typing import Optional
 
@@ -13,7 +14,36 @@ from air1.services.ingest import repo
 from air1.services.ingest.sec_client import SECClient
 
 
-class Service:
+class IService(ABC):
+    """Service interface for SEC EDGAR ingestion."""
+
+    @abstractmethod
+    async def bootstrap_companies(self) -> int:
+        """Download all public company tickers and upsert into database."""
+        ...
+
+    @abstractmethod
+    async def enrich_companies(self, batch_size: int = 500) -> int:
+        """Fetch SEC profiles for unenriched companies in one batch."""
+        ...
+
+    @abstractmethod
+    async def ingest_form_d_filings(
+        self,
+        date_start: Optional[str] = None,
+        date_end: Optional[str] = None,
+        days: int = 30,
+    ) -> int:
+        """Fetch Form D filing index for a date range and store."""
+        ...
+
+    @abstractmethod
+    async def parse_form_d_details(self, batch_size: int = 100) -> int:
+        """Parse unparsed Form D filings to extract issuer, offering, and officers."""
+        ...
+
+
+class Service(IService):
     """SEC EDGAR ingestion service.
 
     Usage:
