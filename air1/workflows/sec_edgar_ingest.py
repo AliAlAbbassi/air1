@@ -20,7 +20,7 @@ async def sec_edgar_ingest(
     1. Bootstrap: download all ~10K public company tickers
     2. Enrich: fetch company details (SIC, address, phone, website) in batches
     3. Form D index: fetch recent Form D filings
-    4. Form D parse: extract issuer/offering/officer data
+    4. Form D parse: extract issuer/offering/officer data + auto-create companies
     """
     try:
         async with Service(identity=settings.sec_edgar_identity) as svc:
@@ -41,7 +41,7 @@ async def sec_edgar_ingest(
             form_d_count = await svc.ingest_form_d_filings(days=form_d_days)
             logger.info(f"Form D index complete: {form_d_count} filings")
 
-            # Step 4: Parse Form D details in batches
+            # Step 4: Parse Form D details in batches (auto-creates companies from issuer data)
             total_parsed = 0
             for _ in range(form_d_parse_iterations):
                 parsed = await svc.parse_form_d_details(batch_size=form_d_parse_batch)
@@ -53,6 +53,40 @@ async def sec_edgar_ingest(
             return {
                 "companies_bootstrapped": company_count,
                 "companies_enriched": total_enriched,
+                "form_d_indexed": form_d_count,
+                "form_d_parsed": total_parsed,
+            }
+    finally:
+        await disconnect_db()
+
+
+async def sec_edgar_daily(
+    form_d_parse_batch: int = 100,
+    form_d_parse_iterations: int = 50,
+    date_str: str | None = None,
+):
+    """
+    Daily SEC EDGAR pipeline - lightweight version for daily runs.
+
+    1. Fetch yesterday's Form D filings via daily index
+    2. Parse all unparsed Form D filings (auto-creates companies)
+    """
+    try:
+        async with Service(identity=settings.sec_edgar_identity) as svc:
+            # Step 1: Fetch daily Form D index
+            form_d_count = await svc.ingest_daily_form_d(date_str=date_str)
+            logger.info(f"Daily Form D index: {form_d_count} filings")
+
+            # Step 2: Parse all unparsed
+            total_parsed = 0
+            for _ in range(form_d_parse_iterations):
+                parsed = await svc.parse_form_d_details(batch_size=form_d_parse_batch)
+                total_parsed += parsed
+                if parsed < form_d_parse_batch:
+                    break
+            logger.info(f"Form D parsing complete: {total_parsed} filings parsed")
+
+            return {
                 "form_d_indexed": form_d_count,
                 "form_d_parsed": total_parsed,
             }

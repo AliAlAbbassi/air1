@@ -36,3 +36,16 @@ SELECT COUNT(*) FROM sec_company;
 
 -- name: count_sec_companies_not_enriched$
 SELECT COUNT(*) FROM sec_company WHERE enriched_at IS NULL;
+
+-- name: upsert_sec_company_from_issuer^
+INSERT INTO sec_company (cik, name, street, city, state_or_country, zip_code, phone)
+VALUES (:cik, :name, :street, :city, :state_or_country, :zip_code, :phone)
+ON CONFLICT (cik) DO UPDATE SET
+    name = COALESCE(EXCLUDED.name, sec_company.name),
+    street = COALESCE(EXCLUDED.street, sec_company.street),
+    city = COALESCE(EXCLUDED.city, sec_company.city),
+    state_or_country = COALESCE(EXCLUDED.state_or_country, sec_company.state_or_country),
+    zip_code = COALESCE(EXCLUDED.zip_code, sec_company.zip_code),
+    phone = COALESCE(EXCLUDED.phone, sec_company.phone),
+    updated_on = NOW()
+RETURNING sec_company_id AS "secCompanyId";

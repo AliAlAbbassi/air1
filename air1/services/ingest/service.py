@@ -38,6 +38,16 @@ class IService(ABC):
         ...
 
     @abstractmethod
+    async def ingest_daily_form_d(self, date_str: Optional[str] = None) -> int:
+        """Ingest Form D filings for a single day using the daily index."""
+        ...
+
+    @abstractmethod
+    async def ingest_current_form_d(self) -> int:
+        """Ingest real-time Form D filings from SEC current feed."""
+        ...
+
+    @abstractmethod
     async def parse_form_d_details(self, batch_size: int = 100) -> int:
         """Parse unparsed Form D filings to extract issuer, offering, and officers."""
         ...
@@ -116,6 +126,24 @@ class Service(IService):
             date_start = (date.today() - timedelta(days=days)).isoformat()
 
         filings = await self._client.fetch_form_d_filings(date_start, date_end)
+        return await self._store_filings(filings)
+
+    async def ingest_daily_form_d(self, date_str: Optional[str] = None) -> int:
+        """Ingest Form D filings for a single day using the daily index (efficient).
+
+        Args:
+            date_str: Date in YYYY-MM-DD format. Defaults to yesterday.
+        """
+        filings = await self._client.fetch_daily_form_d_filings(date_str)
+        return await self._store_filings(filings)
+
+    async def ingest_current_form_d(self) -> int:
+        """Ingest real-time Form D filings from SEC current feed (~24 hours)."""
+        filings = await self._client.fetch_current_form_d_filings()
+        return await self._store_filings(filings)
+
+    async def _store_filings(self, filings: list) -> int:
+        """Store a list of SecFilingData into the database."""
         if not filings:
             return 0
 
@@ -129,6 +157,9 @@ class Service(IService):
 
     async def parse_form_d_details(self, batch_size: int = 100) -> int:
         """Parse unparsed Form D filings to extract issuer, offering, and officers.
+
+        Auto-creates sec_company records from issuer data for private companies
+        not in the ticker list, then links orphaned filings.
 
         Returns count of successfully parsed filings.
         """
@@ -144,6 +175,19 @@ class Service(IService):
                 form_d = await self._client.fetch_form_d_detail(
                     row["accessionNumber"]
                 )
+
+                # Auto-create company from issuer data
+                if form_d.issuer_name:
+                    await repo.upsert_company_from_issuer(
+                        cik=form_d.cik,
+                        name=form_d.issuer_name,
+                        street=form_d.issuer_street,
+                        city=form_d.issuer_city,
+                        state_or_country=form_d.issuer_state,
+                        zip_code=form_d.issuer_zip,
+                        phone=form_d.issuer_phone,
+                    )
+
                 ok, _ = await repo.save_form_d_complete(
                     form_d, sec_filing_id=row["secFilingId"]
                 )
@@ -153,5 +197,9 @@ class Service(IService):
                 logger.warning(
                     f"Failed to parse Form D {row['accessionNumber']}: {e}"
                 )
+
+        # Link any filings that were orphaned before the company was created
+        await repo.link_orphaned_filings()
+
         logger.info(f"Parsed {parsed}/{len(unparsed)} Form D filings")
         return parsed

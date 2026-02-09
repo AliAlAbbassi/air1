@@ -3,7 +3,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from air1.db.prisma_client import connect_db, disconnect_db, get_prisma
+from air1.db.prisma_client import connect_db, disconnect_db
 from air1.services.ingest.models import (
     SecCompanyData,
     SecCompanyProfile,

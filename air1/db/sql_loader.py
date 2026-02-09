@@ -401,6 +401,19 @@ class IngestQueries(Protocol):
         self, conn: Any
     ) -> Optional[int]: ...
 
+    async def upsert_sec_company_from_issuer(
+        self,
+        conn: Any,
+        *,
+        cik: str,
+        name: str,
+        street: Optional[str] = None,
+        city: Optional[str] = None,
+        state_or_country: Optional[str] = None,
+        zip_code: Optional[str] = None,
+        phone: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]: ...
+
     async def upsert_sec_filing(
         self,
         conn: Any,
@@ -415,6 +428,8 @@ class IngestQueries(Protocol):
     async def get_form_d_filings_not_parsed(
         self, conn: Any, *, limit: int
     ) -> List[Dict[str, Any]]: ...
+
+    async def link_orphaned_filings(self, conn: Any) -> None: ...
 
     async def upsert_sec_form_d(
         self, conn: Any, **kwargs: Any

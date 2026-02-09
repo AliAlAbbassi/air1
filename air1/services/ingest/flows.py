@@ -128,6 +128,40 @@ async def enrich_flow(batch_size: int = 500, iterations: int = 25):
         await disconnect_db()
 
 
+@task(retries=1, retry_delay_seconds=30, log_prints=True)
+async def ingest_daily_form_d_task(date_str: Optional[str] = None) -> int:
+    """Fetch Form D filings for a single day using the daily index."""
+    async with Service(identity=settings.sec_edgar_identity) as svc:
+        return await svc.ingest_daily_form_d(date_str=date_str)
+
+
+@task(retries=1, retry_delay_seconds=30, log_prints=True)
+async def ingest_current_form_d_task() -> int:
+    """Fetch real-time Form D filings from SEC current feed."""
+    async with Service(identity=settings.sec_edgar_identity) as svc:
+        return await svc.ingest_current_form_d()
+
+
+@flow(name="sec-form-d-daily", log_prints=True)
+async def form_d_daily_flow(
+    parse_batch: int = 100,
+    parse_iterations: int = 50,
+    date_str: Optional[str] = None,
+):
+    """Daily Form D pipeline: fetch yesterday's index + parse all unparsed."""
+    try:
+        indexed = await ingest_daily_form_d_task(date_str=date_str)
+        total_parsed = 0
+        for i in range(parse_iterations):
+            parsed = await parse_form_d_batch_task(batch_size=parse_batch)
+            total_parsed += parsed
+            if parsed < parse_batch:
+                break
+        return {"form_d_indexed": indexed, "form_d_parsed": total_parsed}
+    finally:
+        await disconnect_db()
+
+
 @flow(name="sec-form-d-ingest", log_prints=True)
 async def form_d_flow(
     days: int = 30,

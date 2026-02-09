@@ -120,6 +120,53 @@ async def count_companies_not_enriched() -> int:
         return 0
 
 
+async def upsert_company_from_issuer(
+    cik: str,
+    name: str,
+    street: str | None = None,
+    city: str | None = None,
+    state_or_country: str | None = None,
+    zip_code: str | None = None,
+    phone: str | None = None,
+) -> tuple[bool, int | None]:
+    """Create or update a company from Form D issuer data. Returns (success, sec_company_id)."""
+    try:
+        prisma = await get_prisma()
+        result = await queries.upsert_sec_company_from_issuer(
+            prisma,
+            cik=cik,
+            name=name,
+            street=street,
+            city=city,
+            state_or_country=state_or_country,
+            zip_code=zip_code,
+            phone=phone,
+        )
+        if result:
+            return True, result["secCompanyId"]
+        return False, None
+    except PrismaError as e:
+        logger.error(f"Database error upserting company from issuer CIK={cik}: {e}")
+        return False, None
+    except Exception as e:
+        logger.error(f"Unexpected error upserting company from issuer CIK={cik}: {e}")
+        raise CompanyInsertionError(
+            f"Failed to upsert company from issuer CIK={cik}: {e}"
+        ) from e
+
+
+async def link_orphaned_filings() -> None:
+    """Link filings with sec_company_id=NULL to their companies by CIK."""
+    try:
+        prisma = await get_prisma()
+        await queries.link_orphaned_filings(prisma)
+        logger.info("Linked orphaned filings to companies")
+    except PrismaError as e:
+        logger.error(f"Database error linking orphaned filings: {e}")
+    except Exception as e:
+        raise QueryError(f"Failed to link orphaned filings: {e}") from e
+
+
 async def upsert_filing(filing: SecFilingData) -> tuple[bool, int | None]:
     """Insert or update a SEC filing. Returns (success, sec_filing_id)."""
     try:
@@ -170,6 +217,12 @@ async def save_form_d_complete(
     try:
         prisma = await get_prisma()
 
+        def _dec(val):
+            return str(val) if val is not None else None
+
+        def _bool(val):
+            return str(val).lower() if val is not None else None
+
         form_d_result = await queries.upsert_sec_form_d(
             prisma,
             sec_filing_id=sec_filing_id,
@@ -183,10 +236,21 @@ async def save_form_d_complete(
             industry_group_type=form_d.industry_group_type,
             revenue_range=form_d.revenue_range,
             federal_exemptions=form_d.federal_exemptions,
-            total_offering_amount=str(form_d.total_offering_amount) if form_d.total_offering_amount is not None else None,
-            total_amount_sold=str(form_d.total_amount_sold) if form_d.total_amount_sold is not None else None,
-            total_remaining=str(form_d.total_remaining) if form_d.total_remaining is not None else None,
+            total_offering_amount=_dec(form_d.total_offering_amount),
+            total_amount_sold=_dec(form_d.total_amount_sold),
+            total_remaining=_dec(form_d.total_remaining),
             date_of_first_sale=form_d.date_of_first_sale.isoformat() if form_d.date_of_first_sale else None,
+            minimum_investment=_dec(form_d.minimum_investment),
+            total_investors=str(form_d.total_investors) if form_d.total_investors is not None else None,
+            has_non_accredited_investors=_bool(form_d.has_non_accredited_investors),
+            is_equity=_bool(form_d.is_equity),
+            is_pooled_investment=_bool(form_d.is_pooled_investment),
+            is_new_offering=_bool(form_d.is_new_offering),
+            more_than_one_year=_bool(form_d.more_than_one_year),
+            is_business_combination=_bool(form_d.is_business_combination),
+            sales_commission=_dec(form_d.sales_commission),
+            finders_fees=_dec(form_d.finders_fees),
+            gross_proceeds_used=_dec(form_d.gross_proceeds_used),
         )
         if not form_d_result:
             return False, None

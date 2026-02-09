@@ -77,4 +77,15 @@ class SecFormDData(BaseModel):
     total_amount_sold: Optional[Decimal] = None
     total_remaining: Optional[Decimal] = None
     date_of_first_sale: Optional[date] = None
+    minimum_investment: Optional[Decimal] = None
+    total_investors: Optional[int] = None
+    has_non_accredited_investors: Optional[bool] = None
+    is_equity: Optional[bool] = None
+    is_pooled_investment: Optional[bool] = None
+    is_new_offering: Optional[bool] = None
+    more_than_one_year: Optional[bool] = None
+    is_business_combination: Optional[bool] = None
+    sales_commission: Optional[Decimal] = None
+    finders_fees: Optional[Decimal] = None
+    gross_proceeds_used: Optional[Decimal] = None
     officers: list[SecOfficerData] = []

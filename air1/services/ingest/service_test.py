@@ -185,12 +185,16 @@ async def test_parse_form_d_details(service, mock_client):
 
     with patch("air1.services.ingest.service.repo") as mock_repo:
         mock_repo.get_form_d_filings_not_parsed = AsyncMock(return_value=unparsed)
+        mock_repo.upsert_company_from_issuer = AsyncMock(return_value=(True, 1))
         mock_repo.save_form_d_complete = AsyncMock(return_value=(True, 1))
+        mock_repo.link_orphaned_filings = AsyncMock()
         result = await service.parse_form_d_details(batch_size=50)
 
     assert result == 1
     mock_client.fetch_form_d_detail.assert_awaited_once_with("0001-24-001")
     mock_repo.save_form_d_complete.assert_awaited_once_with(form_d, sec_filing_id=1)
+    mock_repo.upsert_company_from_issuer.assert_awaited_once()
+    mock_repo.link_orphaned_filings.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -220,7 +224,9 @@ async def test_parse_form_d_skips_failures(service, mock_client):
 
     with patch("air1.services.ingest.service.repo") as mock_repo:
         mock_repo.get_form_d_filings_not_parsed = AsyncMock(return_value=unparsed)
+        mock_repo.upsert_company_from_issuer = AsyncMock(return_value=(True, 1))
         mock_repo.save_form_d_complete = AsyncMock(return_value=(True, 2))
+        mock_repo.link_orphaned_filings = AsyncMock()
         result = await service.parse_form_d_details()
 
     assert result == 1

@@ -23,3 +23,9 @@ WHERE sf.form_type IN ('D', 'D/A')
   AND sfd.sec_form_d_id IS NULL
 ORDER BY sf.filing_date DESC
 LIMIT :limit;
+
+-- name: link_orphaned_filings!
+UPDATE sec_filing sf SET
+    sec_company_id = sc.sec_company_id
+FROM sec_company sc
+WHERE sf.cik = sc.cik AND sf.sec_company_id IS NULL;
