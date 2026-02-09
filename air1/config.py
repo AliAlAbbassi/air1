@@ -102,6 +102,12 @@ class Settings(BaseSettings):
         description="JWT token expiry in hours"
     )
 
+    # SEC EDGAR configuration
+    sec_edgar_identity: str = Field(
+        default="Air1 admin@air1.com",
+        description="Identity for SEC EDGAR API (required by SEC policy)"
+    )
+
     # AI/LLM configuration (Vertex AI)
     google_cloud_project: Optional[str] = Field(
         default=None, description="Google Cloud project ID for Vertex AI"

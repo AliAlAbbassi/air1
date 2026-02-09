@@ -28,6 +28,8 @@ dependencies = [
     "crewai-tools>=0.44.0",
     "google-cloud-aiplatform>=1.130.0",
     "litellm>=1.80.9",
+    "edgartools>=5.15.0",
+    "prefect>=3.6.16",
 ]
 
 [project.scripts]
