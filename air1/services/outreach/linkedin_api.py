@@ -862,7 +862,7 @@ class LinkedInAPI:
                 # CANT_RESEND_YET means we already sent a connection request (success)
                 if error_code == "CANT_RESEND_YET":
                     print(
-                        f"INFO: Connection request already sent (400 CANT_RESEND_YET)"
+                        "INFO: Connection request already sent (400 CANT_RESEND_YET)"
                     )
                     return True
 
@@ -911,20 +911,20 @@ class LinkedInAPI:
                     ]
                 ):
                     print(
-                        f"INFO: Connection request already exists (422 - duplicate/already connected)"
+                        "INFO: Connection request already exists (422 - duplicate/already connected)"
                     )
                     return True
                 else:
                     # Empty or minimal 422 response = invalid request
                     print(
-                        f"ERROR: Connection request failed with 422 - likely invalid profile ID format"
+                        "ERROR: Connection request failed with 422 - likely invalid profile ID format"
                     )
                     print(f"ERROR: Response: {res.text}")
                     return False
             else:
                 # No response data, likely invalid request
                 print(
-                    f"ERROR: Connection request failed with 422 - no response data (invalid request)"
+                    "ERROR: Connection request failed with 422 - no response data (invalid request)"
                 )
                 return False
 
