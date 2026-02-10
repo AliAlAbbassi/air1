@@ -4,6 +4,7 @@ Orchestrates SEC EDGAR data fetching and database persistence.
 Uses edgartools for API access and the repo layer for storage.
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from datetime import date, timedelta
 from typing import Optional
@@ -81,10 +82,13 @@ class Service(IService):
         logger.info(f"Upserted {count}/{len(companies)} companies")
         return count
 
-    async def enrich_companies(self, batch_size: int = 500) -> int:
+    async def enrich_companies(
+        self, batch_size: int = 500, concurrency: int = 8
+    ) -> int:
         """Fetch SEC profiles for unenriched companies.
 
-        Processes one batch. Call repeatedly to enrich all.
+        Processes one batch with concurrent requests (default 8, under
+        SEC's 10 req/s limit). Call repeatedly to enrich all.
         Returns count of successfully enriched companies.
         """
         unenriched = await repo.get_companies_not_enriched(limit=batch_size)
@@ -92,16 +96,21 @@ class Service(IService):
             logger.info("No unenriched companies remaining")
             return 0
 
-        logger.info(f"Enriching {len(unenriched)} companies...")
+        logger.info(f"Enriching {len(unenriched)} companies ({concurrency} concurrent)...")
+        sem = asyncio.Semaphore(concurrency)
         enriched = 0
-        for row in unenriched:
-            try:
-                profile = await self._client.fetch_company_profile(row["cik"])
-                ok = await repo.enrich_company(profile)
-                if ok:
-                    enriched += 1
-            except Exception as e:
-                logger.warning(f"Failed to enrich CIK={row['cik']}: {e}")
+
+        async def _enrich_one(row: dict) -> bool:
+            async with sem:
+                try:
+                    profile = await self._client.fetch_company_profile(row["cik"])
+                    return await repo.enrich_company(profile)
+                except Exception as e:
+                    logger.warning(f"Failed to enrich CIK={row['cik']}: {e}")
+                    return False
+
+        results = await asyncio.gather(*[_enrich_one(r) for r in unenriched])
+        enriched = sum(1 for ok in results if ok)
         logger.info(f"Enriched {enriched}/{len(unenriched)} companies")
         return enriched
 
@@ -155,11 +164,14 @@ class Service(IService):
         logger.info(f"Stored {stored}/{len(filings)} Form D filings")
         return stored
 
-    async def parse_form_d_details(self, batch_size: int = 100) -> int:
+    async def parse_form_d_details(
+        self, batch_size: int = 100, concurrency: int = 8
+    ) -> int:
         """Parse unparsed Form D filings to extract issuer, offering, and officers.
 
         Auto-creates sec_company records from issuer data for private companies
-        not in the ticker list, then links orphaned filings.
+        not in the ticker list, then links orphaned filings. Runs up to
+        `concurrency` fetches in parallel (DB writes are sequential per filing).
 
         Returns count of successfully parsed filings.
         """
@@ -168,35 +180,40 @@ class Service(IService):
             logger.info("No unparsed Form D filings remaining")
             return 0
 
-        logger.info(f"Parsing {len(unparsed)} Form D filings...")
-        parsed = 0
-        for row in unparsed:
-            try:
-                form_d = await self._client.fetch_form_d_detail(
-                    row["accessionNumber"]
-                )
+        logger.info(f"Parsing {len(unparsed)} Form D filings ({concurrency} concurrent)...")
+        sem = asyncio.Semaphore(concurrency)
 
-                # Auto-create company from issuer data
-                if form_d.issuer_name:
-                    await repo.upsert_company_from_issuer(
-                        cik=form_d.cik,
-                        name=form_d.issuer_name,
-                        street=form_d.issuer_street,
-                        city=form_d.issuer_city,
-                        state_or_country=form_d.issuer_state,
-                        zip_code=form_d.issuer_zip,
-                        phone=form_d.issuer_phone,
+        async def _parse_one(row: dict) -> bool:
+            async with sem:
+                try:
+                    form_d = await self._client.fetch_form_d_detail(
+                        row["accessionNumber"]
                     )
 
-                ok, _ = await repo.save_form_d_complete(
-                    form_d, sec_filing_id=row["secFilingId"]
-                )
-                if ok:
-                    parsed += 1
-            except Exception as e:
-                logger.warning(
-                    f"Failed to parse Form D {row['accessionNumber']}: {e}"
-                )
+                    # Auto-create company from issuer data
+                    if form_d.issuer_name:
+                        await repo.upsert_company_from_issuer(
+                            cik=form_d.cik,
+                            name=form_d.issuer_name,
+                            street=form_d.issuer_street,
+                            city=form_d.issuer_city,
+                            state_or_country=form_d.issuer_state,
+                            zip_code=form_d.issuer_zip,
+                            phone=form_d.issuer_phone,
+                        )
+
+                    ok, _ = await repo.save_form_d_complete(
+                        form_d, sec_filing_id=row["secFilingId"]
+                    )
+                    return ok
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to parse Form D {row['accessionNumber']}: {e}"
+                    )
+                    return False
+
+        results = await asyncio.gather(*[_parse_one(r) for r in unparsed])
+        parsed = sum(1 for ok in results if ok)
 
         # Link any filings that were orphaned before the company was created
         await repo.link_orphaned_filings()
