@@ -73,11 +73,14 @@ async def test_enrich_companies(service, mock_client):
 
     with patch("air1.services.ingest.service.repo") as mock_repo:
         mock_repo.get_companies_not_enriched = AsyncMock(return_value=unenriched)
-        mock_repo.enrich_company = AsyncMock(return_value=True)
+        mock_repo.enrich_companies_batch = AsyncMock(return_value=2)
         result = await service.enrich_companies(batch_size=10)
 
     assert result == 2
     assert mock_client.fetch_company_profile.await_count == 2
+    mock_repo.enrich_companies_batch.assert_awaited_once()
+    profiles = mock_repo.enrich_companies_batch.call_args[0][0]
+    assert len(profiles) == 2
 
 
 @pytest.mark.asyncio
@@ -107,10 +110,13 @@ async def test_enrich_companies_skips_failures(service, mock_client):
 
     with patch("air1.services.ingest.service.repo") as mock_repo:
         mock_repo.get_companies_not_enriched = AsyncMock(return_value=unenriched)
-        mock_repo.enrich_company = AsyncMock(return_value=True)
+        mock_repo.enrich_companies_batch = AsyncMock(return_value=2)
         result = await service.enrich_companies()
 
     assert result == 2
+    # Only 2 profiles fetched successfully, so batch should receive 2
+    profiles = mock_repo.enrich_companies_batch.call_args[0][0]
+    assert len(profiles) == 2
 
 
 @pytest.mark.asyncio
@@ -129,7 +135,6 @@ async def test_ingest_form_d_filings(service, mock_client):
 
     with patch("air1.services.ingest.service.repo") as mock_repo:
         mock_repo.upsert_filings_batch = AsyncMock(return_value=1)
-        mock_repo.link_orphaned_filings = AsyncMock()
         result = await service.ingest_form_d_filings(
             date_start="2025-01-01", date_end="2025-01-31"
         )
@@ -186,15 +191,21 @@ async def test_parse_form_d_details(service, mock_client):
 
     with patch("air1.services.ingest.service.repo") as mock_repo:
         mock_repo.get_form_d_filings_not_parsed = AsyncMock(return_value=unparsed)
-        mock_repo.upsert_company_from_issuer = AsyncMock(return_value=(True, 1))
-        mock_repo.save_form_d_complete = AsyncMock(return_value=(True, 1))
+        mock_repo.upsert_companies_from_issuers_batch = AsyncMock(return_value=1)
+        mock_repo.save_form_d_batch = AsyncMock(return_value=1)
         mock_repo.link_orphaned_filings = AsyncMock()
         result = await service.parse_form_d_details(batch_size=50)
 
     assert result == 1
     mock_client.fetch_form_d_detail.assert_awaited_once_with("0001-24-001")
-    mock_repo.save_form_d_complete.assert_awaited_once_with(form_d, sec_filing_id=1)
-    mock_repo.upsert_company_from_issuer.assert_awaited_once()
+    mock_repo.upsert_companies_from_issuers_batch.assert_awaited_once()
+    issuers = mock_repo.upsert_companies_from_issuers_batch.call_args[0][0]
+    assert len(issuers) == 1
+    assert issuers[0][0] == "1234"  # cik
+    mock_repo.save_form_d_batch.assert_awaited_once()
+    items = mock_repo.save_form_d_batch.call_args[0][0]
+    assert len(items) == 1
+    assert items[0] == (form_d, 1)
     mock_repo.link_orphaned_filings.assert_awaited_once()
 
 
@@ -225,12 +236,15 @@ async def test_parse_form_d_skips_failures(service, mock_client):
 
     with patch("air1.services.ingest.service.repo") as mock_repo:
         mock_repo.get_form_d_filings_not_parsed = AsyncMock(return_value=unparsed)
-        mock_repo.upsert_company_from_issuer = AsyncMock(return_value=(True, 1))
-        mock_repo.save_form_d_complete = AsyncMock(return_value=(True, 2))
+        mock_repo.upsert_companies_from_issuers_batch = AsyncMock(return_value=0)
+        mock_repo.save_form_d_batch = AsyncMock(return_value=1)
         mock_repo.link_orphaned_filings = AsyncMock()
         result = await service.parse_form_d_details()
 
+    # Only 1 form_d fetched successfully (acc-2), so batch gets 1 item
     assert result == 1
+    items = mock_repo.save_form_d_batch.call_args[0][0]
+    assert len(items) == 1
 
 
 @pytest.mark.asyncio

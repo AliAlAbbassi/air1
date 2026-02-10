@@ -98,19 +98,18 @@ class Service(IService):
 
         logger.info(f"Enriching {len(unenriched)} companies ({concurrency} concurrent)...")
         sem = asyncio.Semaphore(concurrency)
-        enriched = 0
 
-        async def _enrich_one(row: dict) -> bool:
+        async def _fetch_one(row: dict):
             async with sem:
                 try:
-                    profile = await self._client.fetch_company_profile(row["cik"])
-                    return await repo.enrich_company(profile)
+                    return await self._client.fetch_company_profile(row["cik"])
                 except Exception as e:
                     logger.warning(f"Failed to enrich CIK={row['cik']}: {e}")
-                    return False
+                    return None
 
-        results = await asyncio.gather(*[_enrich_one(r) for r in unenriched])
-        enriched = sum(1 for ok in results if ok)
+        results = await asyncio.gather(*[_fetch_one(r) for r in unenriched])
+        profiles = [p for p in results if p is not None]
+        enriched = await repo.enrich_companies_batch(profiles)
         logger.info(f"Enriched {enriched}/{len(unenriched)} companies")
         return enriched
 
@@ -201,31 +200,30 @@ class Service(IService):
 
         fetch_results = await asyncio.gather(*[_fetch_one(r) for r in unparsed])
 
-        # Step 2: Write to DB sequentially (transactions need serial access)
-        parsed = 0
+        # Step 2: Collect valid results and batch-write to DB
+        issuers: dict[str, tuple] = {}
+        form_d_items: list[tuple] = []  # (SecFormDData, sec_filing_id)
         for row, form_d in fetch_results:
             if form_d is None:
                 continue
-            try:
-                if form_d.issuer_name:
-                    await repo.upsert_company_from_issuer(
-                        cik=form_d.cik,
-                        name=form_d.issuer_name,
-                        street=form_d.issuer_street,
-                        city=form_d.issuer_city,
-                        state_or_country=form_d.issuer_state,
-                        zip_code=form_d.issuer_zip,
-                        phone=form_d.issuer_phone,
-                    )
-                ok, _ = await repo.save_form_d_complete(
-                    form_d, sec_filing_id=row["secFilingId"]
+            if form_d.issuer_name and form_d.cik not in issuers:
+                issuers[form_d.cik] = (
+                    form_d.cik,
+                    form_d.issuer_name,
+                    form_d.issuer_street,
+                    form_d.issuer_city,
+                    form_d.issuer_state,
+                    form_d.issuer_zip,
+                    form_d.issuer_phone,
                 )
-                if ok:
-                    parsed += 1
-            except Exception as e:
-                logger.warning(
-                    f"Failed to save Form D {row['accessionNumber']}: {e}"
-                )
+            form_d_items.append((form_d, row["secFilingId"]))
+
+        # Batch upsert issuer companies first (needed for FK linkage)
+        if issuers:
+            await repo.upsert_companies_from_issuers_batch(list(issuers.values()))
+
+        # Batch save all form_d + officers in a single transaction
+        parsed = await repo.save_form_d_batch(form_d_items)
 
         # Link any filings that were orphaned before the company was created
         await repo.link_orphaned_filings()
