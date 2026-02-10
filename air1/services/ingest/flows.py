@@ -1,10 +1,15 @@
 """Prefect flows for SEC EDGAR ingestion pipeline.
 
-Flows orchestrate the service methods with retries, logging, and scheduling.
-The service works standalone (via CLI) without Prefect — these flows add
-orchestration on top.
+DAG structure for full pipeline:
+
+    bootstrap ──┬──→ enrich (batched)
+                └──→ index ──→ parse (batched)
+
+Enrich and index run in parallel after bootstrap.
+Parse waits for index to complete.
 """
 
+import asyncio
 from typing import Optional
 
 from loguru import logger
@@ -15,6 +20,11 @@ from air1.db.prisma_client import disconnect_db
 from air1.services.ingest.service import Service
 
 
+# ---------------------------------------------------------------------------
+# Tasks
+# ---------------------------------------------------------------------------
+
+
 @task(retries=2, retry_delay_seconds=60, log_prints=True)
 async def bootstrap_companies_task() -> int:
     """Download and store all public companies from SEC."""
@@ -23,10 +33,18 @@ async def bootstrap_companies_task() -> int:
 
 
 @task(retries=1, retry_delay_seconds=30, log_prints=True)
-async def enrich_companies_task(batch_size: int = 500) -> int:
-    """Enrich a batch of unenriched companies."""
+async def enrich_companies_task(
+    batch_size: int = 500, max_iterations: int = 25
+) -> int:
+    """Enrich unenriched companies in batches until done."""
     async with Service(identity=settings.sec_edgar_identity) as svc:
-        return await svc.enrich_companies(batch_size=batch_size)
+        total = 0
+        for _ in range(max_iterations):
+            enriched = await svc.enrich_companies(batch_size=batch_size)
+            total += enriched
+            if enriched < batch_size:
+                break
+        return total
 
 
 @task(retries=1, retry_delay_seconds=30, log_prints=True)
@@ -43,55 +61,76 @@ async def ingest_form_d_index_task(
 
 
 @task(retries=1, retry_delay_seconds=30, log_prints=True)
-async def parse_form_d_batch_task(batch_size: int = 100) -> int:
-    """Parse a batch of unparsed Form D filings."""
+async def ingest_daily_form_d_task(date_str: Optional[str] = None) -> int:
+    """Fetch Form D filings for a single day using the daily index."""
     async with Service(identity=settings.sec_edgar_identity) as svc:
-        return await svc.parse_form_d_details(batch_size=batch_size)
+        return await svc.ingest_daily_form_d(date_str=date_str)
+
+
+@task(retries=1, retry_delay_seconds=30, log_prints=True)
+async def ingest_current_form_d_task() -> int:
+    """Fetch real-time Form D filings from SEC current feed."""
+    async with Service(identity=settings.sec_edgar_identity) as svc:
+        return await svc.ingest_current_form_d()
+
+
+@task(retries=1, retry_delay_seconds=30, log_prints=True)
+async def parse_form_d_task(
+    batch_size: int = 100, max_iterations: int = 50
+) -> int:
+    """Parse all unparsed Form D filings in batches until done."""
+    async with Service(identity=settings.sec_edgar_identity) as svc:
+        total = 0
+        for _ in range(max_iterations):
+            parsed = await svc.parse_form_d_details(batch_size=batch_size)
+            total += parsed
+            if parsed < batch_size:
+                break
+        return total
+
+
+# ---------------------------------------------------------------------------
+# Flows
+# ---------------------------------------------------------------------------
 
 
 @flow(name="sec-edgar-full-ingest", log_prints=True)
 async def full_ingest_flow(
     enrich_batch_size: int = 500,
+    enrich_iterations: int = 25,
     form_d_days: int = 30,
     form_d_parse_batch: int = 100,
-    enrich_iterations: int = 25,
-    parse_iterations: int = 20,
+    parse_iterations: int = 50,
 ):
-    """Full SEC EDGAR ingestion pipeline.
+    """Full SEC EDGAR ingestion pipeline (DAG).
 
-    1. Bootstrap: download all company tickers
-    2. Enrich: fetch company details in batches
-    3. Form D index: fetch recent Form D filings
-    4. Form D parse: extract issuer/offering/officer data
+    bootstrap ──┬──→ enrich
+                └──→ index ──→ parse
+
+    Enrich and index run in parallel after bootstrap.
     """
     try:
-        # Step 1: Bootstrap
+        # Step 1: Bootstrap (must complete before anything else)
         company_count = await bootstrap_companies_task()
         logger.info(f"Bootstrap complete: {company_count} companies")
 
-        # Step 2: Enrich in batches
-        total_enriched = 0
-        for i in range(enrich_iterations):
-            enriched = await enrich_companies_task(batch_size=enrich_batch_size)
-            total_enriched += enriched
-            if enriched < enrich_batch_size:
-                logger.info("All companies enriched")
-                break
-        logger.info(f"Enrichment complete: {total_enriched} companies enriched")
+        # Step 2+3: Enrich and Index run in parallel
+        enrich_coro = enrich_companies_task(
+            batch_size=enrich_batch_size, max_iterations=enrich_iterations
+        )
+        index_coro = ingest_form_d_index_task(days=form_d_days)
 
-        # Step 3: Fetch Form D filing index
-        form_d_count = await ingest_form_d_index_task(days=form_d_days)
+        total_enriched, form_d_count = await asyncio.gather(
+            enrich_coro, index_coro
+        )
+        logger.info(f"Enrich complete: {total_enriched} companies")
         logger.info(f"Form D index complete: {form_d_count} filings")
 
-        # Step 4: Parse Form D details in batches
-        total_parsed = 0
-        for i in range(parse_iterations):
-            parsed = await parse_form_d_batch_task(batch_size=form_d_parse_batch)
-            total_parsed += parsed
-            if parsed < form_d_parse_batch:
-                logger.info("All Form D filings parsed")
-                break
-        logger.info(f"Form D parsing complete: {total_parsed} filings parsed")
+        # Step 4: Parse (depends on index completing)
+        total_parsed = await parse_form_d_task(
+            batch_size=form_d_parse_batch, max_iterations=parse_iterations
+        )
+        logger.info(f"Form D parse complete: {total_parsed} filings")
 
         return {
             "companies_bootstrapped": company_count,
@@ -99,6 +138,48 @@ async def full_ingest_flow(
             "form_d_indexed": form_d_count,
             "form_d_parsed": total_parsed,
         }
+    finally:
+        await disconnect_db()
+
+
+@flow(name="sec-form-d-daily", log_prints=True)
+async def form_d_daily_flow(
+    parse_batch: int = 100,
+    parse_iterations: int = 50,
+    date_str: Optional[str] = None,
+):
+    """Daily Form D pipeline: fetch yesterday's index + parse all unparsed."""
+    try:
+        indexed = await ingest_daily_form_d_task(date_str=date_str)
+        logger.info(f"Daily index complete: {indexed} filings")
+
+        total_parsed = await parse_form_d_task(
+            batch_size=parse_batch, max_iterations=parse_iterations
+        )
+        logger.info(f"Parse complete: {total_parsed} filings")
+
+        return {"form_d_indexed": indexed, "form_d_parsed": total_parsed}
+    finally:
+        await disconnect_db()
+
+
+@flow(name="sec-form-d-ingest", log_prints=True)
+async def form_d_flow(
+    days: int = 30,
+    parse_batch: int = 100,
+    parse_iterations: int = 50,
+):
+    """Fetch and parse Form D filings."""
+    try:
+        indexed = await ingest_form_d_index_task(days=days)
+        logger.info(f"Index complete: {indexed} filings")
+
+        total_parsed = await parse_form_d_task(
+            batch_size=parse_batch, max_iterations=parse_iterations
+        )
+        logger.info(f"Parse complete: {total_parsed} filings")
+
+        return {"form_d_indexed": indexed, "form_d_parsed": total_parsed}
     finally:
         await disconnect_db()
 
@@ -115,68 +196,11 @@ async def bootstrap_flow():
 
 @flow(name="sec-edgar-enrich", log_prints=True)
 async def enrich_flow(batch_size: int = 500, iterations: int = 25):
-    """Enrich companies incrementally in batches."""
+    """Enrich companies incrementally."""
     try:
-        total = 0
-        for i in range(iterations):
-            enriched = await enrich_companies_task(batch_size=batch_size)
-            total += enriched
-            if enriched < batch_size:
-                break
+        total = await enrich_companies_task(
+            batch_size=batch_size, max_iterations=iterations
+        )
         return {"companies_enriched": total}
-    finally:
-        await disconnect_db()
-
-
-@task(retries=1, retry_delay_seconds=30, log_prints=True)
-async def ingest_daily_form_d_task(date_str: Optional[str] = None) -> int:
-    """Fetch Form D filings for a single day using the daily index."""
-    async with Service(identity=settings.sec_edgar_identity) as svc:
-        return await svc.ingest_daily_form_d(date_str=date_str)
-
-
-@task(retries=1, retry_delay_seconds=30, log_prints=True)
-async def ingest_current_form_d_task() -> int:
-    """Fetch real-time Form D filings from SEC current feed."""
-    async with Service(identity=settings.sec_edgar_identity) as svc:
-        return await svc.ingest_current_form_d()
-
-
-@flow(name="sec-form-d-daily", log_prints=True)
-async def form_d_daily_flow(
-    parse_batch: int = 100,
-    parse_iterations: int = 50,
-    date_str: Optional[str] = None,
-):
-    """Daily Form D pipeline: fetch yesterday's index + parse all unparsed."""
-    try:
-        indexed = await ingest_daily_form_d_task(date_str=date_str)
-        total_parsed = 0
-        for i in range(parse_iterations):
-            parsed = await parse_form_d_batch_task(batch_size=parse_batch)
-            total_parsed += parsed
-            if parsed < parse_batch:
-                break
-        return {"form_d_indexed": indexed, "form_d_parsed": total_parsed}
-    finally:
-        await disconnect_db()
-
-
-@flow(name="sec-form-d-ingest", log_prints=True)
-async def form_d_flow(
-    days: int = 30,
-    parse_batch: int = 100,
-    parse_iterations: int = 20,
-):
-    """Fetch and parse Form D filings."""
-    try:
-        indexed = await ingest_form_d_index_task(days=days)
-        total_parsed = 0
-        for i in range(parse_iterations):
-            parsed = await parse_form_d_batch_task(batch_size=parse_batch)
-            total_parsed += parsed
-            if parsed < parse_batch:
-                break
-        return {"form_d_indexed": indexed, "form_d_parsed": total_parsed}
     finally:
         await disconnect_db()
