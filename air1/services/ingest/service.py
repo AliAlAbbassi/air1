@@ -152,15 +152,16 @@ class Service(IService):
         return await self._store_filings(filings)
 
     async def _store_filings(self, filings: list) -> int:
-        """Store a list of SecFilingData into the database."""
+        """Store a list of SecFilingData in batch (single SQL query per chunk)."""
         if not filings:
             return 0
 
+        # Postgres has a parameter limit (~32K), chunk at 1000 filings (5 params each)
+        chunk_size = 1000
         stored = 0
-        for filing in filings:
-            ok, _ = await repo.upsert_filing(filing)
-            if ok:
-                stored += 1
+        for i in range(0, len(filings), chunk_size):
+            chunk = filings[i : i + chunk_size]
+            stored += await repo.upsert_filings_batch(chunk)
         logger.info(f"Stored {stored}/{len(filings)} Form D filings")
         return stored
 
@@ -169,9 +170,9 @@ class Service(IService):
     ) -> int:
         """Parse unparsed Form D filings to extract issuer, offering, and officers.
 
-        Auto-creates sec_company records from issuer data for private companies
-        not in the ticker list, then links orphaned filings. Runs up to
-        `concurrency` fetches in parallel (DB writes are sequential per filing).
+        Fetches Form D XML from SEC concurrently (up to `concurrency`), then
+        writes to DB sequentially (transactions require serial access).
+        Auto-creates sec_company records from issuer data for private companies.
 
         Returns count of successfully parsed filings.
         """
@@ -180,40 +181,51 @@ class Service(IService):
             logger.info("No unparsed Form D filings remaining")
             return 0
 
-        logger.info(f"Parsing {len(unparsed)} Form D filings ({concurrency} concurrent)...")
+        logger.info(f"Parsing {len(unparsed)} Form D filings ({concurrency} concurrent fetches)...")
+
+        # Step 1: Fetch all Form D details concurrently from SEC API
         sem = asyncio.Semaphore(concurrency)
 
-        async def _parse_one(row: dict) -> bool:
+        async def _fetch_one(row: dict):
             async with sem:
                 try:
                     form_d = await self._client.fetch_form_d_detail(
                         row["accessionNumber"]
                     )
-
-                    # Auto-create company from issuer data
-                    if form_d.issuer_name:
-                        await repo.upsert_company_from_issuer(
-                            cik=form_d.cik,
-                            name=form_d.issuer_name,
-                            street=form_d.issuer_street,
-                            city=form_d.issuer_city,
-                            state_or_country=form_d.issuer_state,
-                            zip_code=form_d.issuer_zip,
-                            phone=form_d.issuer_phone,
-                        )
-
-                    ok, _ = await repo.save_form_d_complete(
-                        form_d, sec_filing_id=row["secFilingId"]
-                    )
-                    return ok
+                    return (row, form_d)
                 except Exception as e:
                     logger.warning(
-                        f"Failed to parse Form D {row['accessionNumber']}: {e}"
+                        f"Failed to fetch Form D {row['accessionNumber']}: {e}"
                     )
-                    return False
+                    return (row, None)
 
-        results = await asyncio.gather(*[_parse_one(r) for r in unparsed])
-        parsed = sum(1 for ok in results if ok)
+        fetch_results = await asyncio.gather(*[_fetch_one(r) for r in unparsed])
+
+        # Step 2: Write to DB sequentially (transactions need serial access)
+        parsed = 0
+        for row, form_d in fetch_results:
+            if form_d is None:
+                continue
+            try:
+                if form_d.issuer_name:
+                    await repo.upsert_company_from_issuer(
+                        cik=form_d.cik,
+                        name=form_d.issuer_name,
+                        street=form_d.issuer_street,
+                        city=form_d.issuer_city,
+                        state_or_country=form_d.issuer_state,
+                        zip_code=form_d.issuer_zip,
+                        phone=form_d.issuer_phone,
+                    )
+                ok, _ = await repo.save_form_d_complete(
+                    form_d, sec_filing_id=row["secFilingId"]
+                )
+                if ok:
+                    parsed += 1
+            except Exception as e:
+                logger.warning(
+                    f"Failed to save Form D {row['accessionNumber']}: {e}"
+                )
 
         # Link any filings that were orphaned before the company was created
         await repo.link_orphaned_filings()

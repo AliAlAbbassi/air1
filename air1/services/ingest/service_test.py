@@ -128,7 +128,8 @@ async def test_ingest_form_d_filings(service, mock_client):
     mock_client.fetch_form_d_filings.return_value = filings
 
     with patch("air1.services.ingest.service.repo") as mock_repo:
-        mock_repo.upsert_filing = AsyncMock(return_value=(True, 1))
+        mock_repo.upsert_filings_batch = AsyncMock(return_value=1)
+        mock_repo.link_orphaned_filings = AsyncMock()
         result = await service.ingest_form_d_filings(
             date_start="2025-01-01", date_end="2025-01-31"
         )

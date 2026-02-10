@@ -196,6 +196,51 @@ async def upsert_filing(filing: SecFilingData) -> tuple[bool, int | None]:
         ) from e
 
 
+async def upsert_filings_batch(filings: list[SecFilingData]) -> int:
+    """Batch upsert filings in a single SQL query. Returns count stored."""
+    if not filings:
+        return 0
+    try:
+        prisma = await get_prisma()
+        # Build multi-row VALUES for a single INSERT
+        placeholders = []
+        params: list = []
+        for i, f in enumerate(filings):
+            off = i * 5
+            placeholders.append(
+                f"(${off+1}, ${off+2}, ${off+3}, ${off+4}::DATE, ${off+5})"
+            )
+            params.extend([
+                f.accession_number,
+                f.cik,
+                f.form_type,
+                f.filing_date.isoformat(),
+                f.company_name,
+            ])
+        values_sql = ", ".join(placeholders)
+        sql = f"""
+            INSERT INTO sec_filing (accession_number, cik, form_type, filing_date, company_name)
+            VALUES {values_sql}
+            ON CONFLICT (accession_number) DO UPDATE SET
+                form_type = EXCLUDED.form_type,
+                company_name = COALESCE(EXCLUDED.company_name, sec_filing.company_name),
+                updated_on = NOW()
+        """
+        await prisma.execute_raw(sql, *params)
+
+        # Link to companies in bulk
+        await queries.link_orphaned_filings(prisma)
+        return len(filings)
+    except PrismaError as e:
+        logger.error(f"Database error batch upserting {len(filings)} filings: {e}")
+        return 0
+    except Exception as e:
+        logger.error(f"Unexpected error batch upserting filings: {e}")
+        raise FilingInsertionError(
+            f"Failed to batch upsert {len(filings)} filings: {e}"
+        ) from e
+
+
 async def get_form_d_filings_not_parsed(limit: int = 100) -> list[dict]:
     """Get Form D filings that haven't been parsed yet."""
     try:
