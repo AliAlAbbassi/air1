@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from loguru import logger
 
-from air1.api.routes import onboarding_router, research_router, account_router, admin_router
+from air1.api.routes import onboarding_router, research_router, account_router, admin_router, leadgen_router
 from air1.db.prisma_client import disconnect_db
 from air1.config import settings
 
@@ -40,6 +40,7 @@ app.include_router(onboarding_router)
 app.include_router(research_router)
 app.include_router(account_router)
 app.include_router(admin_router)
+app.include_router(leadgen_router)
 
 
 @app.exception_handler(RequestValidationError)
