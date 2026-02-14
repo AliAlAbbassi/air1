@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     email_from_address: str = Field(default="noreply@yourdomain.com", description="From email address")
     email_from_name: str = Field(default="Air1 Lead Generation", description="From name for emails")
 
+    # Enrichment API keys
+    serper_api_key: Optional[str] = Field(default=None, description="Serper.dev API key for Google search")
+
     # Email batching and rate limiting configuration
     email_batch_size: int = Field(
         default=50,
