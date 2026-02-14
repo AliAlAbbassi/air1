@@ -361,6 +361,14 @@ class AdminQueries(Protocol):
     ) -> None: ...
 
 
+class EnrichmentQueries(Protocol):
+    """Protocol for enrichment SQL queries."""
+
+    async def get_software_companies_without_websites(
+        self, conn: Any, *, limit: int
+    ) -> List[Dict[str, Any]]: ...
+
+
 class IngestQueries(Protocol):
     """Protocol for SEC ingest SQL queries."""
 
@@ -455,3 +463,4 @@ onboarding_queries: OnboardingQueries = aiosql.from_path(query_dir, "prisma")  #
 account_queries: AccountQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 admin_queries: AdminQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 ingest_queries: IngestQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
+enrichment_queries: EnrichmentQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore

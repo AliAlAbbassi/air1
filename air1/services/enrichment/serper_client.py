@@ -13,8 +13,29 @@ Setup:
 import httpx
 import re
 from typing import Optional
-from urllib.parse import urlparse
 from loguru import logger
+
+JUNK_DOMAINS = {
+    # News/Media
+    "bloomberg.com", "forbes.com", "reuters.com", "wsj.com", "nytimes.com",
+    "techcrunch.com", "businesswire.com", "prnewswire.com", "marketwatch.com",
+    # Financial/SEC databases
+    "sec.gov", "otcmarkets.com", "streetinsider.com", "disclosurequest.com",
+    "formds.com", "whalewisdom.com",
+    # Generic business databases
+    "bizapedia.com", "trademarkia.com", "dnb.com", "manta.com", "zoominfo.com",
+    "bizprofile.net",
+    # Government
+    "govtribe.com",
+    # Random junk
+    "mapquest.com", "issuu.com",
+}
+
+SOCIAL_DOMAINS = {
+    "linkedin.com", "twitter.com", "x.com", "facebook.com",
+    "instagram.com", "youtube.com", "crunchbase.com", "pitchbook.com",
+    "github.com",
+}
 
 
 class SerperClient:
@@ -23,27 +44,15 @@ class SerperClient:
     BASE_URL = "https://google.serper.dev/search"
 
     def __init__(self, api_key: str):
-        """Initialize Serper client.
-
-        Args:
-            api_key: Serper.dev API key
-        """
         self.api_key = api_key
 
     async def search_company(
         self, company_name: str, city: Optional[str] = None, state: Optional[str] = None
-    ) -> Optional[str]:
-        """Search for a company and extract its website.
+    ) -> dict:
+        """Search for a company and return ALL useful URLs from one query.
 
-        Args:
-            company_name: The company name
-            city: Optional city for more precise results
-            state: Optional state for more precise results
-
-        Returns:
-            Website URL or None if not found
+        Returns dict: {website, linkedin, twitter, all_results: [{link, title, snippet, domain}]}
         """
-        # Build search query with location context
         query = company_name
         if city and state:
             query = f"{company_name} {city} {state}"
@@ -58,112 +67,78 @@ class SerperClient:
                         "X-API-KEY": self.api_key,
                         "Content-Type": "application/json",
                     },
-                    json={
-                        "q": query,
-                        "num": 5,  # Get top 5 results
-                    },
+                    json={"q": query, "num": 10},
                 )
                 response.raise_for_status()
-
                 data = response.json()
-                organic = data.get("organic", [])
-
-                if not organic:
-                    return None
-
-                # Try to find the best result
-                for item in organic:
-                    link = item.get("link", "")
-                    if not link:
-                        continue
-
-                    # Extract domain
-                    domain = self._extract_domain(link)
-                    if not domain:
-                        continue
-
-                    # Filter out social media, news sites, and databases
-                    if self._is_valid_company_domain(domain):
-                        return f"https://{domain}"
-
-                return None
 
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 429:
                     logger.warning("Serper API quota exceeded")
-                elif e.response.status_code == 403:
-                    logger.warning("Serper API forbidden - check API key")
                 else:
                     logger.warning(f"Serper API error for {company_name}: {e}")
-                return None
+                return {"website": None, "linkedin": None, "twitter": None, "all_results": []}
             except Exception as e:
                 logger.warning(f"Failed to search for {company_name}: {e}")
-                return None
+                return {"website": None, "linkedin": None, "twitter": None, "all_results": []}
 
-    def _extract_domain(self, url: str) -> Optional[str]:
-        """Extract clean domain from URL."""
+        organic = data.get("organic", [])
+        website = None
+        linkedin = None
+        twitter = None
+        all_results = []
+
+        for item in organic:
+            link = item.get("link", "")
+            if not link:
+                continue
+
+            domain = self._extract_domain(link)
+            if not domain or self._is_junk(domain):
+                continue
+
+            all_results.append({
+                "link": link,
+                "title": item.get("title", ""),
+                "snippet": item.get("snippet", ""),
+                "domain": domain,
+            })
+
+            # Extract LinkedIn company page
+            if "linkedin.com/company/" in link and not linkedin:
+                linkedin = link
+
+            # Extract Twitter/X
+            elif re.search(r"(twitter\.com|x\.com)/\w+", link) and not twitter:
+                twitter = link
+
+            # Extract primary website (first non-social, non-junk result)
+            elif not website and domain not in SOCIAL_DOMAINS:
+                website = link
+
+        return {
+            "website": website,
+            "linkedin": linkedin,
+            "twitter": twitter,
+            "all_results": all_results,
+        }
+
+    @staticmethod
+    def _extract_domain(url: str) -> Optional[str]:
         try:
+            from urllib.parse import urlparse
             parsed = urlparse(url)
             domain = parsed.netloc or parsed.path.split("/")[0]
-            # Remove www. prefix
             if domain.startswith("www."):
                 domain = domain[4:]
-            return domain
+            return domain.lower()
         except Exception:
             return None
 
-    def _is_valid_company_domain(self, domain: str) -> bool:
-        """Check if domain is likely a company website (not social media, etc)."""
-        # Exclude common non-company domains
-        exclude_patterns = [
-            # Social media
-            r"facebook\.com",
-            r"linkedin\.com",
-            r"twitter\.com",
-            r"x\.com",
-            r"instagram\.com",
-            r"youtube\.com",
-            # News/Media
-            r"bloomberg\.com",
-            r"forbes\.com",
-            r"reuters\.com",
-            r"wsj\.com",
-            r"nytimes\.com",
-            r"techcrunch\.com",
-            r"businesswire\.com",
-            r"prnewswire\.com",
-            r"marketwatch\.com",
-            # Startup databases
-            r"crunchbase\.com",
-            r"pitchbook\.com",
-            r"angel\.co",
-            r"angellist\.com",
-            r"ycombinator\.com",
-            # Financial/SEC databases
-            r"sec\.gov",
-            r"finance\.yahoo\.com",
-            r"otcmarkets\.com",
-            r"streetinsider\.com",
-            r"disclosurequest\.com",
-            r"formds\.com",
-            r"whalewisdom\.com",
-            # Business databases
-            r"bizapedia\.com",
-            r"trademarkia\.com",
-            r"govtribe\.com",
-            r"dnb\.com",
-            r"manta\.com",
-            # Job sites
-            r"glassdoor\.com",
-            r"indeed\.com",
-            # Other
-            r"wikipedia\.org",
-            r"github\.com",
-            r"mapquest\.com",
-        ]
-
-        for pattern in exclude_patterns:
-            if re.search(pattern, domain, re.IGNORECASE):
-                return False
-
-        return True
+    @staticmethod
+    def _is_junk(domain: str) -> bool:
+        # Check exact match and subdomains (e.g. finance.yahoo.com)
+        for junk in JUNK_DOMAINS:
+            if domain == junk or domain.endswith("." + junk):
+                return True
+        return False

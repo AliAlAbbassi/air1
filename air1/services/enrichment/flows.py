@@ -1,16 +1,16 @@
-"""Prefect flows for company enrichment with websites and logos."""
+"""Prefect flows for company enrichment with websites and social URLs."""
 
 from prefect import flow, task
 from loguru import logger
 
 from air1.config import settings
-from air1.services.enrichment.service import EnrichmentService
+from air1.services.enrichment.service import Service
 
 
 @task
 async def enrich_websites_task(batch_size: int = 100, concurrency: int = 5) -> int:
     """Task to enrich companies with website data."""
-    svc = EnrichmentService(serper_api_key=settings.serper_api_key)
+    svc = Service(serper_api_key=settings.serper_api_key)
     return await svc.enrich_websites(batch_size=batch_size, concurrency=concurrency)
 
 
@@ -31,7 +31,6 @@ async def enrich_websites_flow(
     total_enriched = 0
 
     if iterations == 0:
-        # Process all remaining companies
         iteration = 0
         while True:
             logger.info(f"Starting enrichment batch {iteration + 1}...")
@@ -49,7 +48,6 @@ async def enrich_websites_flow(
             )
             iteration += 1
     else:
-        # Process specified number of iterations
         for i in range(iterations):
             logger.info(f"Starting enrichment batch {i + 1}/{iterations}...")
             count = await enrich_websites_task(

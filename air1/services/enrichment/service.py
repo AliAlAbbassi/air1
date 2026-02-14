@@ -1,39 +1,40 @@
-"""Company enrichment service for adding website, logo, and LinkedIn data."""
+"""Company enrichment service for adding website, LinkedIn, and Twitter data."""
 
 import asyncio
+from abc import ABC, abstractmethod
+
 from loguru import logger
 
 from air1.services.enrichment import repo
 from air1.services.enrichment.serper_client import SerperClient
 
 
-class EnrichmentService:
-    """Service for enriching company data with websites via Serper.dev Google Search.
+class IService(ABC):
+    """Service interface for company enrichment."""
 
-    Usage:
-        svc = EnrichmentService(serper_api_key="your-key")
-        count = await svc.enrich_websites(batch_size=100)
+    @abstractmethod
+    async def enrich_websites(
+        self, batch_size: int = 100, concurrency: int = 5
+    ) -> int:
+        """Enrich companies with website, LinkedIn, and Twitter URLs."""
+        ...
+
+
+class Service(IService):
+    """Enrichment service using Serper.dev Google Search.
+
+    One query per company returns website + LinkedIn + Twitter.
     """
 
     def __init__(self, serper_api_key: str):
-        """Initialize enrichment service.
-
-        Args:
-            serper_api_key: Serper.dev API key (2,500 free queries)
-        """
         self.serper = SerperClient(api_key=serper_api_key)
 
     async def enrich_websites(
         self, batch_size: int = 100, concurrency: int = 5
     ) -> int:
-        """Enrich Form D startup companies with website data from Serper Google Search.
+        """Enrich companies with website, LinkedIn, and Twitter from a single search.
 
-        Args:
-            batch_size: Number of companies to process
-            concurrency: Number of concurrent API requests (default 5 to avoid rate limits)
-
-        Returns:
-            Number of companies successfully enriched
+        Returns number of companies that got at least one URL.
         """
         companies = await repo.get_companies_without_websites(limit=batch_size)
         if not companies:
@@ -41,7 +42,7 @@ class EnrichmentService:
             return 0
 
         logger.info(
-            f"Enriching {len(companies)} companies with websites ({concurrency} concurrent)..."
+            f"Enriching {len(companies)} companies ({concurrency} concurrent)..."
         )
 
         sem = asyncio.Semaphore(concurrency)
@@ -49,17 +50,20 @@ class EnrichmentService:
         async def _fetch_one(company: dict):
             async with sem:
                 try:
-                    website = await self.serper.search_company(
+                    result = await self.serper.search_company(
                         company["name"],
                         city=company.get("city"),
                         state=company.get("state"),
                     )
-                    if website:
-                        logger.info(f"✓ Found {company['name']}: {website}")
-                        return (company["cik"], website)
-                    else:
-                        logger.debug(f"✗ Not found: {company['name']}")
-                        return None
+                    has_data = result["website"] or result["linkedin"] or result["twitter"]
+                    if has_data:
+                        logger.info(
+                            f"✓ {company['name']}: "
+                            f"web={result['website'] or '-'} "
+                            f"li={result['linkedin'] or '-'} "
+                            f"tw={result['twitter'] or '-'}"
+                        )
+                    return (company["cik"], result)
                 except Exception as e:
                     logger.warning(
                         f"Failed to enrich {company['name']} (CIK={company['cik']}): {e}"
@@ -67,13 +71,20 @@ class EnrichmentService:
                     return None
 
         results = await asyncio.gather(*[_fetch_one(c) for c in companies])
-        updates = [r for r in results if r is not None]
+
+        # Collect updates: (cik, website, linkedin, twitter)
+        updates = []
+        for r in results:
+            if r is None:
+                continue
+            cik, data = r
+            if data["website"] or data["linkedin"] or data["twitter"]:
+                updates.append((cik, data["website"], data["linkedin"], data["twitter"]))
 
         if not updates:
-            logger.info("No website data found for any companies in this batch")
+            logger.info("No data found for any companies in this batch")
             return 0
 
-        # Batch update to DB
-        count = await repo.update_companies_websites_batch(updates)
-        logger.info(f"Enriched {count}/{len(companies)} companies with websites")
+        count = await repo.update_companies_enrichment_batch(updates)
+        logger.info(f"Enriched {count}/{len(companies)} companies")
         return count
