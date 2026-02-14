@@ -116,31 +116,50 @@ class SerperClient:
         """Check if domain is likely a company website (not social media, etc)."""
         # Exclude common non-company domains
         exclude_patterns = [
+            # Social media
             r"facebook\.com",
             r"linkedin\.com",
             r"twitter\.com",
             r"x\.com",
             r"instagram\.com",
             r"youtube\.com",
-            r"crunchbase\.com",
-            r"wikipedia\.org",
+            # News/Media
             r"bloomberg\.com",
             r"forbes\.com",
             r"reuters\.com",
             r"wsj\.com",
             r"nytimes\.com",
-            r"sec\.gov",
+            r"techcrunch\.com",
+            r"businesswire\.com",
+            r"prnewswire\.com",
+            r"marketwatch\.com",
+            # Startup databases
+            r"crunchbase\.com",
             r"pitchbook\.com",
             r"angel\.co",
             r"angellist\.com",
             r"ycombinator\.com",
-            r"techcrunch\.com",
-            r"github\.com",
+            # Financial/SEC databases
+            r"sec\.gov",
+            r"finance\.yahoo\.com",
+            r"otcmarkets\.com",
+            r"streetinsider\.com",
+            r"disclosurequest\.com",
+            r"formds\.com",
+            r"whalewisdom\.com",
+            # Business databases
+            r"bizapedia\.com",
+            r"trademarkia\.com",
+            r"govtribe\.com",
+            r"dnb\.com",
+            r"manta\.com",
+            # Job sites
             r"glassdoor\.com",
             r"indeed\.com",
-            r"businesswire\.com",
-            r"prnewswire\.com",
-            r"marketwatch\.com",
+            # Other
+            r"wikipedia\.org",
+            r"github\.com",
+            r"mapquest\.com",
         ]
 
         for pattern in exclude_patterns:

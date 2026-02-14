@@ -7,10 +7,14 @@ from air1.db.prisma_client import get_prisma
 
 
 async def get_companies_without_websites(limit: int = 100) -> list[dict]:
-    """Get Form D tech/software startup companies without websites.
+    """Get Form D software/tech startup companies without websites.
 
-    Filters out funds and non-tech companies, only returns companies that
-    have actually sold capital (total_amount_sold > 0).
+    Filters to ONLY software/tech companies:
+    - Other Technology, Computers, Telecommunications
+    - Business Services (often SaaS)
+    - Biotechnology (often software for biotech)
+
+    Excludes: Real estate, manufacturing, oil/gas, retail, restaurants, etc.
 
     Returns list of dicts with cik, name, city, state.
     """
@@ -30,11 +34,15 @@ async def get_companies_without_websites(limit: int = 100) -> list[dict]:
         JOIN sec_filing sf ON sf.cik = sc.cik
         JOIN sec_form_d sfd ON sfd.sec_filing_id = sf.sec_filing_id
         WHERE sfd.is_pooled_investment = false
-          AND sfd.industry_group_type NOT IN (
-            'Pooled Investment Fund', 'Investing', 'REITS and Finance',
-            'Other Banking and Financial Services', 'Insurance',
-            'Investment Banking', 'Commercial Banking'
+          -- TECH/SOFTWARE INDUSTRIES ONLY
+          AND sfd.industry_group_type IN (
+            'Other Technology',
+            'Computers',
+            'Telecommunications',
+            'Business Services',
+            'Biotechnology'
           )
+          -- Exclude funds
           AND sfd.issuer_name NOT ILIKE '%fund%'
           AND sfd.issuer_name NOT ILIKE '%investment%'
           AND sfd.issuer_name NOT ILIKE '%holdings%'
