@@ -1,9 +1,10 @@
 import asyncio
-from typing import Optional
-
 import typer
-
+from air1.services.outreach.service import Service
+from air1.services.outreach.email import send_email, EmailTemplate
 from air1.db.prisma_client import disconnect_db
+from air1.agents.research.crew import ResearchProspectCrew
+from air1.agents.research.models import ProspectInput, ICPProfile
 
 app = typer.Typer()
 
@@ -34,8 +35,6 @@ def company_leads(
     """
     async def run():
         try:
-            from air1.services.outreach.service import Service
-
             # Parse keywords if provided
             keywords_list = None
             if keywords:
@@ -68,8 +67,6 @@ def send_test_email(
 
     async def run():
         try:
-            from air1.services.outreach.email import send_email, EmailTemplate
-
             template = EmailTemplate(
                 subject=subject,
                 content="""
@@ -122,9 +119,6 @@ def research_prospect(
         air1 research-prospect johndoe --company "Acme" --titles "VP Sales,Director Sales"
         air1 research-prospect johndoe --quick
     """
-    from air1.agents.research.crew import ResearchProspectCrew
-    from air1.agents.research.models import ProspectInput, ICPProfile
-
     prospect = ProspectInput(
         linkedin_username=linkedin_username,
         company_name=company,
@@ -174,78 +168,3 @@ def research_prospect(
     print("\n✅ Research complete!")
 
 
-@app.command()
-def leadgen(
-    software: str = typer.Option(..., "--software", "-s", help="Software slug to detect (e.g., 'cloudbeds')"),
-    location: str = typer.Option(..., "--location", "-l", help="Location to search (e.g., 'Miami, FL')"),
-    radius: float = typer.Option(25.0, "--radius", "-r", help="Search radius in km"),
-    business_type: str = typer.Option("business", "--business-type", "-b", help="Business type to search for (e.g., 'hotel')"),
-    concurrency: int = typer.Option(5, "--concurrency", "-c", help="Concurrent detection workers"),
-    cell_size: float = typer.Option(2.0, "--cell-size", help="Grid cell size in km"),
-    user_id: Optional[str] = typer.Option(None, "--user-id", help="Clerk user ID"),
-):
-    """
-    Find businesses that use a specific software product.
-
-    Examples:
-        air1 leadgen -s cloudbeds -l "Miami, FL" -b hotel -r 10
-        air1 leadgen -s shopify -l "San Francisco, CA" -b store
-    """
-    async def run():
-        try:
-            from air1.services.leadgen.flows import leadgen_search_flow
-
-            # Geocode location to lat/lng
-            lat, lng = await _geocode_location(location)
-            print(f"Searching for '{software}' users near {location} ({lat:.4f}, {lng:.4f})")
-            print(f"Radius: {radius}km | Business type: {business_type} | Concurrency: {concurrency}")
-            print()
-
-            result = await leadgen_search_flow(
-                software_slug=software,
-                center_lat=lat,
-                center_lng=lng,
-                radius_km=radius,
-                business_type=business_type,
-                cell_size_km=cell_size,
-                concurrency=concurrency,
-                user_id=user_id,
-            )
-
-            stats = result["stats"]
-            print()
-            print("=" * 50)
-            print(f"Search #{result['search_id']} complete")
-            print(f"  Businesses found:    {stats['businesses_found']}")
-            print(f"  With websites:       {stats['businesses_with_website']}")
-            print(f"  Software detected:   {stats['detected_count']}")
-            print(f"  Not detected:        {stats['not_detected_count']}")
-            print(f"  Detection errors:    {stats['detection_errors']}")
-            print(f"  API calls used:      {stats['api_calls']}")
-            print("=" * 50)
-        except Exception as e:
-            print(f"Error: {e}")
-            raise
-        finally:
-            await disconnect_db()
-
-    asyncio.run(run())
-
-
-async def _geocode_location(location: str) -> tuple[float, float]:
-    """Geocode a location string to (lat, lng) using Nominatim."""
-    import httpx
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"q": location, "format": "json", "limit": 1},
-            headers={"User-Agent": "Air1 LeadGen/1.0"},
-        )
-        resp.raise_for_status()
-        results = resp.json()
-
-        if not results:
-            raise ValueError(f"Could not geocode location: {location}")
-
-        return float(results[0]["lat"]), float(results[0]["lon"])
