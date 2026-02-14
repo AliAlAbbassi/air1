@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     email_from_address: str = Field(default="noreply@yourdomain.com", description="From email address")
     email_from_name: str = Field(default="Air1 Lead Generation", description="From name for emails")
 
+    # Enrichment API keys
+    serper_api_key: Optional[str] = Field(default=None, description="Serper.dev API key for Google search")
+
     # Email batching and rate limiting configuration
     email_batch_size: int = Field(
         default=50,
@@ -100,6 +103,12 @@ class Settings(BaseSettings):
         default=168,  # 7 days
         ge=1,
         description="JWT token expiry in hours"
+    )
+
+    # SEC EDGAR configuration
+    sec_edgar_identity: str = Field(
+        default="Air1 admin@air1.com",
+        description="Identity for SEC EDGAR API (required by SEC policy)"
     )
 
     # AI/LLM configuration (Vertex AI)

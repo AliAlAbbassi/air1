@@ -103,3 +103,100 @@ model CompanyOutreach {
 
   @@map("company_outreach")
 }
+
+model SecCompany {
+  secCompanyId   BigInt      @id @default(autoincrement()) @map("sec_company_id")
+  cik            String      @unique @db.VarChar(10)
+  name           String      @db.VarChar(500)
+  ticker         String?     @db.VarChar(20)
+  exchange       String?     @db.VarChar(20)
+  sic            String?     @db.VarChar(10)
+  sicDescription String?     @map("sic_description") @db.VarChar(500)
+  stateOfIncorp  String?     @map("state_of_incorp") @db.VarChar(50)
+  fiscalYearEnd  String?     @map("fiscal_year_end") @db.VarChar(4)
+  street         String?     @db.VarChar(500)
+  city           String?     @db.VarChar(255)
+  stateOrCountry String?     @map("state_or_country") @db.VarChar(50)
+  zipCode        String?     @map("zip_code") @db.VarChar(20)
+  phone          String?     @db.VarChar(50)
+  website        String?     @db.VarChar(500)
+  enrichedAt     DateTime?   @map("enriched_at") @db.Timestamp(6)
+  createdOn      DateTime    @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn      DateTime    @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  filings        SecFiling[]
+
+  @@index([sic])
+  @@map("sec_company")
+}
+
+model SecFiling {
+  secFilingId     BigInt      @id @default(autoincrement()) @map("sec_filing_id")
+  accessionNumber String      @unique @map("accession_number") @db.VarChar(25)
+  cik             String      @db.VarChar(10)
+  formType        String      @map("form_type") @db.VarChar(20)
+  filingDate      DateTime    @map("filing_date") @db.Date
+  companyName     String?     @map("company_name") @db.VarChar(500)
+  secCompanyId    BigInt?     @map("sec_company_id")
+  createdOn       DateTime    @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn       DateTime    @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  secCompany      SecCompany? @relation(fields: [secCompanyId], references: [secCompanyId], onDelete: SetNull)
+  formD           SecFormD?
+
+  @@index([cik])
+  @@index([formType], map: "idx_sec_filing_form_type")
+  @@index([filingDate], map: "idx_sec_filing_date")
+  @@map("sec_filing")
+}
+
+model SecFormD {
+  secFormDId          BigInt      @id @default(autoincrement()) @map("sec_form_d_id")
+  secFilingId         BigInt      @unique @map("sec_filing_id")
+  issuerName          String?     @map("issuer_name") @db.VarChar(500)
+  issuerStreet        String?     @map("issuer_street") @db.VarChar(500)
+  issuerCity          String?     @map("issuer_city") @db.VarChar(255)
+  issuerState         String?     @map("issuer_state") @db.VarChar(50)
+  issuerZip           String?     @map("issuer_zip") @db.VarChar(20)
+  issuerPhone         String?     @map("issuer_phone") @db.VarChar(50)
+  entityType          String?     @map("entity_type") @db.VarChar(100)
+  industryGroupType   String?     @map("industry_group_type") @db.VarChar(100)
+  revenueRange        String?     @map("revenue_range") @db.VarChar(100)
+  federalExemptions   String?     @map("federal_exemptions") @db.VarChar(500)
+  totalOfferingAmount Decimal?    @map("total_offering_amount") @db.Decimal(20, 2)
+  totalAmountSold     Decimal?    @map("total_amount_sold") @db.Decimal(20, 2)
+  totalRemaining      Decimal?    @map("total_remaining") @db.Decimal(20, 2)
+  dateOfFirstSale             DateTime?   @map("date_of_first_sale") @db.Date
+  minimumInvestment           Decimal?    @map("minimum_investment") @db.Decimal(20, 2)
+  totalInvestors              Int?        @map("total_investors")
+  hasNonAccreditedInvestors   Boolean?    @map("has_non_accredited_investors")
+  isEquity                    Boolean?    @map("is_equity")
+  isPooledInvestment          Boolean?    @map("is_pooled_investment")
+  isNewOffering               Boolean?    @map("is_new_offering")
+  moreThanOneYear             Boolean?    @map("more_than_one_year")
+  isBusinessCombination       Boolean?    @map("is_business_combination")
+  salesCommission             Decimal?    @map("sales_commission") @db.Decimal(20, 2)
+  findersFees                 Decimal?    @map("finders_fees") @db.Decimal(20, 2)
+  grossProceedsUsed           Decimal?    @map("gross_proceeds_used") @db.Decimal(20, 2)
+  createdOn                   DateTime    @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn                   DateTime    @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  secFiling           SecFiling   @relation(fields: [secFilingId], references: [secFilingId], onDelete: Cascade)
+  officers            SecOfficer[]
+
+  @@map("sec_form_d")
+}
+
+model SecOfficer {
+  secOfficerId BigInt   @id @default(autoincrement()) @map("sec_officer_id")
+  secFormDId   BigInt   @map("sec_form_d_id")
+  firstName    String?  @map("first_name") @db.VarChar(255)
+  lastName     String?  @map("last_name") @db.VarChar(255)
+  title        String?  @db.VarChar(500)
+  street       String?  @db.VarChar(500)
+  city         String?  @db.VarChar(255)
+  state        String?  @db.VarChar(50)
+  zipCode      String?  @map("zip_code") @db.VarChar(20)
+  createdOn    DateTime @default(now()) @map("created_on") @db.Timestamp(6)
+  updatedOn    DateTime @default(now()) @updatedAt @map("updated_on") @db.Timestamp(6)
+  secFormD     SecFormD @relation(fields: [secFormDId], references: [secFormDId], onDelete: Cascade)
+
+  @@map("sec_officer")
+}
