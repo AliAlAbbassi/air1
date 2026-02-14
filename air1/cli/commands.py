@@ -166,3 +166,5 @@ def research_prospect(
             print(f"  {i}. {tp.point}")
     
     print("\n✅ Research complete!")
+
+

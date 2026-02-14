@@ -361,9 +361,106 @@ class AdminQueries(Protocol):
     ) -> None: ...
 
 
+class EnrichmentQueries(Protocol):
+    """Protocol for enrichment SQL queries."""
+
+    async def get_software_companies_without_websites(
+        self, conn: Any, *, limit: int
+    ) -> List[Dict[str, Any]]: ...
+
+
+class IngestQueries(Protocol):
+    """Protocol for SEC ingest SQL queries."""
+
+    async def upsert_sec_company(
+        self,
+        conn: Any,
+        *,
+        cik: str,
+        name: str,
+        ticker: Optional[str] = None,
+        exchange: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def enrich_sec_company(
+        self,
+        conn: Any,
+        *,
+        cik: str,
+        sic: Optional[str] = None,
+        sic_description: Optional[str] = None,
+        state_of_incorp: Optional[str] = None,
+        fiscal_year_end: Optional[str] = None,
+        street: Optional[str] = None,
+        city: Optional[str] = None,
+        state_or_country: Optional[str] = None,
+        zip_code: Optional[str] = None,
+        phone: Optional[str] = None,
+        website: Optional[str] = None,
+    ) -> None: ...
+
+    async def get_sec_companies_not_enriched(
+        self, conn: Any, *, limit: int
+    ) -> List[Dict[str, Any]]: ...
+
+    async def count_sec_companies(self, conn: Any) -> Optional[int]: ...
+
+    async def count_sec_companies_not_enriched(
+        self, conn: Any
+    ) -> Optional[int]: ...
+
+    async def upsert_sec_company_from_issuer(
+        self,
+        conn: Any,
+        *,
+        cik: str,
+        name: str,
+        street: Optional[str] = None,
+        city: Optional[str] = None,
+        state_or_country: Optional[str] = None,
+        zip_code: Optional[str] = None,
+        phone: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def upsert_sec_filing(
+        self,
+        conn: Any,
+        *,
+        accession_number: str,
+        cik: str,
+        form_type: str,
+        filing_date: Any,
+        company_name: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_form_d_filings_not_parsed(
+        self, conn: Any, *, limit: int
+    ) -> List[Dict[str, Any]]: ...
+
+    async def link_orphaned_filings(self, conn: Any) -> None: ...
+
+    async def upsert_sec_form_d(
+        self, conn: Any, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def delete_officers_by_form_d(
+        self, conn: Any, *, sec_form_d_id: int
+    ) -> None: ...
+
+    async def insert_sec_officer(
+        self, conn: Any, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_recent_form_d_with_officers(
+        self, conn: Any, *, since_date: Any, limit: int
+    ) -> List[Dict[str, Any]]: ...
+
+
 # Load queries for the Outreach service
 # This object contains methods from all SQL files in the directory
 outreach_queries: OutreachQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 onboarding_queries: OnboardingQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 account_queries: AccountQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 admin_queries: AdminQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
+ingest_queries: IngestQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
+enrichment_queries: EnrichmentQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
