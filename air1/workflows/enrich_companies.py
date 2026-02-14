@@ -22,7 +22,5 @@ if __name__ == "__main__":
         print("ERROR: SERPER_API_KEY not set in .env")
         sys.exit(1)
 
-    result = asyncio.run(
-        enrich_websites_flow(batch_size=50, iterations=0, concurrency=5)
-    )
+    result = asyncio.run(enrich_websites_flow())
     logger.info(f"Enrichment complete: {result}")
