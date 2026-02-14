@@ -17,14 +17,15 @@ async def get_companies_without_websites(limit: int = 100) -> list[dict]:
     p = await get_prisma()
     results = await p.query_raw(
         """
-        SELECT DISTINCT
+        SELECT DISTINCT ON (sc.cik)
             sc.cik,
             sfd.issuer_name as name,
             sfd.issuer_city as city,
             sfd.issuer_state as state,
             sfd.industry_group_type,
             sfd.total_offering_amount,
-            sfd.total_amount_sold
+            sfd.total_amount_sold,
+            sf.filing_date
         FROM sec_company sc
         JOIN sec_filing sf ON sf.cik = sc.cik
         JOIN sec_form_d sfd ON sfd.sec_filing_id = sf.sec_filing_id
@@ -40,7 +41,7 @@ async def get_companies_without_websites(limit: int = 100) -> list[dict]:
           AND sfd.issuer_name NOT ILIKE '%investor%'
           AND sfd.total_amount_sold > 0
           AND (sc.website IS NULL OR sc.website = '')
-        ORDER BY sf.filing_date DESC
+        ORDER BY sc.cik, sf.filing_date DESC
         LIMIT $1
         """,
         limit,
@@ -102,7 +103,7 @@ async def update_companies_websites_batch(updates: list[tuple[str, str]]) -> int
 
             for idx, (cik, website) in enumerate(chunk):
                 base = idx * 2 + 1
-                values_placeholders.append(f"($${base}, $${base + 1})")
+                values_placeholders.append(f"(${base}, ${base + 1})")
                 params.extend([cik, website])
 
             values_clause = ", ".join(values_placeholders)
