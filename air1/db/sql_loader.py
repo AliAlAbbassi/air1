@@ -361,6 +361,62 @@ class AdminQueries(Protocol):
     ) -> None: ...
 
 
+class LeadGenQueries(Protocol):
+    """Protocol for leadgen SQL queries."""
+
+    async def get_software_product_by_slug(
+        self, conn: Any, *, slug: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_software_product_by_id(
+        self, conn: Any, *, product_id: int
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_software_product(
+        self, conn: Any, *, name: str, slug: str, website: Optional[str],
+        detection_patterns: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def insert_lead_search(
+        self, conn: Any, *, user_id: Optional[str], software_product_id: int,
+        search_params: str, status: str
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def update_lead_search_status(
+        self, conn: Any, *, search_id: int, status: str, stats: str
+    ) -> None: ...
+
+    async def get_lead_search(
+        self, conn: Any, *, search_id: int
+    ) -> Optional[Dict[str, Any]]: ...
+
+    async def get_pending_leads(
+        self, conn: Any, *, search_id: int
+    ) -> List[Dict[str, Any]]: ...
+
+    async def update_lead_detection(
+        self, conn: Any, *, lead_id: int, detection_status: str,
+        detected_software: Optional[str], detection_method: Optional[str],
+        detection_details: str
+    ) -> None: ...
+
+    async def get_search_results(
+        self, conn: Any, *, search_id: int
+    ) -> List[Dict[str, Any]]: ...
+
+    async def get_detected_leads(
+        self, conn: Any, *, search_id: int
+    ) -> List[Dict[str, Any]]: ...
+
+    async def count_search_leads(
+        self, conn: Any, *, search_id: int
+    ) -> Optional[int]: ...
+
+    async def count_detected_leads(
+        self, conn: Any, *, search_id: int
+    ) -> Optional[int]: ...
+
+
 class EnrichmentQueries(Protocol):
     """Protocol for enrichment SQL queries."""
 
@@ -464,3 +520,4 @@ account_queries: AccountQueries = aiosql.from_path(query_dir, "prisma")  # type:
 admin_queries: AdminQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 ingest_queries: IngestQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
 enrichment_queries: EnrichmentQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
+leadgen_queries: LeadGenQueries = aiosql.from_path(query_dir, "prisma")  # type: ignore
