@@ -113,35 +113,33 @@ class TestGetSearch:
     async def test_returns_search(self, mock_user):
         from air1.api.routes.leadgen import get_search
 
-        mock_search = {
-            "software_product_id": 1,
-            "user_id": "user_test123",
+        mock_svc = MagicMock()
+        mock_svc.get_search = AsyncMock(return_value={
+            "search_id": 1,
             "status": "completed",
+            "software_slug": "cloudbeds",
+            "software_name": "Cloudbeds",
             "stats": {"businesses_found": 5, "detected_count": 2},
             "created_at": "2026-01-01T00:00:00",
-        }
-        mock_product = {"name": "Cloudbeds", "slug": "cloudbeds"}
+        })
 
-        with patch("air1.services.leadgen.repo.get_lead_search", new_callable=AsyncMock, return_value=mock_search):
-            with patch("air1.services.leadgen.repo.get_software_product_by_id", new_callable=AsyncMock, return_value=mock_product):
-                result = await get_search(search_id=1, current_user=mock_user)
+        with patch("air1.api.routes.leadgen._get_service", return_value=mock_svc):
+            result = await get_search(search_id=1, current_user=mock_user)
 
         assert result.search_id == 1
         assert result.status == "completed"
         assert result.software_name == "Cloudbeds"
+        mock_svc.get_search.assert_awaited_once_with(1, user_id="user_test123")
 
     @pytest.mark.asyncio
     async def test_wrong_user_returns_404(self, mock_user):
         from air1.api.routes.leadgen import get_search
         from fastapi import HTTPException
 
-        mock_search = {
-            "software_product_id": 1,
-            "user_id": "different_user",
-            "status": "completed",
-        }
+        mock_svc = MagicMock()
+        mock_svc.get_search = AsyncMock(return_value=None)
 
-        with patch("air1.services.leadgen.repo.get_lead_search", new_callable=AsyncMock, return_value=mock_search):
+        with patch("air1.api.routes.leadgen._get_service", return_value=mock_svc):
             with pytest.raises(HTTPException) as exc_info:
                 await get_search(search_id=1, current_user=mock_user)
 
@@ -152,7 +150,10 @@ class TestGetSearch:
         from air1.api.routes.leadgen import get_search
         from fastapi import HTTPException
 
-        with patch("air1.services.leadgen.repo.get_lead_search", new_callable=AsyncMock, return_value=None):
+        mock_svc = MagicMock()
+        mock_svc.get_search = AsyncMock(return_value=None)
+
+        with patch("air1.api.routes.leadgen._get_service", return_value=mock_svc):
             with pytest.raises(HTTPException) as exc_info:
                 await get_search(search_id=999, current_user=mock_user)
 
@@ -170,31 +171,49 @@ class TestGetSearchResults:
     async def test_returns_results(self, mock_user):
         from air1.api.routes.leadgen import get_search_results
 
-        mock_search = {"user_id": "user_test123", "status": "completed"}
         mock_leads = [
             {"id": 1, "name": "Hotel A", "website": "https://a.com", "detection_status": "detected", "detected_software": "Cloudbeds"},
             {"id": 2, "name": "Hotel B", "detection_status": "not_detected"},
         ]
 
-        with patch("air1.services.leadgen.repo.get_lead_search", new_callable=AsyncMock, return_value=mock_search):
-            with patch("air1.services.leadgen.repo.get_search_results", new_callable=AsyncMock, return_value=mock_leads):
-                result = await get_search_results(search_id=1, detected_only=False, current_user=mock_user)
+        mock_svc = MagicMock()
+        mock_svc.get_search_results = AsyncMock(return_value=mock_leads)
+
+        with patch("air1.api.routes.leadgen._get_service", return_value=mock_svc):
+            result = await get_search_results(search_id=1, detected_only=False, current_user=mock_user)
 
         assert result.total == 2
         assert result.leads[0].name == "Hotel A"
         assert result.leads[0].detected_software == "Cloudbeds"
+        mock_svc.get_search_results.assert_awaited_once_with(1, user_id="user_test123", detected_only=False)
 
     @pytest.mark.asyncio
     async def test_detected_only_filter(self, mock_user):
         from air1.api.routes.leadgen import get_search_results
 
-        mock_search = {"user_id": "user_test123", "status": "completed"}
         mock_leads = [
             {"id": 1, "name": "Hotel A", "detection_status": "detected", "detected_software": "Cloudbeds"},
         ]
 
-        with patch("air1.services.leadgen.repo.get_lead_search", new_callable=AsyncMock, return_value=mock_search):
-            with patch("air1.services.leadgen.repo.get_detected_leads", new_callable=AsyncMock, return_value=mock_leads):
-                result = await get_search_results(search_id=1, detected_only=True, current_user=mock_user)
+        mock_svc = MagicMock()
+        mock_svc.get_search_results = AsyncMock(return_value=mock_leads)
+
+        with patch("air1.api.routes.leadgen._get_service", return_value=mock_svc):
+            result = await get_search_results(search_id=1, detected_only=True, current_user=mock_user)
 
         assert result.total == 1
+        mock_svc.get_search_results.assert_awaited_once_with(1, user_id="user_test123", detected_only=True)
+
+    @pytest.mark.asyncio
+    async def test_not_found_returns_404(self, mock_user):
+        from air1.api.routes.leadgen import get_search_results
+        from fastapi import HTTPException
+
+        mock_svc = MagicMock()
+        mock_svc.get_search_results = AsyncMock(return_value=None)
+
+        with patch("air1.api.routes.leadgen._get_service", return_value=mock_svc):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_search_results(search_id=999, detected_only=False, current_user=mock_user)
+
+        assert exc_info.value.status_code == 404

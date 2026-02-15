@@ -125,29 +125,21 @@ async def get_search(
     current_user: AuthUser = Depends(get_current_user),
 ):
     """Get a search by ID (must belong to the current user)."""
-    from air1.services.leadgen import repo
+    svc = _get_service()
+    search = await svc.get_search(search_id, user_id=current_user.user_id)
 
-    search = await repo.get_lead_search(search_id)
-    if not search or search.get("user_id") != current_user.user_id:
+    if not search:
         raise HTTPException(
             status_code=404,
             detail={"error": "NOT_FOUND", "message": "Search not found"},
         )
 
-    product = await repo.get_software_product_by_id(search["software_product_id"])
-    product_name = product["name"] if product else ""
-    product_slug = product["slug"] if product else ""
-
     raw_stats = search.get("stats") or {}
-    if isinstance(raw_stats, str):
-        import json
-        raw_stats = json.loads(raw_stats)
-
     return SearchResponse(
         searchID=search_id,
         status=search["status"],
-        softwareSlug=product_slug,
-        softwareName=product_name,
+        softwareSlug=search["software_slug"],
+        softwareName=search["software_name"],
         stats=SearchStatsResponse(
             businessesFound=raw_stats.get("businesses_found", 0),
             businessesWithWebsite=raw_stats.get("businesses_with_website", 0),
@@ -179,19 +171,16 @@ async def get_search_results(
     current_user: AuthUser = Depends(get_current_user),
 ):
     """Get leads for a search. Use ?detected_only=true to filter."""
-    from air1.services.leadgen import repo
+    svc = _get_service()
+    rows = await svc.get_search_results(
+        search_id, user_id=current_user.user_id, detected_only=detected_only
+    )
 
-    search = await repo.get_lead_search(search_id)
-    if not search or search.get("user_id") != current_user.user_id:
+    if rows is None:
         raise HTTPException(
             status_code=404,
             detail={"error": "NOT_FOUND", "message": "Search not found"},
         )
-
-    if detected_only:
-        rows = await repo.get_detected_leads(search_id)
-    else:
-        rows = await repo.get_search_results(search_id)
 
     leads = [
         LeadResponse(

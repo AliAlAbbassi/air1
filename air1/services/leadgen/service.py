@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 
 from loguru import logger
 
+from typing import Optional
+
 from air1.services.leadgen import repo
 from air1.services.leadgen.detector import SoftwareDetector
 from air1.services.leadgen.models import (
@@ -30,6 +32,16 @@ class IService(ABC):
     async def run_search(
         self, search_id: int, concurrency: int = 5
     ) -> SearchStats: ...
+
+    @abstractmethod
+    async def get_search(
+        self, search_id: int, user_id: str
+    ) -> Optional[dict]: ...
+
+    @abstractmethod
+    async def get_search_results(
+        self, search_id: int, user_id: str, detected_only: bool = False
+    ) -> Optional[list[dict]]: ...
 
 
 class Service(IService):
@@ -195,3 +207,46 @@ class Service(IService):
         )
 
         return stats
+
+    async def get_search(
+        self, search_id: int, user_id: str
+    ) -> Optional[dict]:
+        """Get a search by ID, scoped to the given user.
+
+        Returns None if not found or belongs to a different user.
+        """
+        search = await repo.get_lead_search(search_id)
+        if not search or search.get("user_id") != user_id:
+            return None
+
+        product = await repo.get_software_product_by_id(
+            search["software_product_id"]
+        )
+
+        raw_stats = search.get("stats") or {}
+        if isinstance(raw_stats, str):
+            raw_stats = json.loads(raw_stats)
+
+        return {
+            "search_id": search_id,
+            "status": search["status"],
+            "software_slug": product["slug"] if product else "",
+            "software_name": product["name"] if product else "",
+            "stats": raw_stats,
+            "created_at": search.get("created_at"),
+        }
+
+    async def get_search_results(
+        self, search_id: int, user_id: str, detected_only: bool = False
+    ) -> Optional[list[dict]]:
+        """Get leads for a search, scoped to the given user.
+
+        Returns None if search not found or belongs to a different user.
+        """
+        search = await repo.get_lead_search(search_id)
+        if not search or search.get("user_id") != user_id:
+            return None
+
+        if detected_only:
+            return await repo.get_detected_leads(search_id)
+        return await repo.get_search_results(search_id)

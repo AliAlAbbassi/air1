@@ -310,3 +310,145 @@ class TestRunSearch:
                 stats = await service.run_search(search_id=1)
 
         assert stats.businesses_found == 0
+
+
+# ---------------------------------------------------------------------------
+# get_search
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestGetSearch:
+    @pytest.mark.asyncio
+    async def test_returns_search_for_correct_user(self, service):
+        with patch("air1.services.leadgen.service.repo") as mock_repo:
+            mock_repo.get_lead_search = AsyncMock(
+                return_value={
+                    "software_product_id": 1,
+                    "user_id": "user_abc",
+                    "status": "completed",
+                    "stats": {"businesses_found": 10, "detected_count": 3},
+                    "created_at": "2026-01-01T00:00:00",
+                }
+            )
+            mock_repo.get_software_product_by_id = AsyncMock(
+                return_value={"name": "Cloudbeds", "slug": "cloudbeds"}
+            )
+
+            result = await service.get_search(search_id=1, user_id="user_abc")
+
+        assert result is not None
+        assert result["search_id"] == 1
+        assert result["status"] == "completed"
+        assert result["software_slug"] == "cloudbeds"
+        assert result["software_name"] == "Cloudbeds"
+        assert result["stats"]["businesses_found"] == 10
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_wrong_user(self, service):
+        with patch("air1.services.leadgen.service.repo") as mock_repo:
+            mock_repo.get_lead_search = AsyncMock(
+                return_value={
+                    "software_product_id": 1,
+                    "user_id": "user_abc",
+                    "status": "completed",
+                }
+            )
+
+            result = await service.get_search(search_id=1, user_id="different_user")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_not_found(self, service):
+        with patch("air1.services.leadgen.service.repo") as mock_repo:
+            mock_repo.get_lead_search = AsyncMock(return_value=None)
+
+            result = await service.get_search(search_id=999, user_id="user_abc")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_handles_stats_as_json_string(self, service):
+        import json
+
+        with patch("air1.services.leadgen.service.repo") as mock_repo:
+            mock_repo.get_lead_search = AsyncMock(
+                return_value={
+                    "software_product_id": 1,
+                    "user_id": "user_abc",
+                    "status": "completed",
+                    "stats": json.dumps({"businesses_found": 5}),
+                    "created_at": None,
+                }
+            )
+            mock_repo.get_software_product_by_id = AsyncMock(
+                return_value={"name": "Test", "slug": "test"}
+            )
+
+            result = await service.get_search(search_id=1, user_id="user_abc")
+
+        assert result["stats"]["businesses_found"] == 5
+
+
+# ---------------------------------------------------------------------------
+# get_search_results
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestGetSearchResults:
+    @pytest.mark.asyncio
+    async def test_returns_results_for_correct_user(self, service):
+        with patch("air1.services.leadgen.service.repo") as mock_repo:
+            mock_repo.get_lead_search = AsyncMock(
+                return_value={"user_id": "user_abc", "status": "completed"}
+            )
+            mock_repo.get_search_results = AsyncMock(
+                return_value=[
+                    {"id": 1, "name": "Hotel A", "detection_status": "detected"},
+                    {"id": 2, "name": "Hotel B", "detection_status": "not_detected"},
+                ]
+            )
+
+            result = await service.get_search_results(search_id=1, user_id="user_abc")
+
+        assert result is not None
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_wrong_user(self, service):
+        with patch("air1.services.leadgen.service.repo") as mock_repo:
+            mock_repo.get_lead_search = AsyncMock(
+                return_value={"user_id": "user_abc", "status": "completed"}
+            )
+
+            result = await service.get_search_results(search_id=1, user_id="different_user")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_not_found(self, service):
+        with patch("air1.services.leadgen.service.repo") as mock_repo:
+            mock_repo.get_lead_search = AsyncMock(return_value=None)
+
+            result = await service.get_search_results(search_id=999, user_id="user_abc")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_detected_only_filter(self, service):
+        with patch("air1.services.leadgen.service.repo") as mock_repo:
+            mock_repo.get_lead_search = AsyncMock(
+                return_value={"user_id": "user_abc", "status": "completed"}
+            )
+            mock_repo.get_detected_leads = AsyncMock(
+                return_value=[{"id": 1, "name": "Hotel A", "detection_status": "detected"}]
+            )
+
+            result = await service.get_search_results(
+                search_id=1, user_id="user_abc", detected_only=True
+            )
+
+        assert len(result) == 1
+        mock_repo.get_detected_leads.assert_awaited_once_with(1)
